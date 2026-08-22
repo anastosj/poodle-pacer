@@ -8,7 +8,9 @@ export async function GET(request: NextRequest) {
   const error = params.get("error");
 
   if (!isRunnerId(runner) || error || !code) {
-    return NextResponse.redirect(new URL("/?strava_error=denied", request.url));
+    return NextResponse.redirect(
+      new URL("/settings?strava_error=denied", request.url)
+    );
   }
 
   const res = await fetch("https://www.strava.com/oauth/token", {
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
   });
   if (!res.ok) {
     return NextResponse.redirect(
-      new URL("/?strava_error=token_exchange", request.url)
+      new URL("/settings?strava_error=token_exchange", request.url)
     );
   }
   const data = await res.json();
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
       .join(" "),
   };
   const response = NextResponse.redirect(
-    new URL(`/?strava_connected=${runner}`, request.url)
+    new URL(`/settings?strava_connected=${runner}`, request.url)
   );
   writeTokens(runner, tokens);
   return response;

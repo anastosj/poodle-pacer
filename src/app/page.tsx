@@ -1,9 +1,9 @@
-import TrainerApp from "@/components/TrainerApp";
+import HomePage from "@/components/HomePage";
 
 export default function Home() {
   return (
     <main className="min-h-screen">
-      <TrainerApp />
+      <HomePage />
     </main>
   );
 }

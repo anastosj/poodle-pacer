@@ -38,6 +38,7 @@ function DayCell({
   workout,
   log,
   isToday,
+  isNext,
   onToggle,
   onLog,
   onFeel,
@@ -45,6 +46,7 @@ function DayCell({
   workout: Workout;
   log: RunLog | undefined;
   isToday: boolean;
+  isNext: boolean;
   onToggle: () => void;
   onLog: (miles?: number, minutes?: number) => void;
   onFeel: (feel: Feel) => void;
@@ -63,6 +65,11 @@ function DayCell({
         isToday ? "outline outline-2 outline-offset-2 outline-headband" : ""
       }`}
     >
+      {isNext && (
+        <span className="absolute -top-2 right-2 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
+          ⭐ Next up
+        </span>
+      )}
       <div className="flex items-start justify-between gap-1">
         <span className="font-semibold leading-tight">{workout.label}</span>
         <span>{TYPE_EMOJI[workout.type]}</span>
@@ -165,10 +172,12 @@ export default function WeekGrid({
   plan,
   program,
   updatePlan,
+  nextKey,
 }: {
   plan: Plan;
   program: Program;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
+  nextKey?: string;
 }) {
   const today = todaySlot(plan.startDate);
 
@@ -203,6 +212,7 @@ export default function WeekGrid({
                 isToday={
                   today?.week === week.week && today?.dayIndex === dayIndex
                 }
+                isNext={key === nextKey}
                 onToggle={() =>
                   updatePlan((prev) => ({
                     ...prev,
