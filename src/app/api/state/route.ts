@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   if (!RUNNERS.has(runner)) {
     return NextResponse.json({ error: "bad_runner" }, { status: 400 });
   }
-  return NextResponse.json({ state: readRunnerState(runner) });
+  return NextResponse.json({ state: await readRunnerState(runner) });
 }
 
 export async function PUT(request: NextRequest) {
@@ -25,6 +25,6 @@ export async function PUT(request: NextRequest) {
   if (!body || typeof body !== "object" || body.state === undefined) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
-  writeRunnerState(runner, body.state);
+  await writeRunnerState(runner, body.state);
   return NextResponse.json({ ok: true });
 }
