@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Poodle Pacer 🐩
 
-## Getting Started
+A white-poodle-themed (blue headband, naturally) half marathon training tracker and sidekick.
 
-First, run the development server:
+## Features
+
+- **Program selector** — starts with Hal Higdon's Half Marathon Novice 1 (12 weeks); more programs coming soon.
+- **Two runners** — switch between Jonathan and Sam, each with their own program, start date, and logs.
+- **Training grid** — the full 12-week schedule, mark workouts done, log miles/minutes, today's workout highlighted.
+- **Strava sync** — connect each runner's Strava account and auto-log runs into the matching training day.
+- **Progress stats** — workouts done, miles logged, current week, and days to race.
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # add Strava credentials to enable syncing
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Strava setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create an API application at https://www.strava.com/settings/api.
+2. Set the **Authorization Callback Domain** to your host (e.g. `localhost` for dev).
+3. Put the Client ID and Client Secret in `.env.local` as `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET`.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The app works fine without Strava — you can log runs manually. Sam can connect her account whenever she makes one.

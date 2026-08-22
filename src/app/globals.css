@@ -3,25 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #fbf9f4; /* fluffy poodle white */
+  --foreground: #3a3630;
+  --headband: #2f6fed; /* blue headband */
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .pouf-shadow {
+    box-shadow: 0 4px 14px rgba(58, 54, 48, 0.08);
   }
 }
