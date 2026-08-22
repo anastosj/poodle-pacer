@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Program } from "@/lib/programs";
-import { RunnerId, RunnerState, logKey } from "@/lib/store";
+import { Plan, RunnerId, logKey } from "@/lib/store";
 
 interface StravaStatus {
   configured: boolean;
@@ -31,13 +31,13 @@ function weekAndDayFor(
 
 export default function StravaCard({
   runner,
-  state,
-  update,
+  plan,
+  updatePlan,
   program,
 }: {
   runner: RunnerId;
-  state: RunnerState;
-  update: (updater: (prev: RunnerState) => RunnerState) => void;
+  plan: Plan;
+  updatePlan: (updater: (prev: Plan) => Plan) => void;
   program: Program;
 }) {
   const [status, setStatus] = useState<StravaStatus | null>(null);
@@ -54,7 +54,7 @@ export default function StravaCard({
   }, [runner]);
 
   const sync = useCallback(async () => {
-    if (!state.startDate) {
+    if (!plan.startDate) {
       setSyncMessage("Set a start date first so runs can be matched!");
       return;
     }
@@ -65,30 +65,28 @@ export default function StravaCard({
       if (!res.ok) throw new Error("fetch failed");
       const { runs }: { runs: StravaRun[] } = await res.json();
       let matched = 0;
-      update((prev) => {
-        const logs = { ...prev.logs };
-        for (const run of runs) {
-          const slot = weekAndDayFor(
-            new Date(run.startDate),
-            prev.startDate!,
-            program.weeks
-          );
-          if (!slot) continue;
-          const key = logKey(slot.week, slot.dayIndex);
-          const existing = logs[key];
-          if (existing?.stravaActivityId === run.id) continue;
-          logs[key] = {
-            ...existing,
-            completed: true,
-            miles: run.miles,
-            minutes: run.minutes,
-            stravaActivityId: run.id,
-            stravaName: run.name,
-          };
-          matched += 1;
-        }
-        return { ...prev, logs };
-      });
+      const logs = { ...plan.logs };
+      for (const run of runs) {
+        const slot = weekAndDayFor(
+          new Date(run.startDate),
+          plan.startDate,
+          program.weeks
+        );
+        if (!slot) continue;
+        const key = logKey(slot.week, slot.dayIndex);
+        const existing = logs[key];
+        if (existing?.stravaActivityId === run.id) continue;
+        logs[key] = {
+          ...existing,
+          completed: true,
+          miles: run.miles,
+          minutes: run.minutes,
+          stravaActivityId: run.id,
+          stravaName: run.name,
+        };
+        matched += 1;
+      }
+      updatePlan((prev) => ({ ...prev, logs }));
       setSyncMessage(
         matched > 0
           ? `Synced ${matched} run${matched === 1 ? "" : "s"} from Strava! 🎉`
@@ -99,7 +97,7 @@ export default function StravaCard({
     } finally {
       setSyncing(false);
     }
-  }, [runner, state.startDate, program.weeks, update]);
+  }, [runner, plan, program.weeks, updatePlan]);
 
   const disconnect = useCallback(async () => {
     await fetch(`/api/strava/disconnect?runner=${runner}`, { method: "POST" });

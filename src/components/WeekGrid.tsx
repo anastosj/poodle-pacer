@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { DAY_NAMES, Program, Workout } from "@/lib/programs";
-import { RunLog, RunnerState, logKey } from "@/lib/store";
+import { Feel, Plan, RunLog, logKey } from "@/lib/store";
+
+const FEELS: { value: Feel; emoji: string; label: string }[] = [
+  { value: "good", emoji: "😄", label: "Felt good" },
+  { value: "medium", emoji: "😐", label: "Felt okay" },
+  { value: "bad", emoji: "😩", label: "Felt rough" },
+];
 
 const TYPE_STYLES: Record<Workout["type"], string> = {
   rest: "bg-poodle-cream text-foreground/50",
@@ -34,12 +40,14 @@ function DayCell({
   isToday,
   onToggle,
   onLog,
+  onFeel,
 }: {
   workout: Workout;
   log: RunLog | undefined;
   isToday: boolean;
   onToggle: () => void;
   onLog: (miles?: number, minutes?: number) => void;
+  onFeel: (feel: Feel) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [miles, setMiles] = useState("");
@@ -70,6 +78,24 @@ function DayCell({
           {log.miles && log.minutes ? " · " : ""}
           {log.minutes ? `${log.minutes} min` : ""}
         </span>
+      )}
+      {done && (
+        <div className="mt-1 flex items-center gap-0.5" aria-label="How did it feel?">
+          {FEELS.map((f) => (
+            <button
+              key={f.value}
+              title={f.label}
+              onClick={() => onFeel(f.value)}
+              className={`rounded-full px-1 text-[13px] leading-5 transition ${
+                log?.feel === f.value
+                  ? "bg-headband-light ring-1 ring-headband"
+                  : "opacity-40 hover:opacity-100"
+              }`}
+            >
+              {f.emoji}
+            </button>
+          ))}
+        </div>
       )}
       {!isRest && (
         <div className="mt-auto flex items-center gap-1 pt-1">
@@ -136,15 +162,15 @@ function DayCell({
 }
 
 export default function WeekGrid({
-  state,
+  plan,
   program,
-  update,
+  updatePlan,
 }: {
-  state: RunnerState;
+  plan: Plan;
   program: Program;
-  update: (updater: (prev: RunnerState) => RunnerState) => void;
+  updatePlan: (updater: (prev: Plan) => Plan) => void;
 }) {
-  const today = todaySlot(state.startDate);
+  const today = todaySlot(plan.startDate);
 
   return (
     <div className="mt-6 space-y-4">
@@ -173,12 +199,12 @@ export default function WeekGrid({
               <DayCell
                 key={key}
                 workout={workout}
-                log={state.logs[key]}
+                log={plan.logs[key]}
                 isToday={
                   today?.week === week.week && today?.dayIndex === dayIndex
                 }
                 onToggle={() =>
-                  update((prev) => ({
+                  updatePlan((prev) => ({
                     ...prev,
                     logs: {
                       ...prev.logs,
@@ -190,7 +216,7 @@ export default function WeekGrid({
                   }))
                 }
                 onLog={(miles, minutes) =>
-                  update((prev) => ({
+                  updatePlan((prev) => ({
                     ...prev,
                     logs: {
                       ...prev.logs,
@@ -199,6 +225,20 @@ export default function WeekGrid({
                         completed: true,
                         miles,
                         minutes,
+                      },
+                    },
+                  }))
+                }
+                onFeel={(feel) =>
+                  updatePlan((prev) => ({
+                    ...prev,
+                    logs: {
+                      ...prev.logs,
+                      [key]: {
+                        ...prev.logs[key],
+                        completed: true,
+                        feel:
+                          prev.logs[key]?.feel === feel ? undefined : feel,
                       },
                     },
                   }))

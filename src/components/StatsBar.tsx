@@ -1,11 +1,11 @@
 "use client";
 
 import { Program, totalPlannedMiles } from "@/lib/programs";
-import { RunnerState, logKey } from "@/lib/store";
+import { Plan, logKey } from "@/lib/store";
 
-function currentWeek(state: RunnerState, program: Program): number | null {
-  if (!state.startDate) return null;
-  const start = new Date(state.startDate + "T00:00:00");
+function currentWeek(plan: Plan, program: Program): number | null {
+  if (!plan.startDate) return null;
+  const start = new Date(plan.startDate + "T00:00:00");
   const diffDays = Math.floor((Date.now() - start.getTime()) / 86400000);
   if (diffDays < 0) return null;
   const week = Math.floor(diffDays / 7) + 1;
@@ -13,10 +13,10 @@ function currentWeek(state: RunnerState, program: Program): number | null {
 }
 
 export default function StatsBar({
-  state,
+  plan,
   program,
 }: {
-  state: RunnerState;
+  plan: Plan;
   program: Program;
 }) {
   let completed = 0;
@@ -26,7 +26,7 @@ export default function StatsBar({
     week.days.forEach((day, i) => {
       if (day.type === "rest") return;
       totalWorkouts += 1;
-      const log = state.logs[logKey(week.week, i)];
+      const log = plan.logs[logKey(week.week, i)];
       if (log?.completed) {
         completed += 1;
         milesRun += log.miles ?? (day.type === "run" ? day.miles ?? 0 : 0);
@@ -34,10 +34,10 @@ export default function StatsBar({
     });
   }
   const plannedMiles = totalPlannedMiles(program);
-  const week = currentWeek(state, program);
-  const raceDay = state.startDate
+  const week = currentWeek(plan, program);
+  const raceDay = plan.startDate
     ? new Date(
-        new Date(state.startDate + "T00:00:00").getTime() +
+        new Date(plan.startDate + "T00:00:00").getTime() +
           (program.weeks * 7 - 1) * 86400000
       )
     : null;
