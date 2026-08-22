@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import MileageChart from "@/components/MileageChart";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import PoodleProgressBar from "@/components/PoodleProgressBar";
 import StatsBar from "@/components/StatsBar";
 import WeekGrid from "@/components/WeekGrid";
 import { useApp } from "@/components/AppContext";
+import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { DAY_NAMES, Workout } from "@/lib/programs";
 import { logKey } from "@/lib/store";
 
@@ -55,7 +58,7 @@ function findNextWorkout(
 }
 
 export default function HomePage() {
-  const { plan, program, updatePlan } = useApp();
+  const { state, plan, program, updatePlan } = useApp();
   const [cheer] = useState(
     () => CHEERS[Math.floor(Math.random() * CHEERS.length)]
   );
@@ -75,6 +78,11 @@ export default function HomePage() {
     [program.schedule, plan.logs, plan.startDate]
   );
   const nextKey = next ? logKey(next.week, next.dayIndex) : undefined;
+
+  const showOnboarding =
+    !state.onboarded &&
+    !plan.startDate &&
+    Object.keys(plan.logs).length === 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -119,7 +127,8 @@ export default function HomePage() {
             </div>
           </div>
           <button
-            onClick={() =>
+            onClick={() => {
+              celebrate(celebrationKind(next.workout));
               updatePlan((prev) => ({
                 ...prev,
                 logs: {
@@ -129,8 +138,8 @@ export default function HomePage() {
                     completed: true,
                   },
                 },
-              }))
-            }
+              }));
+            }}
             className="rounded-full bg-white px-5 py-2 text-sm font-bold text-headband-dark transition hover:bg-headband-light"
           >
             Mark done ✓
@@ -145,6 +154,8 @@ export default function HomePage() {
 
       <StatsBar plan={plan} program={program} />
 
+      <MileageChart plan={plan} program={program} />
+
       <WeekGrid
         plan={plan}
         program={program}
@@ -156,6 +167,8 @@ export default function HomePage() {
         Made with 🦴 by your poodle coach · Program: {program.author}&apos;s{" "}
         {program.name}
       </footer>
+
+      {showOnboarding && <OnboardingWizard />}
     </div>
   );
 }

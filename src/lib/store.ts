@@ -30,6 +30,7 @@ export interface RunnerState {
   plans: Plan[];
   activePlanId: string;
   alerts: AlertSettings;
+  onboarded?: boolean;
 }
 
 export type RunnerId = "jonathan" | "sam";
@@ -76,6 +77,7 @@ function migrate(raw: LegacyState & Partial<RunnerState>): RunnerState {
           ? raw.activePlanId
           : raw.plans[0].id,
       alerts: raw.alerts ?? { phone: "", time: "07:00", enabled: false },
+      onboarded: raw.onboarded,
     };
   }
   const plan: Plan = {
@@ -89,6 +91,16 @@ function migrate(raw: LegacyState & Partial<RunnerState>): RunnerState {
     activePlanId: plan.id,
     alerts: { phone: "", time: "07:00", enabled: false },
   };
+}
+
+/** Normalize state loaded from any source (server or localStorage). */
+export function normalizeState(raw: unknown): RunnerState {
+  if (!raw || typeof raw !== "object") return defaultState();
+  try {
+    return migrate(raw as LegacyState & Partial<RunnerState>);
+  } catch {
+    return defaultState();
+  }
 }
 
 function storageKey(runner: RunnerId) {

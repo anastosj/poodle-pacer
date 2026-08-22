@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { DAY_NAMES, Program, Workout } from "@/lib/programs";
+import { celebrate, celebrationKind } from "@/lib/celebrate";
+import { DAY_NAMES, Program, ProgramWeek, Workout } from "@/lib/programs";
 import { Feel, Plan, RunLog, logKey } from "@/lib/store";
 
 const FEELS: { value: Feel; emoji: string; label: string }[] = [
@@ -168,6 +169,22 @@ function DayCell({
   );
 }
 
+function weekSummary(week: ProgramWeek, plan: Plan) {
+  let done = 0;
+  let total = 0;
+  let miles = 0;
+  week.days.forEach((day, i) => {
+    if (day.type === "rest") return;
+    total += 1;
+    const log = plan.logs[logKey(week.week, i)];
+    if (log?.completed) {
+      done += 1;
+      miles += log.miles ?? (day.type === "run" ? day.miles ?? 0 : 0);
+    }
+  });
+  return { done, total, miles: Math.round(miles * 10) / 10 };
+}
+
 export default function WeekGrid({
   plan,
   program,
@@ -180,9 +197,33 @@ export default function WeekGrid({
   nextKey?: string;
 }) {
   const today = todaySlot(plan.startDate);
+  const currentWk = today ? Math.min(today.week, program.weeks) : 1;
+  const [overrides, setOverrides] = useState<Record<number, boolean>>({});
+  const isCollapsed = (week: number) => overrides[week] ?? week < currentWk;
+  const pastWeeks = program.schedule.filter((w) => w.week < currentWk);
+  const anyPastCollapsed = pastWeeks.some((w) => isCollapsed(w.week));
 
   return (
     <div className="mt-6 space-y-4">
+      {pastWeeks.length > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-foreground/50">
+            {pastWeeks.length} past week{pastWeeks.length > 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() =>
+              setOverrides(
+                Object.fromEntries(
+                  pastWeeks.map((w) => [w.week, !anyPastCollapsed])
+                )
+              )
+            }
+            className="rounded-full px-3 py-1 text-xs font-semibold text-headband-dark ring-1 ring-poodle-fur hover:bg-poodle-cream"
+          >
+            {anyPastCollapsed ? "Show past weeks ▾" : "Collapse past weeks ▴"}
+          </button>
+        </div>
+      )}
       <div className="hidden grid-cols-[64px_repeat(7,1fr)] gap-2 md:grid">
         <div />
         {DAY_NAMES.map((d) => (
@@ -194,13 +235,50 @@ export default function WeekGrid({
           </div>
         ))}
       </div>
-      {program.schedule.map((week) => (
+      {program.schedule.map((week) => {
+        if (isCollapsed(week.week)) {
+          const s = weekSummary(week, plan);
+          return (
+            <button
+              key={week.week}
+              onClick={() =>
+                setOverrides((o) => ({ ...o, [week.week]: false }))
+              }
+              className="flex w-full items-center gap-3 rounded-2xl bg-poodle-cream/60 px-4 py-2 text-sm ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+            >
+              <span className="font-extrabold text-headband-dark">
+                Wk {week.week}
+              </span>
+              <span className="text-xs text-foreground/60">
+                {s.done}/{s.total} done
+                {s.miles > 0 ? ` · ${s.miles} mi` : ""}
+              </span>
+              {s.done === s.total && <span className="text-xs">✅</span>}
+              <span className="ml-auto text-xs text-foreground/40">
+                expand ▸
+              </span>
+            </button>
+          );
+        }
+        return (
         <div
           key={week.week}
           className="grid grid-cols-2 gap-2 md:grid-cols-[64px_repeat(7,1fr)]"
         >
-          <div className="col-span-2 flex items-center text-sm font-extrabold text-headband-dark md:col-span-1 md:justify-center">
-            Wk {week.week}
+          <div className="col-span-2 flex items-center gap-2 text-sm font-extrabold text-headband-dark md:col-span-1 md:justify-center">
+            {week.week < currentWk ? (
+              <button
+                onClick={() =>
+                  setOverrides((o) => ({ ...o, [week.week]: true }))
+                }
+                title="Collapse week"
+                className="rounded-full px-1 hover:bg-poodle-cream"
+              >
+                Wk {week.week} ▴
+              </button>
+            ) : (
+              <>Wk {week.week}</>
+            )}
           </div>
           {week.days.map((workout, dayIndex) => {
             const key = logKey(week.week, dayIndex);
@@ -213,7 +291,10 @@ export default function WeekGrid({
                   today?.week === week.week && today?.dayIndex === dayIndex
                 }
                 isNext={key === nextKey}
-                onToggle={() =>
+                onToggle={() => {
+                  if (!plan.logs[key]?.completed) {
+                    celebrate(celebrationKind(workout));
+                  }
                   updatePlan((prev) => ({
                     ...prev,
                     logs: {
@@ -223,8 +304,8 @@ export default function WeekGrid({
                         completed: !prev.logs[key]?.completed,
                       },
                     },
-                  }))
-                }
+                  }));
+                }}
                 onLog={(miles, minutes) =>
                   updatePlan((prev) => ({
                     ...prev,
@@ -257,7 +338,8 @@ export default function WeekGrid({
             );
           })}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

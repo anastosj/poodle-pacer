@@ -25,7 +25,7 @@ export default function NavBar() {
             Poodle Pacer
           </span>
         </Link>
-        <div className="flex gap-1">
+        <div className="hidden gap-1 sm:flex">
           {LINKS.map((l) => (
             <Link
               key={l.href}

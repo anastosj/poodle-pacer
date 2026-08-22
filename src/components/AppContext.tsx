@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Program, programs } from "@/lib/programs";
@@ -16,6 +17,7 @@ import {
   RunnerState,
   activePlan,
   loadState,
+  normalizeState,
   saveState,
   updateActivePlan,
 } from "@/lib/store";
@@ -42,20 +44,64 @@ function loadRunner(): RunnerId {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [runner, setRunnerState] = useState<RunnerId>("jonathan");
   const [state, setState] = useState<RunnerState | null>(null);
+  const runnerRef = useRef<RunnerId>("jonathan");
+  const saveTimers = useRef<Partial<Record<RunnerId, ReturnType<typeof setTimeout>>>>(
+    {}
+  );
+
+  const pushRemote = useCallback((r: RunnerId, s: RunnerState) => {
+    const timers = saveTimers.current;
+    const existing = timers[r];
+    if (existing) clearTimeout(existing);
+    timers[r] = setTimeout(() => {
+      fetch(`/api/state?runner=${r}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: s }),
+      }).catch(() => {});
+    }, 600);
+  }, []);
+
+  const loadFor = useCallback(
+    async (r: RunnerId) => {
+      runnerRef.current = r;
+      const local = loadState(r);
+      setState(local);
+      try {
+        const res = await fetch(`/api/state?runner=${r}`);
+        if (!res.ok) return;
+        const json = (await res.json()) as { state?: unknown };
+        if (runnerRef.current !== r) return;
+        if (json.state) {
+          const remote = normalizeState(json.state);
+          setState(remote);
+          saveState(r, remote);
+        } else {
+          pushRemote(r, local);
+        }
+      } catch {
+        // offline — localStorage copy stays in charge
+      }
+    },
+    [pushRemote]
+  );
 
   useEffect(() => {
     const r = loadRunner();
     setRunnerState(r);
-    setState(loadState(r));
-  }, []);
+    void loadFor(r);
+  }, [loadFor]);
 
-  const setRunner = useCallback((r: RunnerId) => {
-    setRunnerState(r);
-    setState(loadState(r));
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(RUNNER_KEY, r);
-    }
-  }, []);
+  const setRunner = useCallback(
+    (r: RunnerId) => {
+      setRunnerState(r);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(RUNNER_KEY, r);
+      }
+      void loadFor(r);
+    },
+    [loadFor]
+  );
 
   const update = useCallback(
     (updater: (prev: RunnerState) => RunnerState) => {
@@ -63,10 +109,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!prev) return prev;
         const next = updater(prev);
         saveState(runner, next);
+        pushRemote(runner, next);
         return next;
       });
     },
-    [runner]
+    [runner, pushRemote]
   );
 
   const updatePlan = useCallback(

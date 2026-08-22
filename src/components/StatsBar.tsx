@@ -22,6 +22,8 @@ export default function StatsBar({
   let completed = 0;
   let totalWorkouts = 0;
   let milesRun = 0;
+  let streak = 0;
+  let running = 0;
   for (const week of program.schedule) {
     week.days.forEach((day, i) => {
       if (day.type === "rest") return;
@@ -30,6 +32,10 @@ export default function StatsBar({
       if (log?.completed) {
         completed += 1;
         milesRun += log.miles ?? (day.type === "run" ? day.miles ?? 0 : 0);
+        running += 1;
+        streak = running;
+      } else {
+        running = 0;
       }
     });
   }
@@ -66,10 +72,14 @@ export default function StatsBar({
       label: "Days to race",
       value: daysToRace !== null ? `${daysToRace} 🏁` : "—",
     },
+    {
+      label: "Workout streak",
+      value: streak > 0 ? `${streak} 🔥` : "—",
+    },
   ];
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
       {stats.map((s) => (
         <div
           key={s.label}
