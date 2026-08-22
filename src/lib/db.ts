@@ -23,7 +23,9 @@ function getSqlite(): Database.Database {
 
 function getPg(): NeonQueryFunction<false, false> {
   if (!pg) {
-    pg = neon(process.env.DATABASE_URL as string);
+    pg = neon(process.env.DATABASE_URL as string, {
+      fetchOptions: { cache: "no-store" },
+    });
     pgReady = pg`CREATE TABLE IF NOT EXISTS runner_state (
       runner TEXT PRIMARY KEY,
       data TEXT NOT NULL,
