@@ -30,7 +30,9 @@ export default function AlertsCard({
   const workout = todaysWorkout(plan, program);
   const preview = workout
     ? `🐩 Morning, runner! Today's plan: ${workout.label}. Headband on — let's go!`
-    : `🐩 Morning, runner! Set a start date to get workout texts.`;
+    : plan.startDate
+      ? `🐩 Morning, runner! Training hasn't started yet — rest up, big things ahead!`
+      : `🐩 Morning, runner! Set a start date to get workout texts.`;
 
   const sendTest = async () => {
     setSending(true);

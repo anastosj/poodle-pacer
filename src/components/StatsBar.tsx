@@ -56,7 +56,11 @@ export default function StatsBar({
     },
     {
       label: "Current week",
-      value: week ? `Week ${week} of ${program.weeks}` : "Set a start date!",
+      value: week
+        ? `Week ${week} of ${program.weeks}`
+        : plan.startDate
+          ? "Starts soon! 🐾"
+          : "Set a start date!",
     },
     {
       label: "Days to race",
