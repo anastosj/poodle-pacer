@@ -102,8 +102,6 @@ export const programs: Program[] = [
   },
 ];
 
-export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 export function totalPlannedMiles(program: Program): number {
   return program.schedule.reduce(
     (sum, week) =>

@@ -14,8 +14,12 @@ interface StravaRun {
   id: number;
   name: string;
   miles: number;
-  minutes: number;
+  seconds: number;
   startDate: string;
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  elevationGain?: number;
+  cadence?: number;
 }
 
 function weekAndDayFor(
@@ -80,9 +84,14 @@ export default function StravaCard({
           ...existing,
           completed: true,
           miles: run.miles,
-          minutes: run.minutes,
+          seconds: run.seconds,
+          minutes: undefined, // superseded by `seconds`
           stravaActivityId: run.id,
           stravaName: run.name,
+          avgHeartRate: run.avgHeartRate,
+          maxHeartRate: run.maxHeartRate,
+          elevationGain: run.elevationGain,
+          cadence: run.cadence,
         };
         matched += 1;
       }

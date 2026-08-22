@@ -1,15 +1,35 @@
 "use client";
 
+import { addDaysISO } from "@/lib/dates";
+
 export type Feel = "good" | "medium" | "bad";
 
 export interface RunLog {
   completed: boolean;
   miles?: number;
+  /** Legacy whole-minute duration. Superseded by `seconds` — read via `logSeconds`. */
   minutes?: number;
+  /** Precise duration in seconds, so pace is accurate. */
+  seconds?: number;
   note?: string;
   feel?: Feel;
   stravaActivityId?: number;
   stravaName?: string;
+  /** Metrics pulled from Strava (typically originating on an Apple Watch). */
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  /** Elevation gain in feet. */
+  elevationGain?: number;
+  /** Steps per minute (Strava reports one leg; we double it on import). */
+  cadence?: number;
+}
+
+/** Duration of a logged run in seconds, tolerating the legacy `minutes` field. */
+export function logSeconds(log: RunLog | undefined): number | undefined {
+  if (!log) return undefined;
+  if (typeof log.seconds === "number" && log.seconds > 0) return log.seconds;
+  if (typeof log.minutes === "number" && log.minutes > 0) return log.minutes * 60;
+  return undefined;
 }
 
 export interface Plan {
@@ -143,24 +163,11 @@ export function logKey(week: number, dayIndex: number) {
   return `${week}-${dayIndex}`;
 }
 
-function toLocalISO(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return toLocalISO(d);
-}
-
 /** Race day is the last day (Sunday) of the final week. */
 export function raceDateFromStart(startDate: string, weeks: number): string {
-  return addDays(startDate, weeks * 7 - 1);
+  return addDaysISO(startDate, weeks * 7 - 1);
 }
 
 export function startDateFromRace(raceDate: string, weeks: number): string {
-  return addDays(raceDate, -(weeks * 7 - 1));
+  return addDaysISO(raceDate, -(weeks * 7 - 1));
 }
