@@ -309,17 +309,12 @@ export function ConfettiIcon(props: IconProps) {
 /**
  * Running: a whole poodle at full stride, facing right. Drawn in the show clip
  * (tail pom, hip rosette, ankle poms) because that silhouette says "poodle"
- * faster than any amount of face detail does at this size.
+ * faster than any amount of face detail does at this size. The stride itself
+ * carries the motion; trailing speed lines just read as stray marks.
  */
 export function RunIcon(props: IconProps) {
   return (
     <Svg box={120} {...props}>
-      {/* speed lines trailing behind */}
-      <g stroke={BLUE} strokeWidth="5.5" strokeLinecap="round" opacity="0.5">
-        <path d="M3 46h14" />
-        <path d="M2 64h11" />
-      </g>
-
       {/* far-side legs sit behind the body in a paler tone, which reads as
           depth instead of the four-legged clutter a flat set produces */}
       <g stroke={FUR_EDGE} strokeWidth="5" strokeLinecap="round" fill="none">
