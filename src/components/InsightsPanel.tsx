@@ -37,7 +37,7 @@ function Tile({
         ? "text-amber-600"
         : "text-headband-dark";
   return (
-    <div className="rounded-pouf bg-poodle-white p-3 text-center ring-1 ring-poodle-fur pouf-shadow">
+    <div className="rounded-pouf bg-poodle-white p-3 text-center ring-1 ring-poodle-fur pouf-shadow pouf-lift">
       <div className={`text-lg font-extrabold tabular-nums ${toneClass}`}>
         {value}
       </div>
@@ -185,7 +185,7 @@ export default function InsightsPanel({
     return (
       <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          📈 Performance
+          Performance
         </h2>
         <p className="mt-2 text-sm text-foreground/60">
           Set a race date to start tracking pace, mileage, and heart-rate trends.
@@ -205,7 +205,7 @@ export default function InsightsPanel({
     <section className="mt-4 rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          📈 Performance
+          Performance
         </h2>
         <div className="inline-flex rounded-full bg-poodle-cream p-1 ring-1 ring-poodle-fur">
           {SCOPES.map((s) => (
@@ -243,7 +243,7 @@ export default function InsightsPanel({
         />
         <Tile
           label="Time on feet"
-          value={current.seconds > 0 ? formatDuration(current.seconds) : "—"}
+          value={current.seconds > 0 ? formatDuration(current.seconds) : "–"}
           sub={
             current.runCount > 0
               ? `${current.runCount} run${current.runCount === 1 ? "" : "s"}`
@@ -262,7 +262,7 @@ export default function InsightsPanel({
         />
         <Tile
           label="Longest run"
-          value={current.longestRun > 0 ? `${current.longestRun} mi` : "—"}
+          value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
         />
         {hasHeartRate && (
           <Tile
@@ -295,7 +295,7 @@ export default function InsightsPanel({
         </div>
       ) : (
         <p className="mt-4 text-xs text-foreground/50">
-          Log a run — or connect Strava — to see pace and mileage trends here.
+          Log a run, or connect Strava, to see pace and mileage trends here.
         </p>
       )}
 

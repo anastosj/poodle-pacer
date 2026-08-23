@@ -111,7 +111,7 @@ export default function StatsBar({
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-pouf bg-poodle-white p-4 text-center ring-1 ring-poodle-fur pouf-shadow"
+          className="rounded-pouf bg-poodle-white p-4 text-center ring-1 ring-poodle-fur pouf-shadow pouf-lift"
         >
           <div className="text-lg font-extrabold text-headband-dark">
             {s.value}

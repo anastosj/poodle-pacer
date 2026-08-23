@@ -44,7 +44,7 @@ export default function MileageChart({
     <section className="mt-4 rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          🦴 Weekly miles
+          Weekly miles
         </h2>
         <div className="flex items-center gap-3 text-[10px] text-foreground/60">
           <span className="flex items-center gap-1">

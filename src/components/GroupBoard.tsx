@@ -1,7 +1,6 @@
+import { PoodleFaceIcon, RosetteIcon } from "@/components/Icons";
 import { RunnerSummary } from "@/lib/group";
 import { formatPacePerMile } from "@/lib/pace";
-
-const MEDALS = ["🥇", "🥈", "🥉"];
 
 function Avatar({ summary }: { summary: RunnerSummary }) {
   if (summary.avatarUrl) {
@@ -21,14 +20,15 @@ function Avatar({ summary }: { summary: RunnerSummary }) {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
+  if (!initials) return <PoodleFaceIcon size={44} className="shrink-0" />;
   return (
     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-headband text-sm font-bold text-white">
-      {initials || "🐩"}
+      {initials}
     </span>
   );
 }
 
-/** Consistency bar — the headline number, since plans differ in length. */
+/** Consistency bar: the headline number, since plans differ in length. */
 function ConsistencyBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   return (
@@ -67,11 +67,11 @@ function RunnerCard({
   rank: number;
   isMe: boolean;
 }) {
-  const medal = summary.started ? MEDALS[rank] : undefined;
+  const place = summary.started && rank < 3 ? ((rank + 1) as 1 | 2 | 3) : null;
 
   return (
     <li
-      className={`rounded-pouf bg-poodle-white p-4 ring-1 pouf-shadow ${
+      className={`rounded-pouf bg-poodle-white p-4 ring-1 pouf-shadow pouf-lift ${
         isMe ? "ring-2 ring-headband" : "ring-poodle-fur"
       }`}
     >
@@ -85,7 +85,7 @@ function RunnerCard({
                 You
               </span>
             )}
-            {medal && <span title={`#${rank + 1}`}>{medal}</span>}
+            {place && <RosetteIcon place={place} size={17} title={`#${place}`} />}
           </div>
           <div className="truncate text-xs text-foreground/55">
             {summary.started ? (
@@ -136,7 +136,7 @@ function RunnerCard({
       ) : (
         <p className="mt-3 rounded-xl bg-poodle-cream px-3 py-2 text-xs text-foreground/60">
           Once {summary.name.split(" ")[0]} picks a race date, their progress
-          shows up here. 🐾
+          shows up here.
         </p>
       )}
     </li>
@@ -153,7 +153,7 @@ export default function GroupBoard({
   if (summaries.length === 0) {
     return (
       <p className="mt-6 rounded-pouf bg-poodle-white p-6 text-center text-sm text-foreground/60 ring-1 ring-poodle-fur">
-        No runners yet. Share the link and get the family signed up! 🐩
+        No runners yet. Share the link and get the family signed up.
       </p>
     );
   }

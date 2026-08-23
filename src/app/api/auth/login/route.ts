@@ -20,7 +20,7 @@ export function GET(request: NextRequest) {
     new URL("/api/auth/callback", request.url).toString()
   );
   authorizeUrl.searchParams.set("response_type", "code");
-  // `force` re-shows the consent screen — needed when someone declined the
+  // `force` re-shows the consent screen, needed when someone declined the
   // activity scope and wants to grant it after all.
   authorizeUrl.searchParams.set(
     "approval_prompt",

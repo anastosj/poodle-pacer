@@ -65,7 +65,7 @@ export default function StravaCard({
       const res = await fetch("/api/strava/activities");
       if (res.status === 403) {
         setSyncMessage(
-          "Poodle Pacer needs permission to read your activities — re-authorize below."
+          "Poodle Pacer needs permission to read your activities. Re-authorize below."
         );
         return;
       }
@@ -102,11 +102,11 @@ export default function StravaCard({
       updatePlan((prev) => ({ ...prev, logs }));
       setSyncMessage(
         matched > 0
-          ? `Synced ${matched} run${matched === 1 ? "" : "s"} from Strava! 🎉`
+          ? `Synced ${matched} run${matched === 1 ? "" : "s"} from Strava.`
           : "No new runs matched your training window."
       );
     } catch {
-      setSyncMessage("Couldn't reach Strava — try again in a moment.");
+      setSyncMessage("Couldn't reach Strava. Try again in a moment.");
     } finally {
       setSyncing(false);
     }
@@ -134,7 +134,7 @@ export default function StravaCard({
       ) : (
         <div className="mt-2 space-y-3">
           <p className="text-sm">
-            Connected{status.athleteName ? ` as ${status.athleteName}` : ""} ✅
+            Connected{status.athleteName ? ` as ${status.athleteName}` : ""}
           </p>
 
           {status.canSync ? (
@@ -157,7 +157,7 @@ export default function StravaCard({
             <div className="space-y-2">
               <p className="text-sm text-foreground/70">
                 You signed in, but didn&apos;t grant permission to read your
-                activities — so runs can&apos;t be imported yet.
+                activities, so runs can&apos;t be imported yet.
               </p>
               <a
                 href="/api/auth/login?force=1"

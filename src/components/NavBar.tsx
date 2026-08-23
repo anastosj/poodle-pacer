@@ -4,17 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import PoodleMascot from "@/components/PoodleMascot";
+import {
+  HomeIcon,
+  PawIcon,
+  PoodleFaceIcon,
+  SettingsIcon,
+  TargetIcon,
+} from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
 
 const LINKS = [
-  { href: "/", label: "🏠 Home" },
-  { href: "/group", label: "👟 The Pack" },
-  { href: "/goals", label: "🎯 Goals" },
-  { href: "/settings", label: "⚙️ Settings" },
+  { href: "/", label: "Home", Icon: HomeIcon },
+  { href: "/group", label: "The Pack", Icon: PawIcon },
+  { href: "/goals", label: "Goals", Icon: TargetIcon },
+  { href: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
 function initials(name: string | null): string {
-  if (!name) return "🐩";
+  if (!name) return "";
   return name
     .split(/\s+/)
     .filter(Boolean)
@@ -55,17 +62,18 @@ export default function NavBar() {
           </span>
         </Link>
         <div className="hidden gap-1 sm:flex">
-          {LINKS.map((l) => (
+          {LINKS.map(({ href, label, Icon }) => (
             <Link
-              key={l.href}
-              href={l.href}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                pathname === l.href
+              key={href}
+              href={href}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                pathname === href
                   ? "bg-headband text-white"
                   : "text-foreground/70 hover:bg-poodle-cream"
               }`}
             >
-              {l.label}
+              <Icon size={17} className={pathname === href ? "opacity-90" : ""} />
+              {label}
             </Link>
           ))}
         </div>
@@ -84,10 +92,12 @@ export default function NavBar() {
                 alt=""
                 className="h-7 w-7 rounded-full object-cover ring-1 ring-poodle-fur"
               />
-            ) : (
+            ) : initials(user.name) ? (
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-headband text-xs font-bold text-white">
                 {initials(user.name)}
               </span>
+            ) : (
+              <PoodleFaceIcon size={28} />
             )}
             <span className="max-w-[9rem] truncate">
               {user.name ?? "My profile"}
@@ -112,9 +122,10 @@ export default function NavBar() {
                 href="/settings"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-sm text-foreground/80 hover:bg-poodle-cream"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-poodle-cream"
               >
-                ⚙️ Settings
+                <SettingsIcon size={15} />
+                Settings
               </Link>
               <form action="/api/auth/logout" method="post">
                 <button

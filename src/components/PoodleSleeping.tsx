@@ -13,7 +13,7 @@ export default function PoodleSleeping({
       viewBox="0 0 120 120"
       className={className}
       role="img"
-      aria-label="Sleeping poodle — rest day"
+      aria-label="Sleeping poodle, rest day"
     >
       {/* ears */}
       <circle cx="27" cy="66" r="15" fill="#f5f2ec" stroke="#d9d2c4" strokeWidth="2" />

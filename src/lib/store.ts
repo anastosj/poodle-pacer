@@ -1,4 +1,4 @@
-// Plain types and pure helpers — shared by client components and server code
+// Plain types and pure helpers, shared by client components and server code
 // (the group view summarizes every runner's plan on the server). The
 // localStorage helpers below guard on `typeof window`, so this is import-safe
 // from either side.
@@ -9,7 +9,7 @@ export type Feel = "good" | "medium" | "bad";
 export interface RunLog {
   completed: boolean;
   miles?: number;
-  /** Legacy whole-minute duration. Superseded by `seconds` — read via `logSeconds`. */
+  /** Legacy whole-minute duration. Superseded by `seconds`, read via `logSeconds`. */
   minutes?: number;
   /** Precise duration in seconds, so pace is accurate. */
   seconds?: number;

@@ -4,6 +4,19 @@ import { useMemo, useState } from "react";
 import DurationInput from "@/components/DurationInput";
 import PoodleSleeping from "@/components/PoodleSleeping";
 import {
+  BikeIcon,
+  BoltIcon,
+  CheckBadgeIcon,
+  CheckIcon,
+  IconProps,
+  MedalIcon,
+  MoodIcon,
+  PencilIcon,
+  RunIcon,
+  StarIcon,
+  SwimIcon,
+} from "@/components/Icons";
+import {
   CalendarCell,
   CalendarRow,
   WEEKDAY_NAMES,
@@ -25,20 +38,25 @@ import { Feel, Plan, RunLog, logSeconds } from "@/lib/store";
 
 type ViewMode = "week" | "program";
 
-const FEELS: { value: Feel; emoji: string; label: string }[] = [
-  { value: "good", emoji: "😄", label: "Felt good" },
-  { value: "medium", emoji: "😐", label: "Felt okay" },
-  { value: "bad", emoji: "😩", label: "Felt rough" },
+const FEELS: { value: Feel; label: string }[] = [
+  { value: "good", label: "Felt good" },
+  { value: "medium", label: "Felt okay" },
+  { value: "bad", label: "Felt rough" },
 ];
 
-/** Rest days render the sleeping-poodle icon instead, so "rest" is a fallback only. */
-const TYPE_EMOJI: Record<Workout["type"], string> = {
-  rest: "😴",
-  run: "🐩",
-  "run-or-cross": "🚲",
-  cross: "🏊",
-  race: "🏅",
+/** Rest days render the sleeping poodle instead, so "rest" is never used here. */
+const TYPE_ICON: Record<Exclude<Workout["type"], "rest">, (p: IconProps) => JSX.Element> = {
+  run: RunIcon,
+  "run-or-cross": BikeIcon,
+  cross: SwimIcon,
+  race: MedalIcon,
 };
+
+function WorkoutIcon({ type, size = 22 }: { type: Workout["type"]; size?: number }) {
+  if (type === "rest") return <PoodleSleeping size={size + 8} />;
+  const Icon = TYPE_ICON[type];
+  return <Icon size={size} />;
+}
 
 /** Past days read as either done or missed; upcoming days stay neutral. */
 type CellStatus = "rest" | "done" | "missed" | "today" | "upcoming";
@@ -101,8 +119,9 @@ function DayCell({
       } ${isToday ? "outline outline-2 outline-offset-2 outline-headband" : ""}`}
     >
       {isNext && (
-        <span className="absolute -top-2 right-2 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
-          ⭐ Next up
+        <span className="absolute -top-2 right-2 flex items-center gap-1 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
+          <StarIcon size={11} />
+          Next up
         </span>
       )}
 
@@ -134,28 +153,32 @@ function DayCell({
         >
           {workout.label}
         </span>
-        {isRest ? (
-          <PoodleSleeping size={30} className="-mr-0.5 -mt-0.5 shrink-0" />
-        ) : (
-          <span className="shrink-0">{TYPE_EMOJI[workout.type]}</span>
-        )}
+        <span className="-mr-0.5 -mt-0.5 shrink-0">
+          <WorkoutIcon type={workout.type} />
+        </span>
       </div>
 
       {status === "missed" && (
         <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/50">
-          ○ Missed
+          <span className="h-1.5 w-1.5 rounded-full ring-1 ring-foreground/30" />
+          Missed
         </span>
       )}
 
       {done && (
         <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold text-white">
-          ✓ Done
+          <CheckIcon size={9} />
+          Done
         </span>
       )}
 
       {log?.stravaName && (
-        <span className="mt-1 truncate text-[10px] text-[#fc4c02]" title={log.stravaName}>
-          ⚡ {log.stravaName}
+        <span
+          className="mt-1 flex items-center gap-1 truncate text-[10px] text-[#fc4c02]"
+          title={log.stravaName}
+        >
+          <BoltIcon size={11} />
+          <span className="truncate">{log.stravaName}</span>
         </span>
       )}
 
@@ -178,14 +201,16 @@ function DayCell({
             <button
               key={f.value}
               title={f.label}
+              aria-label={f.label}
+              aria-pressed={log?.feel === f.value}
               onClick={() => onFeel(f.value)}
-              className={`rounded-full px-1 text-[13px] leading-5 transition ${
+              className={`rounded-full p-0.5 transition ${
                 log?.feel === f.value
                   ? "bg-headband-light ring-1 ring-headband"
                   : "opacity-40 hover:opacity-100"
               }`}
             >
-              {f.emoji}
+              <MoodIcon mood={f.value} size={18} />
             </button>
           ))}
         </div>
@@ -201,14 +226,20 @@ function DayCell({
                 : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
             }`}
           >
-            {done ? "Done ✓" : "Mark done"}
+            {done ? (
+              <span className="flex items-center gap-1">
+                Done <CheckIcon size={9} />
+              </span>
+            ) : (
+              "Mark done"
+            )}
           </button>
           <button
             onClick={() => setEditing((e) => !e)}
-            className="rounded-full px-2 py-0.5 text-[10px] text-foreground/50 hover:bg-poodle-cream"
+            className="rounded-full p-1 text-foreground/50 transition hover:bg-poodle-cream"
             aria-label="Log distance and time"
           >
-            ✏️
+            <PencilIcon size={13} />
           </button>
         </div>
       )}
@@ -238,7 +269,7 @@ function DayCell({
           />
           <DurationInput value={time} onChange={setTime} />
           <span className="text-[9px] leading-tight text-foreground/45">
-            mm:ss or h:mm:ss — used to compute pace
+            mm:ss or h:mm:ss, used to compute pace
           </span>
           <button
             type="submit"
@@ -380,7 +411,7 @@ export default function CalendarGrid({
     );
   };
 
-  // No start date yet — show the program shape, still Sunday-first.
+  // No start date yet, so show the program shape, still Sunday-first.
   if (!plan.startDate) {
     const undated = buildUndatedRows(program);
     return (
@@ -415,13 +446,9 @@ export default function CalendarGrid({
                         >
                           {c.workout.label}
                         </span>
-                        {c.workout.type === "rest" ? (
-                          <PoodleSleeping size={28} className="shrink-0" />
-                        ) : (
-                          <span className="shrink-0">
-                            {TYPE_EMOJI[c.workout.type]}
-                          </span>
-                        )}
+                        <span className="shrink-0">
+                          <WorkoutIcon type={c.workout.type} size={20} />
+                        </span>
                       </div>
                     </div>
                   ) : (
@@ -544,7 +571,9 @@ export default function CalendarGrid({
                         {s.miles > 0 ? ` · ${s.miles} mi` : ""}
                       </span>
                     )}
-                    {s.total > 0 && s.done === s.total && <span>✅</span>}
+                    {s.total > 0 && s.done === s.total && (
+                      <CheckBadgeIcon size={13} title="Every workout done" />
+                    )}
                     {isCurrent && (
                       <span className="rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
                         This week

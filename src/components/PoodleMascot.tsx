@@ -1,9 +1,16 @@
-export default function PoodleMascot({ size = 96 }: { size?: number }) {
+export default function PoodleMascot({
+  size = 96,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 120 120"
+      className={className}
       role="img"
       aria-label="White poodle mascot wearing a blue headband"
     >

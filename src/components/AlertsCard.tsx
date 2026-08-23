@@ -29,10 +29,10 @@ export default function AlertsCard({
   const { alerts } = state;
   const workout = todaysWorkout(plan, program);
   const preview = workout
-    ? `🐩 Morning, runner! Today's plan: ${workout.label}. Headband on — let's go!`
+    ? `Morning! Today's plan: ${workout.label}. Headband on, let's go.`
     : plan.startDate
-      ? `🐩 Morning, runner! Training hasn't started yet — rest up, big things ahead!`
-      : `🐩 Morning, runner! Set a start date to get workout texts.`;
+      ? `Morning! Training hasn't started yet. Rest up, big things ahead.`
+      : `Morning! Set a race date to get workout texts.`;
 
   const sendTest = async () => {
     setSending(true);
@@ -45,13 +45,13 @@ export default function AlertsCard({
       });
       const data = await res.json();
       if (res.ok) {
-        setTestResult("Test text sent! 📱");
+        setTestResult("Test text sent.");
       } else if (data.error === "not_configured") {
         setTestResult(
-          "SMS isn't configured yet — Twilio credentials are needed on the server."
+          "SMS isn't configured yet. Twilio credentials are needed on the server."
         );
       } else {
-        setTestResult("Couldn't send the text — check the phone number.");
+        setTestResult("Couldn't send the text. Check the phone number.");
       }
     } catch {
       setTestResult("Couldn't reach the server.");
@@ -63,7 +63,7 @@ export default function AlertsCard({
   return (
     <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
       <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-        📱 Morning Workout Texts
+        Morning workout texts
       </h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <input
@@ -102,7 +102,7 @@ export default function AlertsCard({
               : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur"
           }`}
         >
-          {alerts.enabled ? "Alerts on 🔔" : "Alerts off 🔕"}
+          {alerts.enabled ? "Alerts on" : "Alerts off"}
         </button>
       </div>
       <div className="mt-3 rounded-xl bg-poodle-cream p-3 text-xs text-foreground/70">

@@ -2,6 +2,7 @@
 
 import AlertsCard from "@/components/AlertsCard";
 import StravaCard from "@/components/StravaCard";
+import { PoodleFaceIcon } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
 
 export default function SettingsPage() {
@@ -9,14 +10,14 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">⚙️ Settings</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
       <p className="mt-1 text-sm text-foreground/60">
         Profile, notifications, and connections.
       </p>
 
       <section className="mt-5 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          👤 Profile
+          Profile
         </h2>
         <div className="mt-3 flex items-center gap-3">
           {user.avatarUrl ? (
@@ -27,9 +28,7 @@ export default function SettingsPage() {
               className="h-12 w-12 rounded-full object-cover ring-1 ring-poodle-fur"
             />
           ) : (
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-headband text-lg text-white">
-              🐩
-            </span>
+            <PoodleFaceIcon size={48} />
           )}
           <div>
             <div className="text-base font-bold">{user.name ?? "Runner"}</div>

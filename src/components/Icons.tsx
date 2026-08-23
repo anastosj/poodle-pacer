@@ -1,0 +1,482 @@
+/**
+ * Hand-drawn icon set for Poodle Pacer.
+ *
+ * Everything here shares one visual language: soft rounded forms, a 24x24 grid,
+ * the mascot's cream-and-blue palette, and no stock emoji. Icons take a `size`
+ * and optional `className` so they can sit inline with text.
+ */
+
+const FUR = "#fdfcf9";
+const FUR_EDGE = "#d9d2c4";
+const BLUE = "#2f6fed";
+const BLUE_DEEP = "#1d4ed8";
+const INK = "#3a3630";
+const BLUSH = "#f7ccd6";
+const GOLD = "#e8b04b";
+const SILVER = "#c2c8d0";
+const BRONZE = "#c98b5e";
+
+export interface IconProps {
+  size?: number;
+  className?: string;
+  title?: string;
+}
+
+function Svg({
+  size = 20,
+  className = "",
+  title,
+  children,
+}: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={`inline-block shrink-0 align-[-0.15em] ${className}`}
+      role={title ? "img" : "presentation"}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+    >
+      {title && <title>{title}</title>}
+      {children}
+    </svg>
+  );
+}
+
+/* ------------------------------- navigation ------------------------------ */
+
+export function HomeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M4 11.2 12 4.5l8 6.7V19a1.6 1.6 0 0 1-1.6 1.6H5.6A1.6 1.6 0 0 1 4 19z"
+        fill={FUR}
+        stroke={FUR_EDGE}
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.6 12.2 12 4l9.4 8.2"
+        fill="none"
+        stroke={BLUE}
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.6 20.6v-4.4a2.4 2.4 0 0 1 4.8 0v4.4"
+        fill={BLUE}
+        opacity="0.18"
+        stroke={BLUE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** A paw print: the "pack" / group marker. */
+export function PawIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <ellipse cx="7.2" cy="8.6" rx="2.2" ry="2.8" fill={BLUE} />
+      <ellipse cx="12" cy="6.9" rx="2.3" ry="3" fill={BLUE} />
+      <ellipse cx="16.8" cy="8.6" rx="2.2" ry="2.8" fill={BLUE} />
+      <path
+        d="M12 11.4c3.1 0 5.4 2.2 5.4 4.7 0 2.2-1.9 3.5-4 3.5-.7 0-1 .3-1.4.3s-.7-.3-1.4-.3c-2.1 0-4-1.3-4-3.5 0-2.5 2.3-4.7 5.4-4.7z"
+        fill={BLUE}
+      />
+    </Svg>
+  );
+}
+
+/** Target for goals: a rosette-ish bullseye rather than a dartboard. */
+export function TargetIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="5.4" fill="none" stroke={BLUE} strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2.3" fill={BLUE} />
+      <path
+        d="M12 3.6v2.2M12 18.2v2.2M3.6 12h2.2M18.2 12h2.2"
+        stroke={BLUE_DEEP}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+/** Settings: a bone-shaped "cog" so even the gear is on-theme. */
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
+      <g fill={BLUE}>
+        <circle cx="12" cy="3.9" r="1.9" />
+        <circle cx="12" cy="20.1" r="1.9" />
+        <circle cx="3.9" cy="12" r="1.9" />
+        <circle cx="20.1" cy="12" r="1.9" />
+        <circle cx="6.3" cy="6.3" r="1.6" />
+        <circle cx="17.7" cy="17.7" r="1.6" />
+        <circle cx="17.7" cy="6.3" r="1.6" />
+        <circle cx="6.3" cy="17.7" r="1.6" />
+      </g>
+      <circle cx="12" cy="12" r="3.4" fill={BLUE} opacity="0.25" />
+      <circle cx="12" cy="12" r="1.8" fill={BLUE_DEEP} />
+    </Svg>
+  );
+}
+
+/* --------------------------------- awards -------------------------------- */
+
+export function BoneIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g
+        transform="rotate(-35 12 12)"
+        fill={FUR}
+        stroke={FUR_EDGE}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      >
+        <rect x="7" y="10.4" width="10" height="3.2" rx="1.6" />
+        <circle cx="6.6" cy="10.3" r="2.5" />
+        <circle cx="6.6" cy="13.7" r="2.5" />
+        <circle cx="17.4" cy="10.3" r="2.5" />
+        <circle cx="17.4" cy="13.7" r="2.5" />
+      </g>
+    </Svg>
+  );
+}
+
+/** Rosette award. Tone picks gold, silver, or bronze. */
+export function RosetteIcon({
+  place = 1,
+  ...props
+}: IconProps & { place?: 1 | 2 | 3 }) {
+  const color = place === 1 ? GOLD : place === 2 ? SILVER : BRONZE;
+  return (
+    <Svg {...props}>
+      <path d="M9 14.5 7.2 21l3.3-1.7L12 22l1.5-2.7 3.3 1.7-1.8-6.5z" fill={BLUE} opacity="0.75" />
+      <circle cx="12" cy="9" r="6.4" fill={color} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="12" cy="9" r="3.6" fill={FUR} opacity="0.55" />
+      <circle cx="12" cy="9" r="1.6" fill={color} />
+    </Svg>
+  );
+}
+
+export function MedalIcon(props: IconProps) {
+  return <RosetteIcon place={1} {...props} />;
+}
+
+/** Finish line: a little checkered pennant. */
+export function FinishFlagIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6 3.2v18" stroke={INK} strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M7.4 4.4h12l-2.6 3.8 2.6 3.8h-12z" fill={BLUE} />
+      <g fill={FUR} opacity="0.95">
+        <rect x="7.4" y="4.4" width="3" height="2.4" />
+        <rect x="13.4" y="4.4" width="3" height="2.4" />
+        <rect x="10.4" y="6.8" width="3" height="2.4" />
+        <rect x="16.4" y="6.8" width="2.2" height="2.4" />
+        <rect x="7.4" y="9.2" width="3" height="2.4" />
+        <rect x="13.4" y="9.2" width="3" height="2.4" />
+      </g>
+    </Svg>
+  );
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M12 3.4l2.5 5.3 5.7.8-4.1 4.1 1 5.8-5.1-2.8-5.1 2.8 1-5.8L3.8 9.5l5.7-.8z"
+        fill={GOLD}
+        stroke={FUR_EDGE}
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function ConfettiIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" fill="none">
+        <path d="M12 3v2.4M5.6 5.6l1.7 1.7M18.4 5.6l-1.7 1.7" />
+      </g>
+      <circle cx="6" cy="13" r="1.5" fill={BLUSH} />
+      <circle cx="18" cy="12.4" r="1.5" fill={GOLD} />
+      <circle cx="9.5" cy="19" r="1.4" fill={BLUE} />
+      <circle cx="15.5" cy="18.4" r="1.3" fill={BLUSH} />
+      <circle cx="12" cy="10.6" r="2.1" fill={BLUE} opacity="0.75" />
+    </Svg>
+  );
+}
+
+/* -------------------------------- workouts ------------------------------- */
+
+/** Running poodle silhouette: the "run" workout. */
+export function RunIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="16.6" cy="7.4" r="3.3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+      <circle cx="19.4" cy="5.2" r="1.7" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.1" />
+      <path d="M13.6 6.4a3.4 3.4 0 0 1 3-1.2" stroke={BLUE} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <ellipse cx="10.4" cy="12.6" rx="5.2" ry="3.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+      <path d="M13.9 10.3a4.6 4.6 0 0 1 2.4-1.1" stroke={FUR_EDGE} strokeWidth="1.2" fill="none" />
+      <g stroke={INK} strokeWidth="1.8" strokeLinecap="round" fill="none">
+        <path d="M7.6 15.2 5.4 19.4" />
+        <path d="M11 15.6l1.4 4" />
+        <path d="M13.6 14.6l3 3.4" />
+      </g>
+      <circle cx="4.6" cy="12.4" r="2.3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="17.6" cy="6.9" r="0.7" fill={INK} />
+    </Svg>
+  );
+}
+
+export function BikeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="6" cy="16" r="4.1" fill="none" stroke={BLUE} strokeWidth="1.8" />
+      <circle cx="18" cy="16" r="4.1" fill="none" stroke={BLUE} strokeWidth="1.8" />
+      <path
+        d="M6 16l4-7h4l4 7M10 9h5.4"
+        fill="none"
+        stroke={INK}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="16" r="1.2" fill={BLUSH} />
+    </Svg>
+  );
+}
+
+/** Cross-training: waves, for the pool. */
+export function SwimIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="16.6" cy="7" r="2.2" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+      <path
+        d="M5 11.2l5.4-2.6 3.6 2.4"
+        fill="none"
+        stroke={INK}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <g fill="none" stroke={BLUE} strokeWidth="1.9" strokeLinecap="round">
+        <path d="M2.8 15.4c1.6 0 1.6 1.4 3.2 1.4s1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4" />
+        <path d="M2.8 19c1.6 0 1.6 1.4 3.2 1.4s1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4" opacity="0.5" />
+      </g>
+    </Svg>
+  );
+}
+
+/* -------------------------------- feelings ------------------------------- */
+
+/** Three poodle moods, used for how a workout felt. */
+export function MoodIcon({
+  mood,
+  ...props
+}: IconProps & { mood: "good" | "medium" | "bad" }) {
+  const mouth =
+    mood === "good"
+      ? "M9 14.4q3 2.8 6 0"
+      : mood === "medium"
+        ? "M9.2 15h5.6"
+        : "M9 15.8q3 -2.6 6 0";
+  return (
+    <Svg {...props}>
+      <circle cx="5.4" cy="11" r="2.6" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="18.6" cy="11" r="2.6" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="8.4" cy="4.9" r="2.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="15.6" cy="4.9" r="2.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="12" cy="12" r="7.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+      {mood === "bad" ? (
+        <g stroke={INK} strokeWidth="1.5" strokeLinecap="round">
+          <path d="M8.4 9.6q1.2 1.4 2.4 0M13.2 9.6q1.2 1.4 2.4 0" fill="none" />
+        </g>
+      ) : (
+        <>
+          <circle cx="9.6" cy="10.2" r="1.25" fill={INK} />
+          <circle cx="14.4" cy="10.2" r="1.25" fill={INK} />
+        </>
+      )}
+      <path d={mouth} fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+      {mood === "good" && (
+        <>
+          <ellipse cx="6.9" cy="13.4" rx="1.5" ry="1" fill={BLUSH} opacity="0.9" />
+          <ellipse cx="17.1" cy="13.4" rx="1.5" ry="1" fill={BLUSH} opacity="0.9" />
+        </>
+      )}
+    </Svg>
+  );
+}
+
+/* ------------------------------ small utility ---------------------------- */
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M5 12.8l4.4 4.2L19 7.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function CheckBadgeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" fill={BLUE} />
+      <path
+        d="M7.4 12.4l3.2 3.1L16.8 9"
+        fill="none"
+        stroke={FUR}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M4 20l1-4L16.2 4.8a2 2 0 0 1 2.8 2.8L8 19z"
+        fill={FUR}
+        stroke={FUR_EDGE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M15.2 5.8l3 3" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4 20l1-4 3 3z" fill={BLUE} opacity="0.35" />
+    </Svg>
+  );
+}
+
+export function ChartIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.4" y="13" width="4" height="7.4" rx="1.4" fill={BLUE} opacity="0.35" />
+      <rect x="10" y="9" width="4" height="11.4" rx="1.4" fill={BLUE} opacity="0.6" />
+      <rect x="16.6" y="4.6" width="4" height="15.8" rx="1.4" fill={BLUE} />
+    </Svg>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.2" y="5.4" width="17.6" height="15" rx="3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
+      <path d="M3.2 10h17.6" stroke={FUR_EDGE} strokeWidth="1.4" />
+      <path d="M7.6 3.4v3.6M16.4 3.4v3.6" stroke={BLUE} strokeWidth="1.9" strokeLinecap="round" />
+      <circle cx="8.4" cy="14" r="1.4" fill={BLUE} />
+      <circle cx="12" cy="14" r="1.4" fill={BLUE} opacity="0.45" />
+      <circle cx="15.6" cy="14" r="1.4" fill={BLUE} opacity="0.45" />
+    </Svg>
+  );
+}
+
+export function BellIcon({ muted, ...props }: IconProps & { muted?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M6.2 16.4V11a5.8 5.8 0 0 1 11.6 0v5.4l1.4 2.2H4.8z"
+        fill={FUR}
+        stroke={FUR_EDGE}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M10 19.4a2.2 2.2 0 0 0 4 0" fill={BLUE} opacity="0.3" stroke={BLUE} strokeWidth="1.4" />
+      <circle cx="12" cy="4.2" r="1.6" fill={BLUE} />
+      {muted && (
+        <path d="M4.6 4.6l14.8 14.8" stroke={INK} strokeWidth="2" strokeLinecap="round" />
+      )}
+    </Svg>
+  );
+}
+
+export function PhoneIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="6.4" y="2.6" width="11.2" height="18.8" rx="3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
+      <rect x="8.4" y="5.6" width="7.2" height="10.4" rx="1.4" fill={BLUE} opacity="0.2" />
+      <circle cx="12" cy="18.4" r="1.3" fill={BLUE} />
+    </Svg>
+  );
+}
+
+/** Strava sync marker. */
+export function BoltIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M13.6 2.6L5.4 13.6h5l-1.2 7.8 8.4-11.2h-5.2z"
+        fill="#fc4c02"
+        stroke="#d94002"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function FlameIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M12 2.8c2.6 3.4.6 5 2 6.6 1-.6 1.4-1.8 1.4-1.8 2.6 2.6 3.2 4.8 3.2 6.6a6.6 6.6 0 1 1-13.2 0c0-3.4 2.6-6 4.4-8.4.9-1.2 2.2-3 2.2-3z"
+        fill="#f4a24c"
+        stroke="#e07f2a"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 12.4c1.4 1.8.4 2.8 1 3.6a3.2 3.2 0 1 1-4.2 0c.6-.8 1.8-2.2 3.2-3.6z"
+        fill={GOLD}
+        opacity="0.9"
+      />
+    </Svg>
+  );
+}
+
+/** Small poodle head, for avatars and profile rows. */
+export function PoodleFaceIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="4.8" cy="12.4" r="2.9" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="19.2" cy="12.4" r="2.9" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="8.2" cy="5.4" r="2.7" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="15.8" cy="5.4" r="2.7" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="12" cy="4.4" r="2.9" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="12" cy="13" r="7.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+      <path
+        d="M5.2 9.4Q12 6.6 18.8 9.4l-.5 2.3Q12 9.1 5.7 11.7z"
+        fill={BLUE}
+        stroke={BLUE_DEEP}
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+      <circle cx="9.6" cy="13" r="1.2" fill={INK} />
+      <circle cx="14.4" cy="13" r="1.2" fill={INK} />
+      <ellipse cx="12" cy="16" rx="2.1" ry="1.5" fill="#fff" stroke={FUR_EDGE} strokeWidth="0.9" />
+      <ellipse cx="12" cy="15.4" rx="0.9" ry="0.7" fill={INK} />
+      <ellipse cx="7.4" cy="15.4" rx="1.3" ry="0.9" fill={BLUSH} opacity="0.85" />
+      <ellipse cx="16.6" cy="15.4" rx="1.3" ry="0.9" fill={BLUSH} opacity="0.85" />
+    </Svg>
+  );
+}

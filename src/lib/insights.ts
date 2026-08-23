@@ -81,7 +81,7 @@ function summarize(
   let hrMiles = 0;
   let cadenceSum = 0;
   let cadenceCount = 0;
-  // Pace uses only time that covered distance — a 60-min pool session would
+  // Pace uses only time that covered distance. A 60-min pool session would
   // otherwise drag the average down without adding miles.
   let paceSeconds = 0;
 
