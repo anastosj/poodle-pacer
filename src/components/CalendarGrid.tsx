@@ -331,6 +331,12 @@ export default function CalendarGrid({
   updatePlan: (updater: (prev: Plan) => Plan) => void;
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
+  /**
+   * Per-row open/closed overrides in full-program view. Absent means "use the
+   * default", which folds weeks that have already finished so a twelve week
+   * plan opens as a readable list rather than a wall of cells.
+   */
+  const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const today = startOfToday();
 
   const rows = useMemo(
@@ -349,6 +355,22 @@ export default function CalendarGrid({
     setWeekIndex(currentRowIndex(rows));
   }
   const safeIndex = Math.min(Math.max(weekIndex, 0), Math.max(rows.length - 1, 0));
+
+  const rowHasPassed = (idx: number) =>
+    idx < rows.length && addDays(rows[idx].start, 6) < today;
+
+  const isRowOpen = (idx: number, isCurrent: boolean) =>
+    openRows[idx] ?? (isCurrent || !rowHasPassed(idx));
+
+  const toggleRow = (idx: number, isCurrent: boolean) =>
+    setOpenRows((prev) => ({ ...prev, [idx]: !isRowOpen(idx, isCurrent) }));
+
+  const setAllRows = (open: boolean) =>
+    setOpenRows(Object.fromEntries(rows.map((_, i) => [i, open])));
+
+  const openCount = rows.filter((_, i) =>
+    isRowOpen(i, i === currentRowIndex(rows))
+  ).length;
 
   const makeHandlers = (cell: CalendarCell) => ({
     onToggle: () => {
@@ -469,8 +491,8 @@ export default function CalendarGrid({
 
   return (
     <div className="mt-6">
-      {/* view toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Sticky so the way back out of a long plan is always on screen. */}
+      <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-background/85 px-1 py-2 backdrop-blur">
         <div className="inline-flex rounded-full bg-poodle-cream p-1 ring-1 ring-poodle-fur">
           {(["week", "program"] as ViewMode[]).map((m) => (
             <button
@@ -490,6 +512,15 @@ export default function CalendarGrid({
             </button>
           ))}
         </div>
+
+        {mode === "program" && rows.length > 0 && (
+          <button
+            onClick={() => setAllRows(openCount <= rows.length / 2)}
+            className="rounded-full px-3 py-1.5 text-[11px] font-bold text-headband-dark ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+          >
+            {openCount > rows.length / 2 ? "Collapse all weeks" : "Expand all weeks"}
+          </button>
+        )}
 
         {mode === "week" && row && (
           <div className="flex items-center gap-2">
@@ -543,14 +574,31 @@ export default function CalendarGrid({
         )}
 
         {mode === "program" && (
-          <div className="mt-2 space-y-3">
+          <div className="mt-2 space-y-2">
             {rows.map((r, idx) => {
               const s = rowSummary(r, plan);
               const isCurrent = idx === currentRowIndex(rows);
               const rowInPast = addDays(r.start, 6) < today;
+              const open = isRowOpen(idx, isCurrent);
               return (
                 <div key={r.start.toISOString()}>
-                  <div className="mb-1 flex items-center gap-2 text-xs">
+                  {/* The whole header is the control, so a long plan can be
+                      folded down to twelve lines without leaving the view. */}
+                  <button
+                    onClick={() => toggleRow(idx, isCurrent)}
+                    aria-expanded={open}
+                    className={`flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs transition hover:bg-poodle-cream ${
+                      open ? "" : "bg-poodle-cream/50"
+                    }`}
+                  >
+                    <span
+                      className={`text-[10px] text-foreground/40 transition-transform ${
+                        open ? "rotate-90" : ""
+                      }`}
+                      aria-hidden
+                    >
+                      ▸
+                    </span>
                     <span
                       className={`font-extrabold ${
                         isCurrent ? "text-headband" : "text-headband-dark"
@@ -565,9 +613,11 @@ export default function CalendarGrid({
                     )}
                     {s.total > 0 && (
                       <span
-                        className={`text-foreground/50 ${
-                          rowInPast && s.done < s.total ? "text-amber-600" : ""
-                        }`}
+                        className={
+                          rowInPast && s.done < s.total
+                            ? "text-amber-600"
+                            : "text-foreground/50"
+                        }
                       >
                         {s.done}/{s.total} done
                         {s.miles > 0 ? ` · ${s.miles} mi` : ""}
@@ -581,10 +631,12 @@ export default function CalendarGrid({
                         This week
                       </span>
                     )}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
-                    {r.cells.map(renderCell)}
-                  </div>
+                  </button>
+                  {open && (
+                    <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-7">
+                      {r.cells.map(renderCell)}
+                    </div>
+                  )}
                 </div>
               );
             })}
