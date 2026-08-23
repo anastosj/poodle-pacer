@@ -56,17 +56,42 @@ function parseHHMM(time: string): number {
 const inWindow = (nowMinutes: number, target: number) =>
   nowMinutes >= target && nowMinutes < target + FIRE_WINDOW_MINUTES;
 
-function workoutMessage(workout: Workout): string {
-  return `Morning! Today's plan: ${workout.label}. Headband on, let's go!`;
+/*
+ * Text bodies are the one place the drawn icon set cannot reach, so these keep
+ * the poodle and the blue heart. Everything in the interface uses the SVG icons.
+ */
+
+export function workoutMessage(workout: Workout): string {
+  return `🐩 Morning! Today's plan: ${workout.label}. Headband on, let's go!`;
 }
 
-const PRE_RACE_MESSAGE =
-  "Tomorrow is race day! You've put in the miles, so trust your training. " +
+export const PRE_RACE_MESSAGE =
+  "🐩 Tomorrow is race day! You've put in the miles, so trust your training. " +
   "Lay out your gear, eat well, and get some good sleep. See you at the start line!";
 
-const RACE_DAY_MESSAGE =
-  "IT'S RACE DAY! 13.1 miles, one blue headband, zero doubts. " +
+export const RACE_DAY_MESSAGE =
+  "🐩💙 IT'S RACE DAY! 13.1 miles, one blue headband, zero doubts. " +
   "Good luck out there. You've absolutely got this!";
+
+/**
+ * Sent once when a runner confirms their number. The quoted sample has its own
+ * poodle stripped so the message does not open with the same emoji twice.
+ */
+export function confirmationMessage(sample: string): string {
+  // Drop anything before the first word character, which removes the emoji and
+  // the space after it without needing unicode property escapes.
+  const plain = sample.replace(/^[^A-Za-z0-9]+/, "");
+  return `🐩 Poodle Pacer is connected. Your workout lands here each morning, like this: "${plain}"`;
+}
+
+/** What a runner would receive today, for the preview in settings. */
+export function previewMessage(workout: Workout | null, hasPlan: boolean): string {
+  if (workout && workout.type !== "rest") return workoutMessage(workout);
+  if (workout) return "🐩 Rest day. No text today, enjoy the lie-in.";
+  return hasPlan
+    ? "🐩 Morning! Training hasn't started yet. Rest up, big things ahead."
+    : "🐩 Morning! Set a race date to get workout texts.";
+}
 
 export interface PendingAlert {
   /** Dedupe key, unique per user per send. */

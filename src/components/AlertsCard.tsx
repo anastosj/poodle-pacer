@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BellIcon, CheckIcon, PhoneIcon } from "@/components/Icons";
+import { confirmationMessage, previewMessage } from "@/lib/alerts";
 import { Program, Workout } from "@/lib/programs";
 import { Plan, RunnerState } from "@/lib/store";
 
@@ -65,12 +66,10 @@ export default function AlertsCard({
     }
   }, [browserTz, alerts.timezone, update]);
 
+  // Built by the same helpers the scheduler uses, so the preview cannot drift
+  // from what actually gets sent.
   const workout = todaysWorkout(plan, program);
-  const preview = workout
-    ? `Morning! Today's plan: ${workout.label}. Headband on, let's go.`
-    : plan.startDate
-      ? `Morning! Training hasn't started yet. Rest up, big things ahead.`
-      : `Morning! Set a race date to get workout texts.`;
+  const preview = previewMessage(workout, Boolean(plan.startDate));
 
   const e164 = toE164(alerts.phone);
   const confirmed =
@@ -93,7 +92,7 @@ export default function AlertsCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: e164,
-          message: `Poodle Pacer is connected. You'll get your workout here each morning. Sample: ${preview}`,
+          message: confirmationMessage(preview),
         }),
       });
       const data = await res.json().catch(() => ({}));
