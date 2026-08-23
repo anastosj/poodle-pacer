@@ -26,13 +26,14 @@ function Svg({
   size = 20,
   className = "",
   title,
+  box = 24,
   children,
-}: IconProps & { children: React.ReactNode }) {
+}: IconProps & { box?: number; children: React.ReactNode }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={`0 0 ${box} ${box}`}
       className={`inline-block shrink-0 align-[-0.15em] ${className}`}
       role={title ? "img" : "presentation"}
       aria-label={title}
@@ -41,6 +42,65 @@ function Svg({
       {title && <title>{title}</title>}
       {children}
     </svg>
+  );
+}
+
+/**
+ * The poodle head every character icon is built on, drawn on a 120 grid.
+ * Keeping the ear poufs, crown, and muzzle identical across workouts is what
+ * makes each one read as a dog first and an activity second.
+ */
+function PoodleHead({ crown = true }: { crown?: boolean }) {
+  return (
+    <>
+      {/* ear poufs */}
+      <circle cx="27" cy="66" r="15" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      <circle cx="93" cy="66" r="15" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      <circle cx="26" cy="79" r="12" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      <circle cx="94" cy="79" r="12" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      {crown && (
+        <>
+          <circle cx="45" cy="40" r="13" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+          <circle cx="60" cy="34" r="15" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+          <circle cx="75" cy="40" r="13" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+        </>
+      )}
+      <ellipse cx="60" cy="76" rx="29" ry="27" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+    </>
+  );
+}
+
+/** Shared snout, so every poodle has the same face below the eyes. */
+function PoodleMuzzle({ tongue = false }: { tongue?: boolean }) {
+  return (
+    <>
+      <ellipse cx="60" cy="88" rx="12" ry="9" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.5" />
+      <ellipse cx="60" cy="85" rx="4.2" ry="3.2" fill={INK} />
+      <path d="M 60 88 Q 60 93 55 94" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <path d="M 60 88 Q 60 93 65 94" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      {tongue && (
+        <path
+          d="M 56 94 Q 60 102 64 94 Q 60 97 56 94"
+          fill="#f19bb4"
+          stroke="#e57697"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+      )}
+      <ellipse cx="40" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
+      <ellipse cx="80" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
+    </>
+  );
+}
+
+function EyesOpen() {
+  return (
+    <>
+      <circle cx="49" cy="74" r="3.6" fill={INK} />
+      <circle cx="71" cy="74" r="3.6" fill={INK} />
+      <circle cx="50.2" cy="72.8" r="1.2" fill="#fff" />
+      <circle cx="72.2" cy="72.8" r="1.2" fill="#fff" />
+    </>
   );
 }
 
@@ -107,23 +167,27 @@ export function TargetIcon(props: IconProps) {
   );
 }
 
-/** Settings: a bone-shaped "cog" so even the gear is on-theme. */
+/** Settings: a plain cog. Squared teeth and a hollow hub read as a gear at 15px. */
 export function SettingsIcon(props: IconProps) {
   return (
     <Svg {...props}>
-      <circle cx="12" cy="12" r="8" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
+      {/* four bars through the centre give eight teeth */}
       <g fill={BLUE}>
-        <circle cx="12" cy="3.9" r="1.9" />
-        <circle cx="12" cy="20.1" r="1.9" />
-        <circle cx="3.9" cy="12" r="1.9" />
-        <circle cx="20.1" cy="12" r="1.9" />
-        <circle cx="6.3" cy="6.3" r="1.6" />
-        <circle cx="17.7" cy="17.7" r="1.6" />
-        <circle cx="17.7" cy="6.3" r="1.6" />
-        <circle cx="6.3" cy="17.7" r="1.6" />
+        {[0, 45, 90, 135].map((angle) => (
+          <rect
+            key={angle}
+            x="10.15"
+            y="1.7"
+            width="3.7"
+            height="20.6"
+            rx="1"
+            transform={`rotate(${angle} 12 12)`}
+          />
+        ))}
       </g>
-      <circle cx="12" cy="12" r="3.4" fill={BLUE} opacity="0.25" />
-      <circle cx="12" cy="12" r="1.8" fill={BLUE_DEEP} />
+      <circle cx="12" cy="12" r="7.5" fill={BLUE} />
+      <circle cx="12" cy="12" r="6.6" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
+      <circle cx="12" cy="12" r="2.9" fill={FUR} stroke={BLUE_DEEP} strokeWidth="2.4" />
     </Svg>
   );
 }
@@ -219,61 +283,98 @@ export function ConfettiIcon(props: IconProps) {
 
 /* -------------------------------- workouts ------------------------------- */
 
-/** Running poodle silhouette: the "run" workout. */
+/** Running: headband on, tongue out, speed lines. */
 export function RunIcon(props: IconProps) {
   return (
-    <Svg {...props}>
-      <circle cx="16.6" cy="7.4" r="3.3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
-      <circle cx="19.4" cy="5.2" r="1.7" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.1" />
-      <path d="M13.6 6.4a3.4 3.4 0 0 1 3-1.2" stroke={BLUE} strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <ellipse cx="10.4" cy="12.6" rx="5.2" ry="3.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
-      <path d="M13.9 10.3a4.6 4.6 0 0 1 2.4-1.1" stroke={FUR_EDGE} strokeWidth="1.2" fill="none" />
-      <g stroke={INK} strokeWidth="1.8" strokeLinecap="round" fill="none">
-        <path d="M7.6 15.2 5.4 19.4" />
-        <path d="M11 15.6l1.4 4" />
-        <path d="M13.6 14.6l3 3.4" />
+    <Svg box={120} {...props}>
+      {/* Two heavy speed lines. Three thin ones turned to mush below 20px. */}
+      <g stroke={BLUE} strokeWidth="7" strokeLinecap="round" opacity="0.6">
+        <path d="M5 62h14" />
+        <path d="M3 82h12" />
       </g>
-      <circle cx="4.6" cy="12.4" r="2.3" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
-      <circle cx="17.6" cy="6.9" r="0.7" fill={INK} />
+      <PoodleHead />
+      {/* The headband is the one bold mass, so it carries the icon when small. */}
+      <path
+        d="M 30 56 Q 60 40 90 56 L 87 69 Q 60 53 33 69 Z"
+        fill={BLUE}
+        stroke={BLUE_DEEP}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M 88 58 L 104 48 L 100 66 Z" fill={BLUE} stroke={BLUE_DEEP} strokeWidth="2" strokeLinejoin="round" />
+      <EyesOpen />
+      <PoodleMuzzle tongue />
     </Svg>
   );
 }
 
+/** Run or cross: same poodle in a bike helmet. */
 export function BikeIcon(props: IconProps) {
   return (
-    <Svg {...props}>
-      <circle cx="6" cy="16" r="4.1" fill="none" stroke={BLUE} strokeWidth="1.8" />
-      <circle cx="18" cy="16" r="4.1" fill="none" stroke={BLUE} strokeWidth="1.8" />
+    <Svg box={120} {...props}>
+      <PoodleHead crown={false} />
+      {/* helmet shell over the crown, with vents and a visor */}
       <path
-        d="M6 16l4-7h4l4 7M10 9h5.4"
-        fill="none"
-        stroke={INK}
-        strokeWidth="1.7"
-        strokeLinecap="round"
+        d="M 30 60 A 30 28 0 0 1 90 60 Z"
+        fill={BLUE}
+        stroke={BLUE_DEEP}
+        strokeWidth="2"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="16" r="1.2" fill={BLUSH} />
+      <g stroke={BLUE_DEEP} strokeWidth="2.4" strokeLinecap="round" opacity="0.65">
+        <path d="M48 42v12" />
+        <path d="M60 38v14" />
+        <path d="M72 42v12" />
+      </g>
+      <path
+        d="M 28 60 h 64 l -3 7 h -58 Z"
+        fill={BLUE_DEEP}
+        stroke={BLUE_DEEP}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* chin strap */}
+      <path d="M 34 66 L 46 84" stroke={BLUE_DEEP} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <path d="M 86 66 L 74 84" stroke={BLUE_DEEP} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <EyesOpen />
+      <PoodleMuzzle />
     </Svg>
   );
 }
 
-/** Cross-training: waves, for the pool. */
+/** Cross-training: same poodle in goggles, chin in the water. */
 export function SwimIcon(props: IconProps) {
   return (
-    <Svg {...props}>
-      <circle cx="16.6" cy="7" r="2.2" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
+    <Svg box={120} {...props}>
+      <PoodleHead />
+      {/* Goggles are the bold mass here: one wide strap plus filled lenses. */}
       <path
-        d="M5 11.2l5.4-2.6 3.6 2.4"
+        d="M 28 68 Q 60 55 92 68"
         fill="none"
-        stroke={INK}
-        strokeWidth="1.7"
+        stroke={BLUE_DEEP}
+        strokeWidth="7"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
-      <g fill="none" stroke={BLUE} strokeWidth="1.9" strokeLinecap="round">
-        <path d="M2.8 15.4c1.6 0 1.6 1.4 3.2 1.4s1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4" />
-        <path d="M2.8 19c1.6 0 1.6 1.4 3.2 1.4s1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4 1.6 1.4 3.2 1.4 1.6-1.4 3.2-1.4" opacity="0.5" />
+      <g stroke={BLUE_DEEP} strokeWidth="3">
+        <ellipse cx="47" cy="74" rx="13" ry="10.5" fill="#9ccdf0" />
+        <ellipse cx="73" cy="74" rx="13" ry="10.5" fill="#9ccdf0" />
       </g>
+      <path d="M 58 74 h 4" stroke={BLUE_DEEP} strokeWidth="4" strokeLinecap="round" />
+      <circle cx="47" cy="74" r="3.4" fill={INK} />
+      <circle cx="73" cy="74" r="3.4" fill={INK} />
+      <circle cx="43" cy="70.5" r="2.6" fill="#fff" opacity="0.9" />
+      <circle cx="69" cy="70.5" r="2.6" fill="#fff" opacity="0.9" />
+      <ellipse cx="60" cy="92" rx="10" ry="7" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.5" />
+      <ellipse cx="60" cy="90" rx="3.8" ry="2.8" fill={INK} />
+      {/* A single waterline, low enough that it frames the chin instead of
+          competing with the face at small sizes. */}
+      <path
+        d="M2 110q9 0 9 5.5t9 5.5 9-5.5 9-5.5 9 5.5 9 5.5 9-5.5 9-5.5 9 5.5 9 5.5 9-5.5 9-5.5 9 5.5 9 5.5"
+        fill="none"
+        stroke={BLUE}
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
