@@ -53,13 +53,6 @@ export interface RunnerState {
   onboarded?: boolean;
 }
 
-export type RunnerId = "jonathan" | "sam";
-
-export const RUNNERS: { id: RunnerId; name: string; emoji: string }[] = [
-  { id: "jonathan", name: "Jonathan", emoji: "🏃" },
-  { id: "sam", name: "Sam", emoji: "🏃‍♀️" },
-];
-
 export function newPlanId() {
   return `plan-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
@@ -73,7 +66,7 @@ export function makePlan(name: string): Plan {
   };
 }
 
-function defaultState(): RunnerState {
+export function defaultState(): RunnerState {
   const plan = makePlan("My Half Marathon");
   return {
     plans: [plan],
@@ -123,14 +116,15 @@ export function normalizeState(raw: unknown): RunnerState {
   }
 }
 
-function storageKey(runner: RunnerId) {
-  return `hm-trainer:${runner}`;
+/** Cache key is per user id, so two accounts on one device stay separate. */
+function storageKey(userId: string) {
+  return `poodle-pacer:${userId}`;
 }
 
-export function loadState(runner: RunnerId): RunnerState {
+export function loadState(userId: string): RunnerState {
   if (typeof window === "undefined") return defaultState();
   try {
-    const raw = window.localStorage.getItem(storageKey(runner));
+    const raw = window.localStorage.getItem(storageKey(userId));
     if (!raw) return defaultState();
     return migrate(JSON.parse(raw));
   } catch {
@@ -138,9 +132,9 @@ export function loadState(runner: RunnerId): RunnerState {
   }
 }
 
-export function saveState(runner: RunnerId, state: RunnerState) {
+export function saveState(userId: string, state: RunnerState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(runner), JSON.stringify(state));
+  window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
 }
 
 export function activePlan(state: RunnerState): Plan {

@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getFreshTokens, isRunnerId } from "@/lib/strava";
+import { NextResponse } from "next/server";
+import { currentUserId } from "@/lib/session";
+import { getFreshTokens, hasActivityScope } from "@/lib/strava";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const METERS_PER_MILE = 1609.344;
 const FEET_PER_METER = 3.280839895;
@@ -37,19 +41,22 @@ const round = (n: number, places = 0) => {
   return Math.round(n * f) / f;
 };
 
-export async function GET(request: NextRequest) {
-  const runner = request.nextUrl.searchParams.get("runner");
-  if (!isRunnerId(runner)) {
-    return NextResponse.json({ error: "Unknown runner" }, { status: 400 });
+export async function GET() {
+  const userId = currentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const tokens = await getFreshTokens(runner);
+  const tokens = await getFreshTokens(userId);
   if (!tokens) {
-    return NextResponse.json({ error: "Not connected" }, { status: 401 });
+    return NextResponse.json({ error: "not_connected" }, { status: 401 });
+  }
+  if (!hasActivityScope(tokens.scope)) {
+    return NextResponse.json({ error: "missing_scope" }, { status: 403 });
   }
   const res = await fetch(
     "https://www.strava.com/api/v3/athlete/activities?per_page=100",
     {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+      headers: { Authorization: `Bearer ${tokens.accessToken}` },
       cache: "no-store",
     }
   );

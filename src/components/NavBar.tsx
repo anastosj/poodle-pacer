@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import PoodleMascot from "@/components/PoodleMascot";
 import { useApp } from "@/components/AppContext";
-import { RUNNERS } from "@/lib/store";
 
 const LINKS = [
   { href: "/", label: "🏠 Home" },
@@ -12,12 +12,40 @@ const LINKS = [
   { href: "/settings", label: "⚙️ Settings" },
 ];
 
+function initials(name: string | null): string {
+  if (!name) return "🐩";
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export default function NavBar() {
   const pathname = usePathname();
-  const { runner, setRunner } = useApp();
+  const { user } = useApp();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <nav className="sticky top-0 z-20 border-b border-poodle-fur bg-poodle-white/90 backdrop-blur">
+    <nav className="sticky top-0 z-30 border-b border-poodle-fur bg-poodle-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-2">
         <Link href="/" className="flex items-center gap-2">
           <PoodleMascot size={40} />
@@ -40,20 +68,64 @@ export default function NavBar() {
             </Link>
           ))}
         </div>
-        <div className="ml-auto flex gap-1">
-          {RUNNERS.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setRunner(r.id)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-                runner === r.id
-                  ? "bg-headband text-white pouf-shadow"
-                  : "bg-white text-foreground/70 ring-1 ring-poodle-fur hover:bg-poodle-cream"
-              }`}
+
+        <div className="relative ml-auto" ref={menuRef}>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className="flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-sm font-semibold text-foreground/80 ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+          >
+            {user.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.avatarUrl}
+                alt=""
+                className="h-7 w-7 rounded-full object-cover ring-1 ring-poodle-fur"
+              />
+            ) : (
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-headband text-xs font-bold text-white">
+                {initials(user.name)}
+              </span>
+            )}
+            <span className="max-w-[9rem] truncate">
+              {user.name ?? "My profile"}
+            </span>
+            <span className="text-[10px] text-foreground/40">▾</span>
+          </button>
+
+          {open && (
+            <div
+              role="menu"
+              className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl bg-white py-1 ring-1 ring-poodle-fur pouf-shadow"
             >
-              {r.emoji} {r.name}
-            </button>
-          ))}
+              <div className="border-b border-poodle-fur px-4 py-2">
+                <div className="truncate text-sm font-bold">
+                  {user.name ?? "Runner"}
+                </div>
+                <div className="text-[11px] text-foreground/50">
+                  Signed in with Strava
+                </div>
+              </div>
+              <Link
+                href="/settings"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-foreground/80 hover:bg-poodle-cream"
+              >
+                ⚙️ Settings
+              </Link>
+              <form action="/api/auth/logout" method="post">
+                <button
+                  type="submit"
+                  role="menuitem"
+                  className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </nav>

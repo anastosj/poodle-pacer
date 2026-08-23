@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Program } from "@/lib/programs";
-import { Plan, RunnerId, logKey } from "@/lib/store";
+import { Plan, logKey } from "@/lib/store";
 
 interface StravaStatus {
   configured: boolean;
   connected: boolean;
+  canSync: boolean;
   athleteName: string | null;
 }
 
@@ -34,12 +35,10 @@ function weekAndDayFor(
 }
 
 export default function StravaCard({
-  runner,
   plan,
   updatePlan,
   program,
 }: {
-  runner: RunnerId;
   plan: Plan;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
   program: Program;
@@ -49,24 +48,29 @@ export default function StravaCard({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setStatus(null);
-    setSyncMessage(null);
-    fetch(`/api/strava/status?runner=${runner}`)
-      .then((r) => r.json())
-      .then(setStatus)
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setStatus(json?.strava ?? null))
       .catch(() => setStatus(null));
-  }, [runner]);
+  }, []);
 
   const sync = useCallback(async () => {
     if (!plan.startDate) {
-      setSyncMessage("Set a start date first so runs can be matched!");
+      setSyncMessage("Set a race date first so runs can be matched!");
       return;
     }
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const res = await fetch(`/api/strava/activities?runner=${runner}`);
+      const res = await fetch("/api/strava/activities");
+      if (res.status === 403) {
+        setSyncMessage(
+          "Poodle Pacer needs permission to read your activities — re-authorize below."
+        );
+        return;
+      }
       if (!res.ok) throw new Error("fetch failed");
+
       const { runs }: { runs: StravaRun[] } = await res.json();
       let matched = 0;
       const logs = { ...plan.logs };
@@ -102,16 +106,23 @@ export default function StravaCard({
           : "No new runs matched your training window."
       );
     } catch {
-      setSyncMessage("Couldn't reach Strava — try reconnecting.");
+      setSyncMessage("Couldn't reach Strava — try again in a moment.");
     } finally {
       setSyncing(false);
     }
-  }, [runner, plan, program.weeks, updatePlan]);
+  }, [plan, program.weeks, updatePlan]);
 
   const disconnect = useCallback(async () => {
-    await fetch(`/api/strava/disconnect?runner=${runner}`, { method: "POST" });
-    setStatus((s) => (s ? { ...s, connected: false, athleteName: null } : s));
-  }, [runner]);
+    if (
+      !window.confirm(
+        "Disconnecting Strava also signs you out, since Strava is how you log in. Your training plan is kept. Continue?"
+      )
+    ) {
+      return;
+    }
+    await fetch("/api/strava/disconnect", { method: "POST" });
+    window.location.href = "/login";
+  }, []);
 
   return (
     <section className="rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
@@ -120,43 +131,42 @@ export default function StravaCard({
       </h2>
       {!status ? (
         <p className="mt-2 text-sm text-foreground/60">Checking…</p>
-      ) : !status.configured ? (
-        <p className="mt-2 text-sm text-foreground/60">
-          Strava isn&apos;t configured yet. Add <code>STRAVA_CLIENT_ID</code> and{" "}
-          <code>STRAVA_CLIENT_SECRET</code> to enable syncing.
-        </p>
-      ) : status.connected ? (
+      ) : (
         <div className="mt-2 space-y-3">
           <p className="text-sm">
             Connected{status.athleteName ? ` as ${status.athleteName}` : ""} ✅
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={sync}
-              disabled={syncing}
-              className="rounded-full bg-headband px-4 py-2 text-sm font-semibold text-white transition hover:bg-headband-dark disabled:opacity-60"
-            >
-              {syncing ? "Fetching runs…" : "Sync runs"}
-            </button>
-            <button
-              onClick={disconnect}
-              className="rounded-full px-4 py-2 text-sm font-medium text-foreground/60 ring-1 ring-poodle-fur hover:bg-poodle-cream"
-            >
-              Disconnect
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-2 space-y-2">
-          <p className="text-sm text-foreground/70">
-            Connect Strava to auto-log your runs.
-          </p>
-          <a
-            href={`/api/strava/auth?runner=${runner}`}
-            className="inline-block rounded-full bg-[#fc4c02] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            Connect with Strava
-          </a>
+
+          {status.canSync ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={sync}
+                disabled={syncing}
+                className="rounded-full bg-headband px-4 py-2 text-sm font-semibold text-white transition hover:bg-headband-dark disabled:opacity-60"
+              >
+                {syncing ? "Fetching runs…" : "Sync runs"}
+              </button>
+              <button
+                onClick={disconnect}
+                className="rounded-full px-4 py-2 text-sm font-medium text-foreground/60 ring-1 ring-poodle-fur hover:bg-poodle-cream"
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-foreground/70">
+                You signed in, but didn&apos;t grant permission to read your
+                activities — so runs can&apos;t be imported yet.
+              </p>
+              <a
+                href="/api/auth/login?force=1"
+                className="inline-block rounded-full bg-[#fc4c02] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Grant activity access
+              </a>
+            </div>
+          )}
         </div>
       )}
       {syncMessage && (
