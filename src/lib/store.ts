@@ -2,7 +2,7 @@
 // (the group view summarizes every runner's plan on the server). The
 // localStorage helpers below guard on `typeof window`, so this is import-safe
 // from either side.
-import { addDaysISO } from "@/lib/dates";
+import { addDaysISO, daysBetween, fromISO, startOfToday } from "@/lib/dates";
 
 export type Feel = "good" | "medium" | "bad";
 
@@ -38,7 +38,14 @@ export interface Plan {
   id: string;
   name: string;
   programId: string;
-  startDate?: string; // ISO date of week 1 Monday
+  /** ISO date of program week 1, day 0 (Monday). May sit in the past. */
+  startDate?: string;
+  /**
+   * First program week the runner actually trains. Greater than 1 when the
+   * race is closer than the full program length, so they join partway in and
+   * work backwards from race day rather than starting with weeks of misses.
+   */
+  beginWeek?: number;
   logs: Record<string, RunLog>; // key: `${week}-${dayIndex}`
 }
 
@@ -166,4 +173,43 @@ export function raceDateFromStart(startDate: string, weeks: number): string {
 
 export function startDateFromRace(raceDate: string, weeks: number): string {
   return addDaysISO(raceDate, -(weeks * 7 - 1));
+}
+
+/** The first program week this runner trains. */
+export function beginWeekOf(plan: Plan): number {
+  return Math.max(1, plan.beginWeek ?? 1);
+}
+
+/** The date training actually begins, accounting for a mid-program join. */
+export function effectiveStartDate(plan: Plan): string | undefined {
+  if (!plan.startDate) return undefined;
+  return addDaysISO(plan.startDate, (beginWeekOf(plan) - 1) * 7);
+}
+
+/**
+ * Anchor a plan to race day. If the full program no longer fits before the
+ * race, begin at the week that covers today and taper from there. Picking a
+ * race four weeks out should start you at week 9 of 12, not bury you under
+ * eight weeks of missed workouts.
+ */
+export function planFromRaceDate(
+  raceDate: string,
+  weeks: number,
+  today: Date = startOfToday()
+): { startDate: string; beginWeek: number } {
+  const startDate = startDateFromRace(raceDate, weeks);
+  const elapsed = daysBetween(fromISO(startDate), today);
+  const beginWeek =
+    elapsed <= 0 ? 1 : Math.min(Math.floor(elapsed / 7) + 1, weeks);
+  return { startDate, beginWeek };
+}
+
+/** Whole days until training begins. Zero once it has started. */
+export function daysUntilStart(
+  plan: Plan,
+  today: Date = startOfToday()
+): number {
+  const start = effectiveStartDate(plan);
+  if (!start) return 0;
+  return Math.max(0, daysBetween(today, fromISO(start)));
 }

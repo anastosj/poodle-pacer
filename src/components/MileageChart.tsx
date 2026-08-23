@@ -1,7 +1,7 @@
 "use client";
 
 import { Program } from "@/lib/programs";
-import { Plan, logKey } from "@/lib/store";
+import { Plan, beginWeekOf, logKey } from "@/lib/store";
 
 function currentWeek(plan: Plan, program: Program): number | null {
   if (!plan.startDate) return null;
@@ -20,22 +20,24 @@ export default function MileageChart({
   program: Program;
 }) {
   const nowWeek = currentWeek(plan, program);
-  const weeks = program.schedule.map((week) => {
-    let planned = 0;
-    let logged = 0;
-    week.days.forEach((day, i) => {
-      const plannedMiles =
-        day.type === "run" || day.type === "run-or-cross"
-          ? day.miles ?? 0
-          : day.type === "race"
-            ? 13.1
-            : 0;
-      planned += plannedMiles;
-      const log = plan.logs[logKey(week.week, i)];
-      if (log?.completed) logged += log.miles ?? plannedMiles;
+  const weeks = program.schedule
+    .filter((week) => week.week >= beginWeekOf(plan))
+    .map((week) => {
+      let planned = 0;
+      let logged = 0;
+      week.days.forEach((day, i) => {
+        const plannedMiles =
+          day.type === "run" || day.type === "run-or-cross"
+            ? day.miles ?? 0
+            : day.type === "race"
+              ? 13.1
+              : 0;
+        planned += plannedMiles;
+        const log = plan.logs[logKey(week.week, i)];
+        if (log?.completed) logged += log.miles ?? plannedMiles;
+      });
+      return { week: week.week, planned, logged };
     });
-    return { week: week.week, planned, logged };
-  });
   const max = Math.max(...weeks.map((w) => Math.max(w.planned, w.logged)), 1);
 
   return (

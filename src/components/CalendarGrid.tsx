@@ -300,16 +300,18 @@ export default function CalendarGrid({
   const today = startOfToday();
 
   const rows = useMemo(
-    () => (plan.startDate ? buildCalendar(program, plan.startDate) : []),
-    [program, plan.startDate]
+    () => buildCalendar(program, plan),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [program, plan.startDate, plan.beginWeek]
   );
 
   const [weekIndex, setWeekIndex] = useState(() => currentRowIndex(rows));
-  // The rows only exist once a start date is set, so re-anchor on the current
-  // week whenever that date changes rather than stranding the view on week 1.
-  const [anchoredOn, setAnchoredOn] = useState(plan.startDate);
-  if (anchoredOn !== plan.startDate) {
-    setAnchoredOn(plan.startDate);
+  // The rows only exist once a race date is set, so re-anchor on the current
+  // week whenever the schedule shifts rather than stranding the view on week 1.
+  const anchor = `${plan.startDate ?? ""}:${plan.beginWeek ?? 1}`;
+  const [anchoredOn, setAnchoredOn] = useState(anchor);
+  if (anchoredOn !== anchor) {
+    setAnchoredOn(anchor);
     setWeekIndex(currentRowIndex(rows));
   }
   const safeIndex = Math.min(Math.max(weekIndex, 0), Math.max(rows.length - 1, 0));

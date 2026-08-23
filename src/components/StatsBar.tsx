@@ -1,15 +1,25 @@
 "use client";
 
-import { Program, totalPlannedMiles } from "@/lib/programs";
-import { Plan, logKey } from "@/lib/store";
+import { fromISO, startOfToday } from "@/lib/dates";
+import { Program } from "@/lib/programs";
+import {
+  Plan,
+  beginWeekOf,
+  daysUntilStart,
+  effectiveStartDate,
+  logKey,
+} from "@/lib/store";
 
+/** Program week covering today, or null before training starts / after the race. */
 function currentWeek(plan: Plan, program: Program): number | null {
   if (!plan.startDate) return null;
-  const start = new Date(plan.startDate + "T00:00:00");
-  const diffDays = Math.floor((Date.now() - start.getTime()) / 86400000);
+  const diffDays = Math.floor(
+    (Date.now() - fromISO(plan.startDate).getTime()) / 86400000
+  );
   if (diffDays < 0) return null;
   const week = Math.floor(diffDays / 7) + 1;
-  return week <= program.weeks ? week : null;
+  if (week < beginWeekOf(plan) || week > program.weeks) return null;
+  return week;
 }
 
 export default function StatsBar({
@@ -19,15 +29,21 @@ export default function StatsBar({
   plan: Plan;
   program: Program;
 }) {
+  const begin = beginWeekOf(plan);
+
   let completed = 0;
   let totalWorkouts = 0;
   let milesRun = 0;
+  let plannedMiles = 0;
   let streak = 0;
   let running = 0;
+
   for (const week of program.schedule) {
+    if (week.week < begin) continue;
     week.days.forEach((day, i) => {
       if (day.type === "rest") return;
       totalWorkouts += 1;
+      if (day.type === "run") plannedMiles += day.miles ?? 0;
       const log = plan.logs[logKey(week.week, i)];
       if (log?.completed) {
         completed += 1;
@@ -39,17 +55,22 @@ export default function StatsBar({
       }
     });
   }
-  const plannedMiles = totalPlannedMiles(program);
+
   const week = currentWeek(plan, program);
+  const countdown = daysUntilStart(plan);
   const raceDay = plan.startDate
     ? new Date(
-        new Date(plan.startDate + "T00:00:00").getTime() +
-          (program.weeks * 7 - 1) * 86400000
+        fromISO(plan.startDate).getTime() + (program.weeks * 7 - 1) * 86400000
       )
     : null;
   const daysToRace = raceDay
-    ? Math.max(0, Math.ceil((raceDay.getTime() - Date.now()) / 86400000))
+    ? Math.max(
+        0,
+        Math.ceil((raceDay.getTime() - startOfToday().getTime()) / 86400000)
+      )
     : null;
+
+  const weeksTraining = program.weeks - begin + 1;
 
   const stats: { label: string; value: string }[] = [
     {
@@ -64,17 +85,24 @@ export default function StatsBar({
       label: "Current week",
       value: week
         ? `Week ${week} of ${program.weeks}`
-        : plan.startDate
-          ? "Starts soon! 🐾"
-          : "Set a start date!",
+        : countdown > 0
+          ? `Starts in ${countdown}d`
+          : effectiveStartDate(plan)
+            ? "Program complete"
+            : "Set a race date",
     },
     {
       label: "Days to race",
-      value: daysToRace !== null ? `${daysToRace} 🏁` : "—",
+      value: daysToRace !== null ? `${daysToRace}` : "not set",
     },
     {
-      label: "Workout streak",
-      value: streak > 0 ? `${streak} 🔥` : "—",
+      label: begin > 1 ? "Weeks you train" : "Workout streak",
+      value:
+        begin > 1
+          ? `${weeksTraining} of ${program.weeks}`
+          : streak > 0
+            ? `${streak}`
+            : "none yet",
     },
   ];
 

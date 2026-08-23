@@ -9,9 +9,16 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import PoodleProgressBar from "@/components/PoodleProgressBar";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
+import PoodleMascot from "@/components/PoodleMascot";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
+import { fromISO } from "@/lib/dates";
 import { Workout } from "@/lib/programs";
-import { logKey } from "@/lib/store";
+import {
+  beginWeekOf,
+  daysUntilStart,
+  effectiveStartDate,
+  logKey,
+} from "@/lib/store";
 
 const CHEERS = [
   "Paws on the pavement — you've got this! 🐩",
@@ -69,6 +76,7 @@ export default function HomePage() {
   let completed = 0;
   let totalWorkouts = 0;
   for (const week of program.schedule) {
+    if (week.week < beginWeekOf(plan)) continue;
     week.days.forEach((day, i) => {
       if (day.type === "rest") return;
       totalWorkouts += 1;
@@ -76,9 +84,18 @@ export default function HomePage() {
     });
   }
 
+  const countdown = daysUntilStart(plan);
+  const effectiveStart = effectiveStartDate(plan);
+  const startsOn = effectiveStart ? fromISO(effectiveStart) : null;
+
   const next = useMemo(
-    () => findNextWorkout(program.schedule, plan.logs, plan.startDate),
-    [program.schedule, plan.logs, plan.startDate]
+    () =>
+      findNextWorkout(
+        program.schedule.filter((w) => w.week >= beginWeekOf(plan)),
+        plan.logs,
+        plan.startDate
+      ),
+    [program.schedule, plan]
   );
   const nextKey = next ? logKey(next.week, next.dayIndex) : undefined;
 
@@ -111,7 +128,29 @@ export default function HomePage() {
         </p>
       </div>
 
-      {next && (
+      {countdown > 0 && (
+        <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
+          <div className="flex-1">
+            <div className="text-xs font-bold uppercase tracking-wide text-white/70">
+              Countdown
+            </div>
+            <div className="mt-1 text-2xl font-extrabold">
+              {countdown} day{countdown === 1 ? "" : "s"} until training starts
+            </div>
+            <div className="text-sm text-white/80">
+              {startsOn &&
+                `Week 1 begins ${startsOn.toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}. Rest up.`}
+            </div>
+          </div>
+          <PoodleMascot size={72} />
+        </section>
+      )}
+
+      {countdown === 0 && next && (
         <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
           <div className="flex-1">
             <div className="text-xs font-bold uppercase tracking-wide text-white/70">
@@ -123,7 +162,10 @@ export default function HomePage() {
             <div className="text-sm text-white/80">
               {next.date ? (
                 <>
-                  Day {(next.week - 1) * 7 + next.dayIndex + 1} ·{" "}
+                  {/* Numbered from this runner's first training day, matching
+                      the calendar cells, not from program week 1. */}
+                  Day{" "}
+                  {(next.week - beginWeekOf(plan)) * 7 + next.dayIndex + 1} ·{" "}
                   {next.date.toLocaleDateString(undefined, {
                     weekday: "long",
                     month: "short",
