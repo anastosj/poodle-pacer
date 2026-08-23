@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findUser, loadStravaTokens } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { smsConfigured } from "@/lib/sms";
 import { hasActivityScope, stravaConfigured } from "@/lib/strava";
 
 export const runtime = "nodejs";
@@ -31,5 +32,6 @@ export async function GET() {
       canSync: hasActivityScope(tokens?.scope),
       athleteName: tokens?.athleteName ?? user.name,
     },
+    sms: { configured: smsConfigured() },
   });
 }

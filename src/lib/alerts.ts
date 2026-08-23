@@ -1,7 +1,7 @@
 /**
  * Morning-text scheduling rules. Pure functions so the cron route stays thin:
  * a text goes out at the runner's alert time on days with a planned workout,
- * never on rest days — except the day before the race (a pep talk) and race
+ * never on rest days, except the day before the race (a pep talk) and race
  * day itself, which fires at 7:00 local no matter what time alerts are set to.
  */
 import { planCells } from "@/lib/calendar";
@@ -57,16 +57,16 @@ const inWindow = (nowMinutes: number, target: number) =>
   nowMinutes >= target && nowMinutes < target + FIRE_WINDOW_MINUTES;
 
 function workoutMessage(workout: Workout): string {
-  return `🐩 Morning! Today's plan: ${workout.label}. Headband on, let's go!`;
+  return `Morning! Today's plan: ${workout.label}. Headband on, let's go!`;
 }
 
 const PRE_RACE_MESSAGE =
-  "🐩 Tomorrow is race day! You've put in the miles — trust your training. " +
+  "Tomorrow is race day! You've put in the miles, so trust your training. " +
   "Lay out your gear, eat well, and get some good sleep. See you at the start line!";
 
 const RACE_DAY_MESSAGE =
-  "🐩💙 IT'S RACE DAY! 13.1 miles, one blue headband, zero doubts. " +
-  "Good luck out there — you've absolutely got this!";
+  "IT'S RACE DAY! 13.1 miles, one blue headband, zero doubts. " +
+  "Good luck out there. You've absolutely got this!";
 
 export interface PendingAlert {
   /** Dedupe key, unique per user per send. */

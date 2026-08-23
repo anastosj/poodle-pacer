@@ -56,7 +56,7 @@ function effortOf(cell: CalendarCell, plan: Plan): Effort | null {
 }
 
 /**
- * Predict the half-marathon finish from the fastest qualifying run — recent
+ * Predict the half-marathon finish from the fastest qualifying run. Recent
  * runs first, any run as a fallback so early weeks still get an estimate.
  */
 export function predictRace(

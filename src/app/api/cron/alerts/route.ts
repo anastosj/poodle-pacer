@@ -21,7 +21,7 @@ function matchesCronSecret(token: string): boolean {
 /**
  * Scheduler tick, hit every ~15 minutes. Checks every runner for a text due
  * right now (workout days at their alert time, race-eve pep talk, 7am race-day
- * good luck) and sends it once — the sms_sends table dedupes across ticks.
+ * good luck) and sends it once. The sms_sends table dedupes across ticks.
  */
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");

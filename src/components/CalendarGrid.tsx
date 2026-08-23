@@ -13,7 +13,6 @@ import {
   MoodIcon,
   PencilIcon,
   RunIcon,
-  StarIcon,
   SwimIcon,
 } from "@/components/Icons";
 import {
@@ -86,7 +85,6 @@ function DayCell({
   log,
   isToday,
   isPast,
-  isNext,
   onToggle,
   onLog,
   onFeel,
@@ -95,7 +93,6 @@ function DayCell({
   log: RunLog | undefined;
   isToday: boolean;
   isPast: boolean;
-  isNext: boolean;
   onToggle: () => void;
   onLog: (miles?: number, seconds?: number) => void;
   onFeel: (feel: Feel) => void;
@@ -114,49 +111,55 @@ function DayCell({
 
   return (
     <div
-      className={`relative flex min-h-[112px] flex-col rounded-2xl p-2 text-xs ring-1 transition ${
+      className={`relative flex gap-3 rounded-2xl p-2.5 text-xs ring-1 transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
         STATUS_STYLES[status]
       } ${isToday ? "outline outline-2 outline-offset-2 outline-headband" : ""}`}
     >
-      {isNext && (
-        <span className="absolute -top-2 right-2 flex items-center gap-1 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
-          <StarIcon size={11} />
-          Next up
+      {isToday && (
+        <span className="absolute -top-2 right-2 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+          Today
         </span>
       )}
 
-      {/* weekday + real date, so the cell reads the same stacked or in a grid */}
-      <div className="flex items-baseline justify-between gap-1">
-        <span
-          className={`text-[10px] font-bold uppercase tracking-wide ${
-            isToday ? "text-headband-dark" : "text-foreground/45"
-          }`}
-        >
-          <span className="md:hidden">
-            {cell.date.toLocaleDateString(undefined, { weekday: "short" })}{" "}
-          </span>
-          {cell.date.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-          })}
-        </span>
-        <span className="text-[9px] font-medium text-foreground/35">
-          Day {cell.dayNumber + 1}
-        </span>
+      {/* Stacked on a phone the row is wide and short, so the artwork leads at a
+          size where it is actually readable. The grid keeps the compact icon. */}
+      <div className="flex shrink-0 items-center md:hidden">
+        <WorkoutIcon type={workout.type} size={44} />
       </div>
 
-      <div className="mt-1 flex items-start justify-between gap-1">
-        <span
-          className={`font-semibold leading-tight ${
-            isRest ? "text-foreground/50" : ""
-          } ${status === "missed" ? "text-foreground/55 line-through decoration-foreground/30" : ""}`}
-        >
-          {workout.label}
-        </span>
-        <span className="-mr-0.5 -mt-0.5 shrink-0">
-          <WorkoutIcon type={workout.type} />
-        </span>
-      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* weekday + real date, so the cell reads the same stacked or in a grid */}
+        <div className="flex items-baseline justify-between gap-1">
+          <span
+            className={`text-[10px] font-bold uppercase tracking-wide ${
+              isToday ? "text-headband-dark" : "text-foreground/45"
+            }`}
+          >
+            <span className="md:hidden">
+              {cell.date.toLocaleDateString(undefined, { weekday: "short" })}{" "}
+            </span>
+            {cell.date.toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <span className="mr-14 text-[9px] font-medium text-foreground/35 md:mr-0">
+            Day {cell.dayNumber + 1}
+          </span>
+        </div>
+
+        <div className="mt-0.5 flex items-start justify-between gap-1 md:mt-1">
+          <span
+            className={`font-semibold leading-tight md:text-xs ${
+              isRest ? "text-foreground/50" : ""
+            } ${status === "missed" ? "text-foreground/55 line-through decoration-foreground/30" : ""}`}
+          >
+            {workout.label}
+          </span>
+          <span className="-mr-0.5 -mt-0.5 hidden shrink-0 md:block">
+            <WorkoutIcon type={workout.type} />
+          </span>
+        </div>
 
       {status === "missed" && (
         <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/50">
@@ -244,6 +247,8 @@ function DayCell({
         </div>
       )}
 
+      </div>
+
       {editing && (
         <form
           className="absolute left-0 top-full z-20 mt-1 flex w-48 flex-col gap-1 rounded-xl bg-white p-2 ring-1 ring-poodle-fur pouf-shadow"
@@ -320,12 +325,10 @@ export default function CalendarGrid({
   plan,
   program,
   updatePlan,
-  nextKey,
 }: {
   plan: Plan;
   program: Program;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
-  nextKey?: string;
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   const today = startOfToday();
@@ -405,7 +408,6 @@ export default function CalendarGrid({
         log={plan.logs[cell.key]}
         isToday={isSameDay(cell.date, today)}
         isPast={cell.date < today}
-        isNext={cell.key === nextKey}
         {...handlers}
       />
     );

@@ -84,7 +84,6 @@ export default function HomePage() {
       ),
     [program.schedule, plan]
   );
-  const nextKey = next ? logKey(next.week, next.dayIndex) : undefined;
 
   // Wait for the server copy, otherwise the wizard flashes over an existing plan.
   const showOnboarding =
@@ -191,12 +190,7 @@ export default function HomePage() {
 
       <StatsBar plan={plan} program={program} />
 
-      <CalendarGrid
-        plan={plan}
-        program={program}
-        updatePlan={updatePlan}
-        nextKey={nextKey}
-      />
+      <CalendarGrid plan={plan} program={program} updatePlan={updatePlan} />
 
       <p className="mt-6 text-center text-xs text-foreground/50">
         <Link href="/progress" className="font-semibold text-headband-dark underline">
