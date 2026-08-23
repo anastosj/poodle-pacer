@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import CalendarGrid from "@/components/CalendarGrid";
-import InsightsPanel from "@/components/InsightsPanel";
-import MileageChart from "@/components/MileageChart";
 import OnboardingWizard from "@/components/OnboardingWizard";
-import PoodleProgressBar from "@/components/PoodleProgressBar";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
 import PoodleMascot from "@/components/PoodleMascot";
-import { PawIcon, StarIcon } from "@/components/Icons";
+import { StarIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { fromISO } from "@/lib/dates";
 import { Workout } from "@/lib/programs";
@@ -73,17 +70,6 @@ export default function HomePage() {
   useEffect(() => {
     setCheer(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
   }, []);
-
-  let completed = 0;
-  let totalWorkouts = 0;
-  for (const week of program.schedule) {
-    if (week.week < beginWeekOf(plan)) continue;
-    week.days.forEach((day, i) => {
-      if (day.type === "rest") return;
-      totalWorkouts += 1;
-      if (plan.logs[logKey(week.week, i)]?.completed) completed += 1;
-    });
-  }
 
   const countdown = daysUntilStart(plan);
   const effectiveStart = effectiveStartDate(plan);
@@ -203,16 +189,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <PoodleProgressBar
-        fraction={totalWorkouts > 0 ? completed / totalWorkouts : 0}
-        label={`${completed} of ${totalWorkouts} workouts`}
-      />
-
       <StatsBar plan={plan} program={program} />
-
-      <InsightsPanel plan={plan} program={program} />
-
-      <MileageChart plan={plan} program={program} />
 
       <CalendarGrid
         plan={plan}
@@ -221,11 +198,11 @@ export default function HomePage() {
         nextKey={nextKey}
       />
 
-      <footer className="mt-10 flex flex-wrap items-center justify-center gap-1.5 pb-6 text-center text-xs text-foreground/50">
-        <PawIcon size={13} className="opacity-50" />
-        Made by your poodle coach · Program: {program.author}&apos;s{" "}
-        {program.name}
-      </footer>
+      <p className="mt-6 text-center text-xs text-foreground/50">
+        <Link href="/progress" className="font-semibold text-headband-dark underline">
+          See your full progress
+        </Link>
+      </p>
 
       {showOnboarding && <OnboardingWizard />}
     </div>
