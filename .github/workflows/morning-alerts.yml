@@ -1,0 +1,24 @@
+name: Morning alerts
+
+# Ticks the alert scheduler. The endpoint decides who (if anyone) gets a text
+# and dedupes sends, so a missed or doubled tick is harmless. Authenticates
+# with a GitHub OIDC token that the endpoint verifies — no secrets to manage.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tick alert scheduler
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=poodle-pacer-cron" | jq -r .value)
+          curl -sS --fail-with-body \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://poodle-pacer.vercel.app/api/cron/alerts"

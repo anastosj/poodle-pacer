@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import AchievementsPanel from "@/components/AchievementsPanel";
 import InsightsPanel from "@/components/InsightsPanel";
+import RacePredictorCard from "@/components/RacePredictorCard";
 import MileageChart from "@/components/MileageChart";
 import PoodleProgressBar from "@/components/PoodleProgressBar";
 import { useApp } from "@/components/AppContext";
 import { beginWeekOf, logKey } from "@/lib/store";
 
 export default function ProgressPage() {
-  const { plan, program } = useApp();
+  const { state, plan, program } = useApp();
 
   let completed = 0;
   let totalWorkouts = 0;
@@ -35,7 +37,11 @@ export default function ProgressPage() {
         label={`${completed} of ${totalWorkouts} workouts`}
       />
 
+      <RacePredictorCard plan={plan} program={program} />
+
       <InsightsPanel plan={plan} program={program} />
+
+      <AchievementsPanel state={state} />
 
       <MileageChart plan={plan} program={program} />
 
