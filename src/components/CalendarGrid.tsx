@@ -9,6 +9,7 @@ import {
   BoltIcon,
   CheckBadgeIcon,
   CheckIcon,
+  ChevronIcon,
   IconProps,
   MedalIcon,
   MoodIcon,
@@ -103,6 +104,8 @@ function DayCell({
   onOpen: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  /** Actions sit behind a caret so a cell reads as the workout, not controls. */
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [miles, setMiles] = useState("");
   const [time, setTime] = useState("");
 
@@ -114,6 +117,65 @@ function DayCell({
   const seconds = logSeconds(log);
   const pace = paceSecondsPerMile(seconds, log?.miles);
 
+  /**
+   * Rendered in two places: on a phone it sits in the meta line, where the row
+   * is wide and the right side would otherwise be empty; in the desktop grid a
+   * column is narrow, so it stays pinned to the bottom.
+   */
+  const actions = isRest ? null : actionsOpen ? (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => {
+          onToggle();
+          setActionsOpen(false);
+        }}
+        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+          done
+            ? "bg-headband text-white"
+            : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
+        }`}
+      >
+        {done ? "Undo" : "Mark done"}
+      </button>
+      <button
+        onClick={() => setEditing((e) => !e)}
+        className="rounded-full p-1 text-foreground/50 transition hover:bg-white/70"
+        aria-label="Log distance and time"
+      >
+        <PencilIcon size={13} />
+      </button>
+      <button
+        onClick={() => setActionsOpen(false)}
+        aria-label="Hide actions"
+        className="rounded-full p-0.5 text-foreground/40 transition hover:bg-white/70"
+      >
+        <ChevronIcon up size={13} />
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setActionsOpen(true)}
+      aria-label={done ? "Edit this workout" : "Mark done or edit"}
+      aria-expanded={false}
+      className="flex items-center justify-center rounded-lg px-2 py-0.5 text-foreground/35 transition hover:bg-white/70 hover:text-foreground/60 md:w-full"
+    >
+      <ChevronIcon size={14} />
+    </button>
+  );
+
+  const statusChip =
+    status === "missed" ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/50">
+        <span className="h-1.5 w-1.5 rounded-full ring-1 ring-foreground/30" />
+        Missed
+      </span>
+    ) : done ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold text-white">
+        <CheckIcon size={9} />
+        Done
+      </span>
+    ) : null;
+
   return (
     <div
       className={`relative flex gap-3 rounded-2xl p-2.5 text-xs ring-1 transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
@@ -121,20 +183,21 @@ function DayCell({
       } ${isToday ? "outline outline-2 outline-offset-2 outline-headband" : ""}`}
     >
       {isToday && (
-        <span className="absolute -top-2 right-2 rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+        <span className="absolute -top-2 right-2 hidden rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white md:inline-block">
           Today
         </span>
       )}
 
-      {/* Stacked on a phone the row is wide and short, so the artwork leads at a
-          size where it is actually readable. The grid keeps the compact icon. */}
-      <div className="flex shrink-0 items-center md:hidden">
+      {/* Top aligned, not centred: a tall card left the artwork floating in
+          the middle with the text stranded beside it. */}
+      <div className="flex shrink-0 items-start pt-0.5 md:hidden">
         <WorkoutIcon type={workout.type} size={44} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* weekday + real date, so the cell reads the same stacked or in a grid */}
-        <div className="flex items-baseline justify-between gap-1">
+        {/* Meta line. On a phone the day number sits next to the date and the
+            controls take the free space on the right. */}
+        <div className="flex items-center gap-2">
           <span
             className={`text-[10px] font-bold uppercase tracking-wide ${
               isToday ? "text-headband-dark" : "text-foreground/45"
@@ -148,12 +211,20 @@ function DayCell({
               day: "numeric",
             })}
           </span>
-          <span className="mr-14 text-[9px] font-medium text-foreground/35 md:mr-0">
+          <span className="text-[9px] font-medium text-foreground/35 md:ml-auto">
             Day {cell.dayNumber + 1}
           </span>
+          {isToday && (
+            <span className="rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white md:hidden">
+              Today
+            </span>
+          )}
+          <span className="ml-auto md:hidden">{actions}</span>
         </div>
 
-        <div className="mt-0.5 flex items-start justify-between gap-1 md:mt-1">
+        {/* Title and status share a line when there is room, and wrap in the
+            narrow desktop column, so one rule serves both widths. */}
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:mt-1">
           <span
             className={`font-semibold leading-tight md:text-xs ${
               isRest ? "text-foreground/50" : ""
@@ -161,104 +232,69 @@ function DayCell({
           >
             {workout.label}
           </span>
-          <span className="-mr-0.5 -mt-0.5 hidden shrink-0 md:block">
+          {statusChip}
+          <span className="-mr-0.5 -mt-0.5 ml-auto hidden shrink-0 md:block">
             <WorkoutIcon type={workout.type} />
           </span>
         </div>
 
-      {status === "missed" && (
-        <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/50">
-          <span className="h-1.5 w-1.5 rounded-full ring-1 ring-foreground/30" />
-          Missed
-        </span>
-      )}
-
-      {done && (
-        <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold text-white">
-          <CheckIcon size={9} />
-          Done
-        </span>
-      )}
-
-      {log?.stravaName && (
-        <span
-          className="mt-1 flex items-center gap-1 truncate text-[10px] text-[#fc4c02]"
-          title={log.stravaName}
-        >
-          <BoltIcon size={11} />
-          <span className="truncate">{log.stravaName}</span>
-        </span>
-      )}
-
-      {done && (log?.miles || seconds) && (
-        <button
-          onClick={onOpen}
-          title="See splits, route, and heart rate"
-          className="mt-0.5 -mx-1 flex flex-col items-start rounded-lg px-1 py-0.5 text-left transition hover:bg-white/70"
-        >
-          <span className="text-[10px] tabular-nums text-foreground/60">
-            {log?.miles ? `${log.miles} mi` : ""}
-            {log?.miles && seconds ? " · " : ""}
-            {seconds ? formatDurationShort(seconds) : ""}
-          </span>
-          {pace && (
-            <span className="text-[10px] font-semibold tabular-nums text-headband-dark underline decoration-headband/30 underline-offset-2">
-              {formatPacePerMile(pace)}
-            </span>
-          )}
-        </button>
-      )}
-
-      {done && (
-        <div className="mt-1 flex items-center gap-0.5" aria-label="How did it feel?">
-          {FEELS.map((f) => (
-            <button
-              key={f.value}
-              title={f.label}
-              aria-label={f.label}
-              aria-pressed={log?.feel === f.value}
-              onClick={() => onFeel(f.value)}
-              className={`rounded-full p-0.5 transition ${
-                log?.feel === f.value
-                  ? "bg-headband-light ring-1 ring-headband"
-                  : "opacity-40 hover:opacity-100"
-              }`}
-            >
-              <MoodIcon mood={f.value} size={18} />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!isRest && (
-        <div className="mt-auto flex items-center gap-1 pt-1">
-          <button
-            onClick={onToggle}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-              done
-                ? "bg-headband text-white"
-                : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
-            }`}
-          >
-            {done ? (
-              <span className="flex items-center gap-1">
-                Done <CheckIcon size={9} />
+        {(log?.stravaName || (done && (log?.miles || seconds))) && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {log?.stravaName && (
+              <span
+                className="flex min-w-0 items-center gap-1 text-[10px] text-[#fc4c02]"
+                title={log.stravaName}
+              >
+                <BoltIcon size={11} />
+                <span className="truncate">{log.stravaName}</span>
               </span>
-            ) : (
-              "Mark done"
             )}
-          </button>
-          <button
-            onClick={() => setEditing((e) => !e)}
-            className="rounded-full p-1 text-foreground/50 transition hover:bg-poodle-cream"
-            aria-label="Log distance and time"
+            {done && (log?.miles || seconds) && (
+              <button
+                onClick={onOpen}
+                title="See splits, route, and heart rate"
+                className="-mx-1 flex flex-wrap items-center gap-x-1.5 rounded-lg px-1 py-0.5 text-left transition hover:bg-white/70"
+              >
+                <span className="text-[10px] tabular-nums text-foreground/60">
+                  {log?.miles ? `${log.miles} mi` : ""}
+                  {log?.miles && seconds ? " · " : ""}
+                  {seconds ? formatDurationShort(seconds) : ""}
+                </span>
+                {pace && (
+                  <span className="text-[10px] font-semibold tabular-nums text-headband-dark underline decoration-headband/30 underline-offset-2">
+                    {formatPacePerMile(pace)}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
+        {done && (
+          <div
+            className="mt-1 flex items-center gap-0.5"
+            aria-label="How did it feel?"
           >
-            <PencilIcon size={13} />
-          </button>
+            {FEELS.map((f) => (
+              <button
+                key={f.value}
+                title={f.label}
+                aria-label={f.label}
+                aria-pressed={log?.feel === f.value}
+                onClick={() => onFeel(f.value)}
+                className={`rounded-full p-0.5 transition ${
+                  log?.feel === f.value
+                    ? "bg-headband-light ring-1 ring-headband"
+                    : "opacity-40 hover:opacity-100"
+                }`}
+              >
+                <MoodIcon mood={f.value} size={18} />
+              </button>
+            ))}
+          </div>
+        )}
 
-        </div>
-      )}
-
+        <div className="mt-auto hidden pt-1 md:block">{actions}</div>
       </div>
 
       {editing && (
