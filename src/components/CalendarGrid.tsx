@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DurationInput from "@/components/DurationInput";
 import PoodleSleeping from "@/components/PoodleSleeping";
 import WorkoutDetail from "@/components/WorkoutDetail";
@@ -13,7 +13,6 @@ import {
   IconProps,
   MedalIcon,
   MoodIcon,
-  PencilIcon,
   RunIcon,
   SwimIcon,
 } from "@/components/Icons";
@@ -105,7 +104,8 @@ function DayCell({
 }) {
   const [editing, setEditing] = useState(false);
   /** Actions sit behind a caret so a cell reads as the workout, not controls. */
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [miles, setMiles] = useState("");
   const [time, setTime] = useState("");
 
@@ -114,53 +114,73 @@ function DayCell({
   const isRest = status === "rest";
   const done = status === "done";
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   const seconds = logSeconds(log);
   const pace = paceSecondsPerMile(seconds, log?.miles);
 
   /**
    * Rendered in two places: on a phone it sits in the meta line, where the row
    * is wide and the right side would otherwise be empty; in the desktop grid a
-   * column is narrow, so it stays pinned to the bottom.
+   * column is narrow, so it stays pinned to the bottom. The menu is absolutely
+   * positioned either way, so opening it never reflows the card.
    */
-  const actions = isRest ? null : actionsOpen ? (
-    <div className="flex items-center gap-1">
+  const actions = isRest ? null : (
+    <div className="relative" ref={menuRef}>
       <button
-        onClick={() => {
-          onToggle();
-          setActionsOpen(false);
-        }}
-        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-          done
-            ? "bg-headband text-white"
-            : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
+        onClick={() => setMenuOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={done ? "Edit this workout" : "Mark done or edit"}
+        className={`flex items-center justify-center rounded-lg px-2 py-0.5 transition hover:bg-white/70 md:w-full ${
+          menuOpen
+            ? "bg-white/80 text-foreground/70"
+            : "text-foreground/35 hover:text-foreground/60"
         }`}
       >
-        {done ? "Undo" : "Mark done"}
+        <ChevronIcon up={menuOpen} size={14} />
       </button>
-      <button
-        onClick={() => setEditing((e) => !e)}
-        className="rounded-full p-1 text-foreground/50 transition hover:bg-white/70"
-        aria-label="Log distance and time"
-      >
-        <PencilIcon size={13} />
-      </button>
-      <button
-        onClick={() => setActionsOpen(false)}
-        aria-label="Hide actions"
-        className="rounded-full p-0.5 text-foreground/40 transition hover:bg-white/70"
-      >
-        <ChevronIcon up size={13} />
-      </button>
+
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-xl bg-white py-1 text-left ring-1 ring-poodle-fur pouf-shadow"
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              onToggle();
+              setMenuOpen(false);
+            }}
+            className="block w-full px-3 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-poodle-cream"
+          >
+            {done ? "Mark not done" : "Mark done"}
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setEditing(true);
+              setMenuOpen(false);
+            }}
+            className="block w-full px-3 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-poodle-cream"
+          >
+            {done ? "Edit details" : "Log details"}
+          </button>
+        </div>
+      )}
     </div>
-  ) : (
-    <button
-      onClick={() => setActionsOpen(true)}
-      aria-label={done ? "Edit this workout" : "Mark done or edit"}
-      aria-expanded={false}
-      className="flex items-center justify-center rounded-lg px-2 py-0.5 text-foreground/35 transition hover:bg-white/70 hover:text-foreground/60 md:w-full"
-    >
-      <ChevronIcon size={14} />
-    </button>
   );
 
   const statusChip =
