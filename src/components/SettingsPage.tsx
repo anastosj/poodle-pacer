@@ -53,6 +53,15 @@ export default function SettingsPage() {
       <div className="mt-4">
         <StravaCard plan={plan} updatePlan={updatePlan} program={program} />
       </div>
+
+      <p className="mt-6 flex justify-center gap-4 pb-2 text-xs text-foreground/50">
+        <a href="/privacy" className="underline hover:text-foreground/70">
+          Privacy Policy
+        </a>
+        <a href="/terms" className="underline hover:text-foreground/70">
+          Terms of Service
+        </a>
+      </p>
     </div>
   );
 }
