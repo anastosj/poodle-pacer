@@ -74,14 +74,20 @@ export const RACE_DAY_MESSAGE =
   "Good luck out there. You've absolutely got this!";
 
 /**
- * Sent once when a runner confirms their number. The quoted sample has its own
- * poodle stripped so the message does not open with the same emoji twice.
+ * The opt-in confirmation, sent once when a runner confirms their number.
+ *
+ * Carriers require an opt-in message to name the programme, state how often it
+ * sends, note that carrier rates apply, and give the STOP and HELP keywords.
+ * A campaign gets rejected without them, so keep all four if this is reworded.
+ * The sample workout line that used to live here moved to the settings screen,
+ * which shows a live preview anyway.
  */
-export function confirmationMessage(sample: string): string {
-  // Drop anything before the first word character, which removes the emoji and
-  // the space after it without needing unicode property escapes.
-  const plain = sample.replace(/^[^A-Za-z0-9]+/, "");
-  return `🐩 Poodle Pacer is connected. Your workout lands here each morning, like this: "${plain}"`;
+export function confirmationMessage(): string {
+  return (
+    "🐩 Poodle Pacer: you are subscribed to morning workout texts. " +
+    "Up to 1 msg/day. Msg & data rates may apply. " +
+    "Reply STOP to cancel, HELP for help."
+  );
 }
 
 /** What a runner would receive today, for the preview in settings. */

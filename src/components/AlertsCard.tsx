@@ -110,7 +110,7 @@ export default function AlertsCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phone: e164,
-          message: confirmationMessage(preview),
+          message: confirmationMessage(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -134,7 +134,7 @@ export default function AlertsCard({
     } catch {
       setSend({ kind: "error", message: "Could not reach the server." });
     }
-  }, [e164, preview, update]);
+  }, [e164, update]);
 
   const setEnabled = (enabled: boolean) =>
     update((prev) => ({ ...prev, alerts: { ...prev.alerts, enabled } }));
