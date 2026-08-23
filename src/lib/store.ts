@@ -24,6 +24,22 @@ export interface RunLog {
   elevationGain?: number;
   /** Steps per minute (Strava reports one leg; we double it on import). */
   cadence?: number;
+  /**
+   * Splits and route baked into the log itself, written only by the demo
+   * seeder. Real runs fetch this from Strava on demand, but demo accounts have
+   * no Strava connection, so without it the detail sheet cannot be seen at all.
+   */
+  sampleDetail?: {
+    splits: {
+      mile: number;
+      miles: number;
+      seconds: number;
+      pace: number;
+      elevationChange: number;
+      heartRate?: number;
+    }[];
+    polyline: string;
+  };
 }
 
 /** Duration of a logged run in seconds, tolerating the legacy `minutes` field. */

@@ -111,6 +111,96 @@ const RUN_NAMES = [
   "Long run",
 ];
 
+
+/* --------------------------- synthetic detail ---------------------------- */
+
+/** Google encoded polyline, so the demo route decodes exactly like Strava's. */
+function encodePolyline(points) {
+  const enc = (v) => {
+    let n = v < 0 ? ~(v << 1) : v << 1;
+    let out = "";
+    while (n >= 0x20) {
+      out += String.fromCharCode((0x20 | (n & 0x1f)) + 63);
+      n >>= 5;
+    }
+    return out + String.fromCharCode(n + 63);
+  };
+  let lat = 0;
+  let lng = 0;
+  let out = "";
+  for (const p of points) {
+    const la = Math.round(p.lat * 1e5);
+    const ln = Math.round(p.lng * 1e5);
+    out += enc(la - lat) + enc(ln - lng);
+    lat = la;
+    lng = ln;
+  }
+  return out;
+}
+
+/** A wobbly loop starting and ending near the same spot, like a park circuit. */
+function sampleRoute(miles, rand) {
+  const centerLat = 40.6602; // Prospect Park, Brooklyn
+  const centerLng = -73.969;
+  const radius = 0.0016 * Math.sqrt(Math.max(miles, 0.5));
+  const steps = 64;
+  const wobble = Array.from({ length: 5 }, () => 0.7 + rand() * 0.6);
+
+  const points = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2;
+    // A few low-frequency terms keep it from being a plain circle.
+    const r =
+      radius *
+      (wobble[0] +
+        0.18 * Math.sin(t * 2 + wobble[1]) +
+        0.12 * Math.sin(t * 3 + wobble[2]) +
+        0.07 * Math.sin(t * 5 + wobble[3]));
+    points.push({
+      lat: centerLat + r * Math.cos(t),
+      lng: centerLng + r * Math.sin(t) * 1.32, // longitude shrinks with latitude
+    });
+  }
+  return encodePolyline(points);
+}
+
+/** Per-mile splits that add up to the run's own distance and time. */
+function sampleSplits(miles, seconds, hr, rand) {
+  const splits = [];
+  const whole = Math.floor(miles);
+  const avgPace = seconds / miles;
+  let used = 0;
+
+  for (let m = 1; m <= whole; m++) {
+    // Drift a little slower late on, plus noise, so the shape looks run.
+    const drift = ((m - 1) / Math.max(whole - 1, 1)) * 18 - 6;
+    const pace = Math.round(avgPace + drift + (rand() - 0.5) * 26);
+    used += pace;
+    splits.push({
+      mile: m,
+      miles: 1,
+      seconds: pace,
+      pace,
+      elevationChange: Math.round((rand() - 0.45) * 60),
+      heartRate: Math.round(hr + (m - 1) * 1.4 + (rand() - 0.5) * 8),
+    });
+  }
+
+  const tail = Math.round((miles - whole) * 100) / 100;
+  if (tail >= 0.05) {
+    const rest = Math.max(seconds - used, Math.round(tail * avgPace));
+    splits.push({
+      mile: whole + 1,
+      miles: tail,
+      seconds: rest,
+      pace: Math.round(rest / tail),
+      elevationChange: Math.round((rand() - 0.5) * 30),
+      heartRate: Math.round(hr + 6 + (rand() - 0.5) * 8),
+    });
+  }
+  return splits;
+}
+
 /** Deterministic pseudo-random in [0,1), so reseeding gives the same data. */
 function rng(seed) {
   let s = 0;
@@ -151,6 +241,17 @@ function buildLogs(runner) {
         maxHeartRate: Math.round(runner.hr + 20 + rand() * 8),
         elevationGain: Math.round(40 + rand() * 190),
         cadence: Math.round(runner.cadence + (rand() - 0.5) * 7),
+        // Demo accounts have no Strava connection, so the detail sheet reads
+        // this instead of fetching. Real runs never carry it.
+        sampleDetail: {
+          splits: sampleSplits(
+            actual,
+            Math.round(actual * (isLong ? pace + 22 : pace)),
+            runner.hr,
+            rand
+          ),
+          polyline: sampleRoute(actual, rand),
+        },
       };
     }
 
