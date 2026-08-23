@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CalendarGrid from "@/components/CalendarGrid";
 import InsightsPanel from "@/components/InsightsPanel";
 import MileageChart from "@/components/MileageChart";
@@ -60,9 +60,11 @@ function findNextWorkout(
 
 export default function HomePage() {
   const { state, plan, program, updatePlan } = useApp();
-  const [cheer] = useState(
-    () => CHEERS[Math.floor(Math.random() * CHEERS.length)]
-  );
+  // Start on a fixed cheer so server and client agree, then shuffle after mount.
+  const [cheer, setCheer] = useState(CHEERS[0]);
+  useEffect(() => {
+    setCheer(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+  }, []);
 
   let completed = 0;
   let totalWorkouts = 0;

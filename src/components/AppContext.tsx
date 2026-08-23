@@ -13,18 +13,23 @@ import {
 import { Program, programs } from "@/lib/programs";
 import {
   Plan,
-  RunnerId,
   RunnerState,
   activePlan,
+  defaultState,
   loadState,
   normalizeState,
   saveState,
   updateActivePlan,
 } from "@/lib/store";
 
+export interface SessionUser {
+  id: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
 interface AppContextValue {
-  runner: RunnerId;
-  setRunner: (runner: RunnerId) => void;
+  user: SessionUser;
   state: RunnerState;
   update: (updater: (prev: RunnerState) => RunnerState) => void;
   plan: Plan;
@@ -34,27 +39,22 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const RUNNER_KEY = "hm-trainer:runner";
+export function AppProvider({
+  user,
+  children,
+}: {
+  user: SessionUser;
+  children: ReactNode;
+}) {
+  // Must match what the server renders — localStorage is read after mount,
+  // otherwise the first client render diverges and hydration fails.
+  const [state, setState] = useState<RunnerState>(defaultState);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-function loadRunner(): RunnerId {
-  if (typeof window === "undefined") return "jonathan";
-  return window.localStorage.getItem(RUNNER_KEY) === "sam" ? "sam" : "jonathan";
-}
-
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [runner, setRunnerState] = useState<RunnerId>("jonathan");
-  const [state, setState] = useState<RunnerState | null>(null);
-  const runnerRef = useRef<RunnerId>("jonathan");
-  const saveTimers = useRef<Partial<Record<RunnerId, ReturnType<typeof setTimeout>>>>(
-    {}
-  );
-
-  const pushRemote = useCallback((r: RunnerId, s: RunnerState) => {
-    const timers = saveTimers.current;
-    const existing = timers[r];
-    if (existing) clearTimeout(existing);
-    timers[r] = setTimeout(() => {
-      fetch(`/api/state?runner=${r}`, {
+  const pushRemote = useCallback((s: RunnerState) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      fetch("/api/state", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state: s }),
@@ -62,58 +62,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, 600);
   }, []);
 
-  const loadFor = useCallback(
-    async (r: RunnerId) => {
-      runnerRef.current = r;
-      const local = loadState(r);
-      setState(local);
+  useEffect(() => {
+    let cancelled = false;
+    const local = loadState(user.id);
+    setState(local);
+
+    (async () => {
       try {
-        const res = await fetch(`/api/state?runner=${r}`);
-        if (!res.ok) return;
+        const res = await fetch("/api/state");
+        if (!res.ok || cancelled) return;
         const json = (await res.json()) as { state?: unknown };
-        if (runnerRef.current !== r) return;
+        if (cancelled) return;
         if (json.state) {
           const remote = normalizeState(json.state);
           setState(remote);
-          saveState(r, remote);
+          saveState(user.id, remote);
         } else {
-          pushRemote(r, local);
+          // First sign-in on this account — seed the server from local.
+          pushRemote(local);
         }
       } catch {
-        // offline — localStorage copy stays in charge
+        // Offline — the cached copy stays in charge.
       }
-    },
-    [pushRemote]
-  );
+    })();
 
-  useEffect(() => {
-    const r = loadRunner();
-    setRunnerState(r);
-    void loadFor(r);
-  }, [loadFor]);
-
-  const setRunner = useCallback(
-    (r: RunnerId) => {
-      setRunnerState(r);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(RUNNER_KEY, r);
-      }
-      void loadFor(r);
-    },
-    [loadFor]
-  );
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, pushRemote]);
 
   const update = useCallback(
     (updater: (prev: RunnerState) => RunnerState) => {
       setState((prev) => {
-        if (!prev) return prev;
         const next = updater(prev);
-        saveState(runner, next);
-        pushRemote(runner, next);
+        saveState(user.id, next);
+        pushRemote(next);
         return next;
       });
     },
-    [runner, pushRemote]
+    [user.id, pushRemote]
   );
 
   const updatePlan = useCallback(
@@ -123,21 +110,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [update]
   );
 
-  const plan = useMemo(() => (state ? activePlan(state) : null), [state]);
+  const plan = useMemo(() => activePlan(state), [state]);
   const program = useMemo(
-    () => programs.find((p) => p.id === plan?.programId) ?? programs[0],
-    [plan?.programId]
+    () => programs.find((p) => p.id === plan.programId) ?? programs[0],
+    [plan.programId]
   );
 
   const value = useMemo(
-    () =>
-      state && plan
-        ? { runner, setRunner, state, update, plan, updatePlan, program }
-        : null,
-    [runner, setRunner, state, update, plan, updatePlan, program]
+    () => ({ user, state, update, plan, updatePlan, program }),
+    [user, state, update, plan, updatePlan, program]
   );
-
-  if (!value) return null;
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

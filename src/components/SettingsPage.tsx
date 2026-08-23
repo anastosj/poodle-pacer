@@ -3,11 +3,9 @@
 import AlertsCard from "@/components/AlertsCard";
 import StravaCard from "@/components/StravaCard";
 import { useApp } from "@/components/AppContext";
-import { RUNNERS } from "@/lib/store";
 
 export default function SettingsPage() {
-  const { runner, setRunner, state, update, plan, updatePlan, program } =
-    useApp();
+  const { user, state, update, plan, updatePlan, program } = useApp();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -20,36 +18,41 @@ export default function SettingsPage() {
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
           👤 Profile
         </h2>
-        <p className="mt-2 text-xs text-foreground/60">
-          Who&apos;s training? Each runner keeps their own races, logs, and
-          alerts.
-        </p>
-        <div className="mt-3 flex gap-2">
-          {RUNNERS.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setRunner(r.id)}
-              className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                runner === r.id
-                  ? "bg-headband text-white pouf-shadow"
-                  : "bg-white text-foreground/70 ring-1 ring-poodle-fur hover:bg-poodle-cream"
-              }`}
-            >
-              {r.emoji} {r.name}
-            </button>
-          ))}
+        <div className="mt-3 flex items-center gap-3">
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="h-12 w-12 rounded-full object-cover ring-1 ring-poodle-fur"
+            />
+          ) : (
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-headband text-lg text-white">
+              🐩
+            </span>
+          )}
+          <div>
+            <div className="text-base font-bold">{user.name ?? "Runner"}</div>
+            <div className="text-xs text-foreground/55">
+              Signed in with Strava · your races, logs, and alerts are private
+              to this account.
+            </div>
+          </div>
         </div>
+        <form action="/api/auth/logout" method="post" className="mt-4">
+          <button
+            type="submit"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-red-600 ring-1 ring-red-200 transition hover:bg-red-50"
+          >
+            Sign out
+          </button>
+        </form>
       </section>
 
       <AlertsCard state={state} update={update} plan={plan} program={program} />
 
       <div className="mt-4">
-        <StravaCard
-          runner={runner}
-          plan={plan}
-          updatePlan={updatePlan}
-          program={program}
-        />
+        <StravaCard plan={plan} updatePlan={updatePlan} program={program} />
       </div>
     </div>
   );
