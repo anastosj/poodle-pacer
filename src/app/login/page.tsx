@@ -74,10 +74,16 @@ export default async function LoginPage({
           plan is private to your account.
         </p>
 
-        <p className="mt-4 text-xs text-foreground/40">
-          <Link href="/" className="underline hover:text-foreground/60">
-            Back to the app
+        <p className="mt-5 text-xs leading-relaxed text-foreground/45">
+          By signing in you agree to the{" "}
+          <Link href="/terms" className="underline hover:text-foreground/70">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline hover:text-foreground/70">
+            Privacy Policy
           </Link>
+          .
         </p>
       </div>
     </main>
