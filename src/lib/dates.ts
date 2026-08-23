@@ -21,7 +21,7 @@ export function addDaysISO(iso: string, days: number): string {
   return toLocalISO(addDays(fromISO(iso), days));
 }
 
-/** Local midnight today — the anchor for past/today/future comparisons. */
+/** Local midnight today: the anchor for past/today/future comparisons. */
 export function startOfToday(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());

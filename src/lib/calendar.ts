@@ -154,7 +154,7 @@ export function formatShortDate(d: Date): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** "Day 3 · Nov 2" — the plan-relative day paired with the real date. */
+/** "Day 3 · Nov 2": the plan-relative day paired with the real date. */
 export function formatDayStamp(cell: CalendarCell): string {
   return `Day ${cell.dayNumber + 1} · ${formatShortDate(cell.date)}`;
 }

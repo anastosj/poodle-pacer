@@ -8,7 +8,7 @@ export interface RunnerSummary {
   userId: string;
   name: string;
   avatarUrl: string | null;
-  /** Null until they've set a race date — they show as "getting started". */
+  /** Null until they've set a race date, when they show as "getting started". */
   raceName: string | null;
   raceDate: string | null;
   daysToRace: number | null;
@@ -99,7 +99,7 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
 }
 
 /**
- * Everyone's progress, most consistent first — a friendlier ranking than raw
+ * Everyone's progress, most consistent first. A friendlier ranking than raw
  * mileage, since plans differ in length and people start at different times.
  * Runners who haven't set a race date sort last.
  */

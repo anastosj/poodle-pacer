@@ -10,6 +10,7 @@ import PoodleProgressBar from "@/components/PoodleProgressBar";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
 import PoodleMascot from "@/components/PoodleMascot";
+import { PawIcon, StarIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { fromISO } from "@/lib/dates";
 import { Workout } from "@/lib/programs";
@@ -21,10 +22,10 @@ import {
 } from "@/lib/store";
 
 const CHEERS = [
-  "Paws on the pavement — you've got this! 🐩",
+  "Paws on the pavement. You have got this.",
   "Every mile earns extra belly rubs.",
   "Fluffy on the outside, fierce on the inside.",
-  "Trot, jog, zoom — repeat!",
+  "Trot, jog, zoom, repeat!",
   "13.1 miles? That's just 26.2 zoomies.",
   "Blue headband on. Game face on.",
 ];
@@ -66,7 +67,7 @@ function findNextWorkout(
 }
 
 export default function HomePage() {
-  const { state, plan, program, updatePlan } = useApp();
+  const { state, loaded, plan, program, updatePlan } = useApp();
   // Start on a fixed cheer so server and client agree, then shuffle after mount.
   const [cheer, setCheer] = useState(CHEERS[0]);
   useEffect(() => {
@@ -99,7 +100,9 @@ export default function HomePage() {
   );
   const nextKey = next ? logKey(next.week, next.dayIndex) : undefined;
 
+  // Wait for the server copy, otherwise the wizard flashes over an existing plan.
   const showOnboarding =
+    loaded &&
     !state.onboarded &&
     !plan.startDate &&
     Object.keys(plan.logs).length === 0;
@@ -146,15 +149,16 @@ export default function HomePage() {
                 })}. Rest up.`}
             </div>
           </div>
-          <PoodleMascot size={72} />
+          <PoodleMascot size={72} className="wag" />
         </section>
       )}
 
       {countdown === 0 && next && (
         <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
           <div className="flex-1">
-            <div className="text-xs font-bold uppercase tracking-wide text-white/70">
-              ⭐ Next workout
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-white/70">
+              <StarIcon size={13} />
+              Next workout
             </div>
             <div className="mt-1 text-xl font-extrabold">
               {next.workout.label}
@@ -194,7 +198,7 @@ export default function HomePage() {
             }}
             className="rounded-full bg-white px-5 py-2 text-sm font-bold text-headband-dark transition hover:bg-headband-light"
           >
-            Mark done ✓
+            Mark done
           </button>
         </section>
       )}
@@ -217,8 +221,9 @@ export default function HomePage() {
         nextKey={nextKey}
       />
 
-      <footer className="mt-10 pb-6 text-center text-xs text-foreground/50">
-        Made with 🦴 by your poodle coach · Program: {program.author}&apos;s{" "}
+      <footer className="mt-10 flex flex-wrap items-center justify-center gap-1.5 pb-6 text-center text-xs text-foreground/50">
+        <PawIcon size={13} className="opacity-50" />
+        Made by your poodle coach · Program: {program.author}&apos;s{" "}
         {program.name}
       </footer>
 

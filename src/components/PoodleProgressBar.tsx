@@ -1,5 +1,7 @@
 "use client";
 
+import { BoneIcon } from "@/components/Icons";
+
 function MiniPoodle({ size = 40 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 60 60" aria-hidden>
@@ -46,7 +48,7 @@ export default function PoodleProgressBar({
         />
         {/* bone at the finish */}
         <span className="absolute -right-1 bottom-5 text-xl" role="img" aria-label="bone">
-          🦴
+          <BoneIcon size={22} />
         </span>
         {/* running poodle */}
         <div
@@ -58,7 +60,7 @@ export default function PoodleProgressBar({
       </div>
       <p className="text-center text-[11px] text-foreground/50">
         {pct >= 100
-          ? "Bone acquired!! What a good runner! 🎉🦴"
+          ? "Bone acquired. What a good runner."
           : `${Math.round(pct)}% of the way to the bone`}
       </p>
     </div>

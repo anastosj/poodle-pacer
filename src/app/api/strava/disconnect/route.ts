@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Strava is how people sign in, so dropping the tokens also ends the session —
+ * Strava is how people sign in, so dropping the tokens also ends the session.
  * otherwise you'd be left signed in with no way to sync.
  */
 export async function POST() {

@@ -30,6 +30,8 @@ export interface SessionUser {
 
 interface AppContextValue {
   user: SessionUser;
+  /** False until the server copy has been fetched (or failed). */
+  loaded: boolean;
   state: RunnerState;
   update: (updater: (prev: RunnerState) => RunnerState) => void;
   plan: Plan;
@@ -46,9 +48,10 @@ export function AppProvider({
   user: SessionUser;
   children: ReactNode;
 }) {
-  // Must match what the server renders — localStorage is read after mount,
+  // Must match what the server renders. localStorage is read after mount,
   // otherwise the first client render diverges and hydration fails.
   const [state, setState] = useState<RunnerState>(defaultState);
+  const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pushRemote = useCallback((s: RunnerState) => {
@@ -78,11 +81,13 @@ export function AppProvider({
           setState(remote);
           saveState(user.id, remote);
         } else {
-          // First sign-in on this account — seed the server from local.
+          // First sign-in on this account, so seed the server from local.
           pushRemote(local);
         }
       } catch {
-        // Offline — the cached copy stays in charge.
+        // Offline, so the cached copy stays in charge.
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     })();
 
@@ -117,8 +122,8 @@ export function AppProvider({
   );
 
   const value = useMemo(
-    () => ({ user, state, update, plan, updatePlan, program }),
-    [user, state, update, plan, updatePlan, program]
+    () => ({ user, loaded, state, update, plan, updatePlan, program }),
+    [user, loaded, state, update, plan, updatePlan, program]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

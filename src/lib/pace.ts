@@ -56,7 +56,7 @@ export function paceSecondsPerMile(
 
 /** 522 → "8:42". */
 export function formatPace(secondsPerMile: number | undefined): string {
-  if (secondsPerMile === undefined || !Number.isFinite(secondsPerMile)) return "—";
+  if (secondsPerMile === undefined || !Number.isFinite(secondsPerMile)) return "–";
   const total = Math.round(secondsPerMile);
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
@@ -65,7 +65,7 @@ export function formatPace(secondsPerMile: number | undefined): string {
 
 export function formatPacePerMile(secondsPerMile: number | undefined): string {
   const pace = formatPace(secondsPerMile);
-  return pace === "—" ? "—" : `${pace}/mi`;
+  return pace === "–" ? "–" : `${pace}/mi`;
 }
 
 /**

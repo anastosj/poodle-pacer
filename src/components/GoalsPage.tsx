@@ -57,14 +57,14 @@ export default function GoalsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">🎯 Goals</h1>
+      <h1 className="text-2xl font-extrabold tracking-tight">Goals</h1>
       <p className="mt-1 text-sm text-foreground/60">
-        Pick your race, program, and dates — the poodle handles the rest.
+        Pick your race, program, and dates. The poodle handles the rest.
       </p>
 
       <section className="mt-5 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          🏁 Races
+          Races
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {state.plans.map((p) => (
@@ -137,8 +137,8 @@ export default function GoalsPage() {
         >
           {programs.map((p) => (
             <option key={p.id} value={p.id} disabled={!p.available}>
-              {p.author} — {p.name} ({p.weeks} weeks)
-              {p.available ? "" : " — coming soon"}
+              {p.author}: {p.name} ({p.weeks} weeks)
+              {p.available ? "" : " (coming soon)"}
             </option>
           ))}
         </select>

@@ -8,7 +8,7 @@ import { stravaConfigured } from "@/lib/strava";
 export const dynamic = "force-dynamic";
 
 const ERRORS: Record<string, string> = {
-  denied: "You cancelled the Strava sign-in — no harm done, try again whenever.",
+  denied: "You cancelled the Strava sign-in. No harm done, try again whenever.",
   bad_state:
     "That sign-in link expired or didn't match this browser. Please try again.",
   no_code: "Strava didn't send back a login code. Please try again.",

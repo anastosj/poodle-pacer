@@ -40,7 +40,7 @@ const cross = (minutes: number): Workout => ({
   minutes,
   label: `${minutes} min cross`,
 });
-const race: Workout = { type: "race", label: "Half Marathon! 🎉" };
+const race: Workout = { type: "race", label: "Half Marathon!" };
 
 const w = (
   week: number,

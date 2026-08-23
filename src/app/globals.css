@@ -3,21 +3,85 @@
 @tailwind utilities;
 
 :root {
-  --background: #fbf9f4; /* fluffy poodle white */
+  --background: #fbf8f2; /* fluffy poodle white */
   --foreground: #3a3630;
   --headband: #2f6fed; /* blue headband */
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
+  /* A faint scatter of paw-pad dots, so the page reads soft rather than flat. */
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(47, 111, 237, 0.05) 0 12px, transparent 13px),
+    radial-gradient(circle at 84% 34%, rgba(247, 204, 214, 0.28) 0 10px, transparent 11px),
+    radial-gradient(circle at 68% 82%, rgba(47, 111, 237, 0.04) 0 14px, transparent 15px),
+    radial-gradient(circle at 26% 68%, rgba(232, 176, 75, 0.13) 0 9px, transparent 10px);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Soft, slightly lifted surfaces. Two layers read rounder than one. */
   .pouf-shadow {
-    box-shadow: 0 4px 14px rgba(58, 54, 48, 0.08);
+    box-shadow:
+      0 1px 2px rgba(58, 54, 48, 0.04),
+      0 6px 18px rgba(58, 54, 48, 0.07);
+  }
+
+  /* Cards that should feel like they could be picked up. */
+  .pouf-lift {
+    transition:
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 180ms ease;
+  }
+  .pouf-lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 2px 4px rgba(58, 54, 48, 0.05),
+      0 12px 26px rgba(58, 54, 48, 0.1);
+  }
+
+  /* A gentle wag for celebratory moments. */
+  .wag {
+    animation: wag 1.6s ease-in-out infinite;
+    transform-origin: 70% 70%;
+  }
+  @keyframes wag {
+    0%,
+    100% {
+      transform: rotate(-4deg);
+    }
+    50% {
+      transform: rotate(4deg);
+    }
+  }
+
+  .bounce-in {
+    animation: bounce-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes bounce-in {
+    from {
+      opacity: 0;
+      transform: scale(0.92) translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wag,
+  .bounce-in {
+    animation: none;
+  }
+  .pouf-lift:hover {
+    transform: none;
   }
 }

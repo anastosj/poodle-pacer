@@ -47,7 +47,7 @@ export function parseSession(token: string | undefined): SessionPayload | null {
   const expected = sign(body);
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
-  // Length check first — timingSafeEqual throws on a mismatch.
+  // Length check first, since timingSafeEqual throws on a mismatch.
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
   try {

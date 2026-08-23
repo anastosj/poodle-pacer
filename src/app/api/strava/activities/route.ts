@@ -12,7 +12,7 @@ export interface StravaRun {
   id: number;
   name: string;
   miles: number;
-  /** Moving time in seconds — the basis for accurate pace. */
+  /** Moving time in seconds, the basis for accurate pace. */
   seconds: number;
   startDate: string; // ISO
   avgHeartRate?: number;

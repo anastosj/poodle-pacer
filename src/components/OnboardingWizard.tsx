@@ -50,7 +50,7 @@ export default function OnboardingWizard() {
           <PoodleMascot size={56} />
           <div>
             <h2 className="text-lg font-extrabold tracking-tight">
-              {step === 0 && "Welcome to Poodle Pacer! 🐩"}
+              {step === 0 && "Welcome to Poodle Pacer"}
               {step === 1 && "Pick your program"}
               {step === 2 && "When's the big day?"}
             </h2>
@@ -61,7 +61,7 @@ export default function OnboardingWizard() {
         {step === 0 && (
           <div className="mt-4">
             <p className="text-sm text-foreground/70">
-              Let&apos;s set up your race in three quick steps. First — what
+              Let&apos;s set up your race in three quick steps. First, what
               are you training for?
             </p>
             <input
@@ -84,8 +84,8 @@ export default function OnboardingWizard() {
             >
               {programs.map((p) => (
                 <option key={p.id} value={p.id} disabled={!p.available}>
-                  {p.author} — {p.name} ({p.weeks} weeks)
-                  {p.available ? "" : " — coming soon"}
+                  {p.author}: {p.name} ({p.weeks} weeks)
+                  {p.available ? "" : " (coming soon)"}
                 </option>
               ))}
             </select>
@@ -106,7 +106,7 @@ export default function OnboardingWizard() {
                     : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur"
                 }`}
               >
-                🏁 I know my race day
+                I know my race day
               </button>
               <button
                 onClick={() => setDateMode("start")}
@@ -116,7 +116,7 @@ export default function OnboardingWizard() {
                     : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur"
                 }`}
               >
-                📅 Pick a start date
+                Pick a start date
               </button>
             </div>
             <input
@@ -161,7 +161,7 @@ export default function OnboardingWizard() {
                 onClick={finish}
                 className="rounded-full bg-headband px-5 py-2 text-sm font-bold text-white transition hover:bg-headband-dark"
               >
-                Let&apos;s go! 🐾
+                Let&apos;s go
               </button>
             )}
           </div>
