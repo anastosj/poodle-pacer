@@ -5,18 +5,18 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import PoodleMascot from "@/components/PoodleMascot";
 import {
+  BoneIcon,
   HomeIcon,
   PawIcon,
   PoodleFaceIcon,
   SettingsIcon,
-  TargetIcon,
 } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
 
 const LINKS = [
   { href: "/", label: "Home", Icon: HomeIcon },
   { href: "/group", label: "The Pack", Icon: PawIcon },
-  { href: "/goals", label: "Goals", Icon: TargetIcon },
+  { href: "/goals", label: "Goals", Icon: BoneIcon },
   { href: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 

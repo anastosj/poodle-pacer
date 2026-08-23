@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BoneIcon,
   HomeIcon,
   PawIcon,
   SettingsIcon,
-  TargetIcon,
 } from "@/components/Icons";
 
 const LINKS = [
   { href: "/", label: "Home", Icon: HomeIcon },
   { href: "/group", label: "Pack", Icon: PawIcon },
-  { href: "/goals", label: "Goals", Icon: TargetIcon },
+  { href: "/goals", label: "Goals", Icon: BoneIcon },
   { href: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
