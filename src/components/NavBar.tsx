@@ -8,6 +8,7 @@ import { useApp } from "@/components/AppContext";
 
 const LINKS = [
   { href: "/", label: "🏠 Home" },
+  { href: "/group", label: "👟 The Pack" },
   { href: "/goals", label: "🎯 Goals" },
   { href: "/settings", label: "⚙️ Settings" },
 ];
