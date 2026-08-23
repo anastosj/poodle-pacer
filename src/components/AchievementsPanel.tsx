@@ -47,7 +47,7 @@ export default function AchievementsPanel({ state }: { state: RunnerState }) {
       </div>
       <p className="mt-3 text-[11px] text-foreground/45">
         Speed badges use a run&apos;s average pace over the badge distance.
-        Streaks count plan days without a missed workout — rest days included.
+        Streaks count plan days without a missed workout, rest days included.
       </p>
     </section>
   );

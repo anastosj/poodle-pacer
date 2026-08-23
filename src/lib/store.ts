@@ -55,6 +55,11 @@ export interface AlertSettings {
   enabled: boolean;
   /** IANA timezone the alert time is interpreted in, e.g. America/New_York. */
   timezone?: string;
+  /**
+   * The exact number a confirmation text last reached. Compared against
+   * `phone` so editing the number visibly drops it back to unconfirmed.
+   */
+  confirmedPhone?: string;
 }
 
 export interface RunnerState {
