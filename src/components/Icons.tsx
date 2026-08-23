@@ -70,14 +70,33 @@ function PoodleHead({ crown = true }: { crown?: boolean }) {
   );
 }
 
-/** Shared snout, so every poodle has the same face below the eyes. */
-function PoodleMuzzle({ tongue = false }: { tongue?: boolean }) {
+/**
+ * Shared snout, so every poodle has the same face below the eyes. The mouth
+ * is the only part that moves, which is what lets the moods stay on-model.
+ */
+function PoodleMuzzle({
+  tongue = false,
+  mouth = "neutral",
+  blush = true,
+}: {
+  tongue?: boolean;
+  mouth?: "neutral" | "happy" | "sad";
+  blush?: boolean;
+}) {
+  const jowls =
+    mouth === "happy"
+      ? ["M 60 88 Q 60 95 52 92", "M 60 88 Q 60 95 68 92"]
+      : mouth === "sad"
+        ? ["M 60 88 Q 59 94 53 98", "M 60 88 Q 61 94 67 98"]
+        : ["M 60 88 Q 60 93 55 94", "M 60 88 Q 60 93 65 94"];
+
   return (
     <>
       <ellipse cx="60" cy="88" rx="12" ry="9" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.5" />
       <ellipse cx="60" cy="85" rx="4.2" ry="3.2" fill={INK} />
-      <path d="M 60 88 Q 60 93 55 94" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      <path d="M 60 88 Q 60 93 65 94" stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      {jowls.map((d) => (
+        <path key={d} d={d} stroke={INK} strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      ))}
       {tongue && (
         <path
           d="M 56 94 Q 60 102 64 94 Q 60 97 56 94"
@@ -87,8 +106,12 @@ function PoodleMuzzle({ tongue = false }: { tongue?: boolean }) {
           strokeLinejoin="round"
         />
       )}
-      <ellipse cx="40" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
-      <ellipse cx="80" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
+      {blush && (
+        <>
+          <ellipse cx="40" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
+          <ellipse cx="80" cy="86" rx="4" ry="2.5" fill={BLUSH} opacity="0.8" />
+        </>
+      )}
     </>
   );
 }
@@ -283,27 +306,77 @@ export function ConfettiIcon(props: IconProps) {
 
 /* -------------------------------- workouts ------------------------------- */
 
-/** Running: headband on, tongue out, speed lines. */
+/**
+ * Running: a whole poodle at full stride, facing right. Drawn in the show clip
+ * (tail pom, hip rosette, ankle poms) because that silhouette says "poodle"
+ * faster than any amount of face detail does at this size.
+ */
 export function RunIcon(props: IconProps) {
   return (
     <Svg box={120} {...props}>
-      {/* Two heavy speed lines. Three thin ones turned to mush below 20px. */}
-      <g stroke={BLUE} strokeWidth="7" strokeLinecap="round" opacity="0.6">
-        <path d="M5 62h14" />
-        <path d="M3 82h12" />
+      {/* speed lines trailing behind */}
+      <g stroke={BLUE} strokeWidth="5.5" strokeLinecap="round" opacity="0.5">
+        <path d="M3 46h14" />
+        <path d="M2 64h11" />
       </g>
-      <PoodleHead />
-      {/* The headband is the one bold mass, so it carries the icon when small. */}
+
+      {/* far-side legs sit behind the body in a paler tone, which reads as
+          depth instead of the four-legged clutter a flat set produces */}
+      <g stroke={FUR_EDGE} strokeWidth="5" strokeLinecap="round" fill="none">
+        <path d="M64 76 L69 95" />
+        <path d="M40 76 L37 95" />
+      </g>
+
+      {/* tail, carried high */}
+      <path d="M27 58 L15 44" stroke={FUR_EDGE} strokeWidth="5" strokeLinecap="round" fill="none" />
+      <circle cx="12" cy="39" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+
+      {/* body: barrel plus the clipped hindquarter */}
+      <ellipse cx="50" cy="66" rx="26" ry="15" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      <circle cx="32" cy="64" r="14" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+
+      {/* near legs, mid-stride: one reaching forward, one driving back */}
+      <g stroke={INK} strokeWidth="6" strokeLinecap="round" fill="none">
+        <path d="M70 74 L88 90" />
+        <path d="M34 74 L17 88" />
+      </g>
+      <g fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2">
+        <circle cx="91" cy="93" r="6.5" />
+        <circle cx="14" cy="91" r="6.5" />
+      </g>
+
+      {/* neck, drawn thick so the head never looks detached */}
+      <path d="M70 62 L84 48" stroke="#fdfcf9" strokeWidth="15" strokeLinecap="round" fill="none" />
+      <path d="M70 62 L84 48" stroke={FUR_EDGE} strokeWidth="15" strokeLinecap="round" fill="none" opacity="0.35" />
+
+      {/* head */}
+      <circle cx="88" cy="42" r="14" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* ear pouf, oversized on purpose: it is the main "this is a dog" cue */}
+      <ellipse cx="77" cy="52" rx="9.5" ry="12" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      {/* muzzle, overlapping the head so it reads as one form */}
+      <ellipse cx="104" cy="48" rx="11" ry="6.8" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.8" />
+      <ellipse cx="113" cy="46" rx="3.4" ry="2.8" fill={INK} />
       <path
-        d="M 30 56 Q 60 40 90 56 L 87 69 Q 60 53 33 69 Z"
+        d="M 104 53 q 5 7 9 2 q -4 1 -9 -2"
+        fill="#f19bb4"
+        stroke="#e57697"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      {/* topknot */}
+      <circle cx="86" cy="27" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Headband hugging the skull. No trailing ribbon here: paired with the
+          pointed muzzle it turned the whole head into a fish. */}
+      <path
+        d="M 75 38 Q 88 26 101 38 L 99 45 Q 88 34 77 45 Z"
         fill={BLUE}
         stroke={BLUE_DEEP}
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      <path d="M 88 58 L 104 48 L 100 66 Z" fill={BLUE} stroke={BLUE_DEEP} strokeWidth="2" strokeLinejoin="round" />
-      <EyesOpen />
-      <PoodleMuzzle tongue />
+      {/* eye sits on the head, clear of the band */}
+      <circle cx="94" cy="47" r="3.2" fill={INK} />
+      <circle cx="95.1" cy="45.9" r="1.1" fill="#fff" />
     </Svg>
   );
 }
@@ -381,39 +454,47 @@ export function SwimIcon(props: IconProps) {
 
 /* -------------------------------- feelings ------------------------------- */
 
-/** Three poodle moods, used for how a workout felt. */
+/**
+ * How a workout felt. Same head and snout as every other poodle here; only the
+ * eyes, mouth, and a small tell (tongue or sweat) change between moods.
+ */
 export function MoodIcon({
   mood,
   ...props
 }: IconProps & { mood: "good" | "medium" | "bad" }) {
-  const mouth =
-    mood === "good"
-      ? "M9 14.4q3 2.8 6 0"
-      : mood === "medium"
-        ? "M9.2 15h5.6"
-        : "M9 15.8q3 -2.6 6 0";
   return (
-    <Svg {...props}>
-      <circle cx="5.4" cy="11" r="2.6" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
-      <circle cx="18.6" cy="11" r="2.6" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
-      <circle cx="8.4" cy="4.9" r="2.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
-      <circle cx="15.6" cy="4.9" r="2.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.2" />
-      <circle cx="12" cy="12" r="7.4" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.3" />
-      {mood === "bad" ? (
-        <g stroke={INK} strokeWidth="1.5" strokeLinecap="round">
-          <path d="M8.4 9.6q1.2 1.4 2.4 0M13.2 9.6q1.2 1.4 2.4 0" fill="none" />
-        </g>
-      ) : (
-        <>
-          <circle cx="9.6" cy="10.2" r="1.25" fill={INK} />
-          <circle cx="14.4" cy="10.2" r="1.25" fill={INK} />
-        </>
-      )}
-      <path d={mouth} fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+    <Svg box={120} {...props}>
+      <PoodleHead />
+
       {mood === "good" && (
         <>
-          <ellipse cx="6.9" cy="13.4" rx="1.5" ry="1" fill={BLUSH} opacity="0.9" />
-          <ellipse cx="17.1" cy="13.4" rx="1.5" ry="1" fill={BLUSH} opacity="0.9" />
+          {/* happy arcs rather than dots, so the whole face lifts */}
+          <path d="M 44 76 Q 49 69 54 76" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+          <path d="M 66 76 Q 71 69 76 76" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+          <PoodleMuzzle mouth="happy" tongue />
+        </>
+      )}
+
+      {mood === "medium" && (
+        <>
+          <EyesOpen />
+          <PoodleMuzzle mouth="neutral" blush={false} />
+        </>
+      )}
+
+      {mood === "bad" && (
+        <>
+          {/* squeezed-shut eyes, the universal "that was rough" */}
+          <path d="M 44 72 Q 49 79 54 72" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+          <path d="M 66 72 Q 71 79 76 72" fill="none" stroke={INK} strokeWidth="3.4" strokeLinecap="round" />
+          <PoodleMuzzle mouth="sad" blush={false} />
+          {/* one bead of sweat off the temple */}
+          <path
+            d="M 92 44 q 4.5 6.5 0 8.5 q -4.5 -2 0 -8.5"
+            fill="#8fc7ef"
+            stroke="#5aa6d8"
+            strokeWidth="1.4"
+          />
         </>
       )}
     </Svg>
