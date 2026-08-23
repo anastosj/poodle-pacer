@@ -1,15 +1,37 @@
-"use client";
+// Plain types and pure helpers — shared by client components and server code
+// (the group view summarizes every runner's plan on the server). The
+// localStorage helpers below guard on `typeof window`, so this is import-safe
+// from either side.
+import { addDaysISO } from "@/lib/dates";
 
 export type Feel = "good" | "medium" | "bad";
 
 export interface RunLog {
   completed: boolean;
   miles?: number;
+  /** Legacy whole-minute duration. Superseded by `seconds` — read via `logSeconds`. */
   minutes?: number;
+  /** Precise duration in seconds, so pace is accurate. */
+  seconds?: number;
   note?: string;
   feel?: Feel;
   stravaActivityId?: number;
   stravaName?: string;
+  /** Metrics pulled from Strava (typically originating on an Apple Watch). */
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  /** Elevation gain in feet. */
+  elevationGain?: number;
+  /** Steps per minute (Strava reports one leg; we double it on import). */
+  cadence?: number;
+}
+
+/** Duration of a logged run in seconds, tolerating the legacy `minutes` field. */
+export function logSeconds(log: RunLog | undefined): number | undefined {
+  if (!log) return undefined;
+  if (typeof log.seconds === "number" && log.seconds > 0) return log.seconds;
+  if (typeof log.minutes === "number" && log.minutes > 0) return log.minutes * 60;
+  return undefined;
 }
 
 export interface Plan {
@@ -33,13 +55,6 @@ export interface RunnerState {
   onboarded?: boolean;
 }
 
-export type RunnerId = "jonathan" | "sam";
-
-export const RUNNERS: { id: RunnerId; name: string; emoji: string }[] = [
-  { id: "jonathan", name: "Jonathan", emoji: "🏃" },
-  { id: "sam", name: "Sam", emoji: "🏃‍♀️" },
-];
-
 export function newPlanId() {
   return `plan-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
@@ -53,7 +68,7 @@ export function makePlan(name: string): Plan {
   };
 }
 
-function defaultState(): RunnerState {
+export function defaultState(): RunnerState {
   const plan = makePlan("My Half Marathon");
   return {
     plans: [plan],
@@ -103,14 +118,15 @@ export function normalizeState(raw: unknown): RunnerState {
   }
 }
 
-function storageKey(runner: RunnerId) {
-  return `hm-trainer:${runner}`;
+/** Cache key is per user id, so two accounts on one device stay separate. */
+function storageKey(userId: string) {
+  return `poodle-pacer:${userId}`;
 }
 
-export function loadState(runner: RunnerId): RunnerState {
+export function loadState(userId: string): RunnerState {
   if (typeof window === "undefined") return defaultState();
   try {
-    const raw = window.localStorage.getItem(storageKey(runner));
+    const raw = window.localStorage.getItem(storageKey(userId));
     if (!raw) return defaultState();
     return migrate(JSON.parse(raw));
   } catch {
@@ -118,9 +134,9 @@ export function loadState(runner: RunnerId): RunnerState {
   }
 }
 
-export function saveState(runner: RunnerId, state: RunnerState) {
+export function saveState(userId: string, state: RunnerState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(runner), JSON.stringify(state));
+  window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
 }
 
 export function activePlan(state: RunnerState): Plan {
@@ -143,24 +159,11 @@ export function logKey(week: number, dayIndex: number) {
   return `${week}-${dayIndex}`;
 }
 
-function toLocalISO(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return toLocalISO(d);
-}
-
 /** Race day is the last day (Sunday) of the final week. */
 export function raceDateFromStart(startDate: string, weeks: number): string {
-  return addDays(startDate, weeks * 7 - 1);
+  return addDaysISO(startDate, weeks * 7 - 1);
 }
 
 export function startDateFromRace(raceDate: string, weeks: number): string {
-  return addDays(raceDate, -(weeks * 7 - 1));
+  return addDaysISO(raceDate, -(weeks * 7 - 1));
 }

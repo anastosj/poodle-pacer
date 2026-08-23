@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import CalendarGrid from "@/components/CalendarGrid";
+import InsightsPanel from "@/components/InsightsPanel";
 import MileageChart from "@/components/MileageChart";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import PoodleProgressBar from "@/components/PoodleProgressBar";
 import StatsBar from "@/components/StatsBar";
-import WeekGrid from "@/components/WeekGrid";
 import { useApp } from "@/components/AppContext";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
-import { DAY_NAMES, Workout } from "@/lib/programs";
+import { Workout } from "@/lib/programs";
 import { logKey } from "@/lib/store";
 
 const CHEERS = [
@@ -59,9 +60,11 @@ function findNextWorkout(
 
 export default function HomePage() {
   const { state, plan, program, updatePlan } = useApp();
-  const [cheer] = useState(
-    () => CHEERS[Math.floor(Math.random() * CHEERS.length)]
-  );
+  // Start on a fixed cheer so server and client agree, then shuffle after mount.
+  const [cheer, setCheer] = useState(CHEERS[0]);
+  useEffect(() => {
+    setCheer(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+  }, []);
 
   let completed = 0;
   let totalWorkouts = 0;
@@ -118,12 +121,19 @@ export default function HomePage() {
               {next.workout.label}
             </div>
             <div className="text-sm text-white/80">
-              Week {next.week} · {DAY_NAMES[next.dayIndex]}
-              {next.date &&
-                ` · ${next.date.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}`}
+              {next.date ? (
+                <>
+                  Day {(next.week - 1) * 7 + next.dayIndex + 1} ·{" "}
+                  {next.date.toLocaleDateString(undefined, {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  · Week {next.week}
+                </>
+              ) : (
+                <>Week {next.week}</>
+              )}
             </div>
           </div>
           <button
@@ -154,9 +164,11 @@ export default function HomePage() {
 
       <StatsBar plan={plan} program={program} />
 
+      <InsightsPanel plan={plan} program={program} />
+
       <MileageChart plan={plan} program={program} />
 
-      <WeekGrid
+      <CalendarGrid
         plan={plan}
         program={program}
         updatePlan={updatePlan}

@@ -1,11 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { clearTokens, isRunnerId } from "@/lib/strava";
+import { NextResponse } from "next/server";
+import { deleteStravaTokens } from "@/lib/db";
+import { clearSession, currentUserId } from "@/lib/session";
 
-export function POST(request: NextRequest) {
-  const runner = request.nextUrl.searchParams.get("runner");
-  if (!isRunnerId(runner)) {
-    return NextResponse.json({ error: "Unknown runner" }, { status: 400 });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * Strava is how people sign in, so dropping the tokens also ends the session —
+ * otherwise you'd be left signed in with no way to sync.
+ */
+export async function POST() {
+  const userId = currentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  clearTokens(runner);
+  await deleteStravaTokens(userId);
+  clearSession();
   return NextResponse.json({ ok: true });
 }

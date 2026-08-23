@@ -1,52 +1,65 @@
-import { cookies } from "next/headers";
+import {
+  StoredTokens,
+  loadStravaTokens,
+  saveStravaTokens,
+} from "@/lib/db";
 
-export interface StravaTokens {
+/** Scope needed to read a user's activities; `read` alone only identifies them. */
+export const ACTIVITY_SCOPE = "activity:read_all";
+export const LOGIN_SCOPE = `read,${ACTIVITY_SCOPE}`;
+
+export function stravaConfigured(): boolean {
+  return Boolean(
+    process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET
+  );
+}
+
+export function hasActivityScope(scope: string | null | undefined): boolean {
+  return Boolean(scope?.split(",").includes(ACTIVITY_SCOPE));
+}
+
+export interface StravaTokenResponse {
   access_token: string;
   refresh_token: string;
-  expires_at: number; // unix seconds
-  athlete_name?: string;
+  expires_at: number;
+  scope?: string;
+  athlete?: {
+    id: number;
+    firstname?: string;
+    lastname?: string;
+    profile?: string;
+  };
 }
 
-const RUNNER_IDS = ["jonathan", "sam"] as const;
-export type RunnerId = (typeof RUNNER_IDS)[number];
-
-export function isRunnerId(value: string | null): value is RunnerId {
-  return value !== null && (RUNNER_IDS as readonly string[]).includes(value);
-}
-
-export function cookieName(runner: RunnerId) {
-  return `strava_tokens_${runner}`;
-}
-
-export function readTokens(runner: RunnerId): StravaTokens | null {
-  const raw = cookies().get(cookieName(runner))?.value;
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as StravaTokens;
-  } catch {
-    return null;
-  }
-}
-
-export function writeTokens(runner: RunnerId, tokens: StravaTokens) {
-  cookies().set(cookieName(runner), JSON.stringify(tokens), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 180,
+/** Exchange an authorization code for tokens. Returns null on any failure. */
+export async function exchangeCode(
+  code: string
+): Promise<StravaTokenResponse | null> {
+  const res = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code,
+    }),
+    cache: "no-store",
   });
+  if (!res.ok) return null;
+  return (await res.json()) as StravaTokenResponse;
 }
 
-export function clearTokens(runner: RunnerId) {
-  cookies().delete(cookieName(runner));
-}
-
+/**
+ * Valid tokens for a user, refreshing and persisting them when they're close to
+ * expiring. Returns null if the user never connected or the refresh was rejected.
+ */
 export async function getFreshTokens(
-  runner: RunnerId
-): Promise<StravaTokens | null> {
-  const tokens = readTokens(runner);
+  userId: string
+): Promise<StoredTokens | null> {
+  const tokens = await loadStravaTokens(userId);
   if (!tokens) return null;
-  if (tokens.expires_at > Date.now() / 1000 + 60) return tokens;
+  if (tokens.expiresAt > Date.now() / 1000 + 60) return tokens;
 
   const res = await fetch("https://www.strava.com/oauth/token", {
     method: "POST",
@@ -55,21 +68,25 @@ export async function getFreshTokens(
       client_id: process.env.STRAVA_CLIENT_ID,
       client_secret: process.env.STRAVA_CLIENT_SECRET,
       grant_type: "refresh_token",
-      refresh_token: tokens.refresh_token,
+      refresh_token: tokens.refreshToken,
     }),
+    cache: "no-store",
   });
   if (!res.ok) return null;
-  const data = await res.json();
-  const fresh: StravaTokens = {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: data.expires_at,
-    athlete_name: tokens.athlete_name,
+
+  const data = (await res.json()) as StravaTokenResponse;
+  const fresh: StoredTokens = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: data.expires_at,
+    // A refresh response omits scope and athlete; keep what we already knew.
+    scope: tokens.scope,
+    athleteName: tokens.athleteName,
   };
-  writeTokens(runner, fresh);
+  await saveStravaTokens(userId, fresh);
   return fresh;
 }
 
-export function stravaConfigured(): boolean {
-  return Boolean(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET);
+export function athleteName(athlete: StravaTokenResponse["athlete"]): string {
+  return [athlete?.firstname, athlete?.lastname].filter(Boolean).join(" ");
 }
