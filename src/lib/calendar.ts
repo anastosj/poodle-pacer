@@ -6,7 +6,7 @@ import {
   toLocalISO,
 } from "@/lib/dates";
 import { Program, Workout } from "@/lib/programs";
-import { logKey } from "@/lib/store";
+import { Plan, beginWeekOf, logKey } from "@/lib/store";
 
 /** Calendar columns always run Sunday → Saturday. */
 export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -35,20 +35,28 @@ export interface CalendarRow {
   weeks: number[];
 }
 
-/** Flatten a program's schedule into dated cells. */
-export function planCells(program: Program, startDate: string): CalendarCell[] {
-  const start = fromISO(startDate);
+/**
+ * Flatten a program's schedule into dated cells, skipping any weeks before the
+ * runner joined. Day numbers stay relative to their first training day.
+ */
+export function planCells(program: Program, plan: Plan): CalendarCell[] {
+  if (!plan.startDate) return [];
+  const start = fromISO(plan.startDate);
+  const beginWeek = beginWeekOf(plan);
+  const offset = (beginWeek - 1) * 7;
   const cells: CalendarCell[] = [];
   for (const week of program.schedule) {
+    if (week.week < beginWeek) continue;
     week.days.forEach((workout, dayIndex) => {
-      const dayNumber = (week.week - 1) * 7 + dayIndex;
-      const date = addDays(start, dayNumber);
+      const absoluteDay = (week.week - 1) * 7 + dayIndex;
+      const date = addDays(start, absoluteDay);
       cells.push({
+        // "Day 1" is the runner's first training day, not the program's.
+        dayNumber: absoluteDay - offset,
         date,
         iso: toLocalISO(date),
         week: week.week,
         dayIndex,
-        dayNumber,
         workout,
         key: logKey(week.week, dayIndex),
       });
@@ -62,11 +70,8 @@ export function planCells(program: Program, startDate: string): CalendarCell[] {
  * workout sits on its actual date. A program week (Mon → Sun) therefore
  * straddles two rows, which is what makes the grid line up with a wall calendar.
  */
-export function buildCalendar(
-  program: Program,
-  startDate: string
-): CalendarRow[] {
-  const cells = planCells(program, startDate);
+export function buildCalendar(program: Program, plan: Plan): CalendarRow[] {
+  const cells = planCells(program, plan);
   if (cells.length === 0) return [];
 
   const byIso = new Map(cells.map((c) => [c.iso, c]));

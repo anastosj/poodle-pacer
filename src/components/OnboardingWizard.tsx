@@ -4,7 +4,7 @@ import { useState } from "react";
 import PoodleMascot from "@/components/PoodleMascot";
 import { useApp } from "@/components/AppContext";
 import { programs } from "@/lib/programs";
-import { startDateFromRace, updateActivePlan } from "@/lib/store";
+import { planFromRaceDate, updateActivePlan } from "@/lib/store";
 
 type DateMode = "race" | "start";
 
@@ -23,16 +23,22 @@ export default function OnboardingWizard() {
 
   const finish = () => {
     update((prev) => ({
-      ...updateActivePlan(prev, (p) => ({
-        ...p,
-        name: name.trim() || p.name,
-        programId,
-        startDate: date
-          ? dateMode === "race"
-            ? startDateFromRace(date, chosenProgram.weeks)
-            : date
-          : p.startDate,
-      })),
+      ...updateActivePlan(prev, (p) => {
+        if (!date) return { ...p, name: name.trim() || p.name, programId };
+        // A race date may fall inside the program window, in which case the
+        // runner joins partway in instead of starting weeks behind.
+        const schedule =
+          dateMode === "race"
+            ? planFromRaceDate(date, chosenProgram.weeks)
+            : { startDate: date, beginWeek: 1 };
+        return {
+          ...p,
+          name: name.trim() || p.name,
+          programId,
+          startDate: schedule.startDate,
+          beginWeek: schedule.beginWeek > 1 ? schedule.beginWeek : undefined,
+        };
+      }),
       onboarded: true,
     }));
   };

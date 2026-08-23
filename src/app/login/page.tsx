@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import PoodleMascot from "@/components/PoodleMascot";
+import { findUser } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { stravaConfigured } from "@/lib/strava";
 
@@ -17,13 +18,16 @@ const ERRORS: Record<string, string> = {
     "Strava isn't configured on this server yet, so sign-in is unavailable.",
 };
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
   searchParams: { error?: string };
 }) {
-  // Already signed in? Straight to the app.
-  if (currentUserId()) redirect("/");
+  // Only bounce to the app if the session resolves to a real user. Checking the
+  // cookie alone would loop forever against requireUser() when the row is gone
+  // (deleted account, reset database): / sends here, here sends back to /.
+  const userId = currentUserId();
+  if (userId && (await findUser(userId))) redirect("/");
 
   const error = searchParams.error ? ERRORS[searchParams.error] : null;
   const configured = stravaConfigured();

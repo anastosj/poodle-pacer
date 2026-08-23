@@ -209,7 +209,7 @@ export function computeInsights(
   scope: MetricScope
 ): Insights | null {
   if (!plan.startDate) return null;
-  const cells = planCells(program, plan.startDate);
+  const cells = planCells(program, plan);
   if (cells.length === 0) return null;
 
   const window = scopeWindow(scope, cells);

@@ -3,10 +3,49 @@
 import { programs } from "@/lib/programs";
 import { useApp } from "@/components/AppContext";
 import {
+  Plan,
+  beginWeekOf,
+  daysUntilStart,
+  effectiveStartDate,
   makePlan,
+  planFromRaceDate,
   raceDateFromStart,
-  startDateFromRace,
 } from "@/lib/store";
+
+/** Plain-language read of what the chosen dates mean for this runner. */
+function describeSchedule(
+  plan: Plan,
+  weeks: number
+): { message: string; tone: "info" | "warn" } | null {
+  if (!plan.startDate) return null;
+
+  const begin = beginWeekOf(plan);
+  const countdown = daysUntilStart(plan);
+
+  if (begin > 1) {
+    const remaining = weeks - begin + 1;
+    return {
+      tone: "warn",
+      message: `Your race is sooner than the full ${weeks} week program, so you are joining at week ${begin} and training for the final ${remaining} week${
+        remaining === 1 ? "" : "s"
+      }. The schedule works backwards from race day, so you get the taper and the long runs that matter most.`,
+    };
+  }
+
+  if (countdown > 0) {
+    return {
+      tone: "info",
+      message: `All set. Training begins in ${countdown} day${
+        countdown === 1 ? "" : "s"
+      }, and you will run the full ${weeks} week program.`,
+    };
+  }
+
+  return {
+    tone: "info",
+    message: `You are running the full ${weeks} week program.`,
+  };
+}
 
 export default function GoalsPage() {
   const { state, update, plan, updatePlan, program } = useApp();
@@ -14,6 +53,7 @@ export default function GoalsPage() {
   const raceDate = plan.startDate
     ? raceDateFromStart(plan.startDate, program.weeks)
     : "";
+  const schedule = describeSchedule(plan, program.weeks);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -105,40 +145,56 @@ export default function GoalsPage() {
         <p className="mt-2 text-xs text-foreground/60">{program.description}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium">
-            Week 1 starts (Monday):
+            Race day (Sunday):
             <input
               type="date"
-              value={plan.startDate ?? ""}
-              onChange={(e) =>
-                updatePlan((p) => ({
-                  ...p,
-                  startDate: e.target.value || undefined,
-                }))
-              }
+              value={raceDate}
+              onChange={(e) => {
+                const value = e.target.value;
+                updatePlan((p) => {
+                  if (!value) {
+                    return { ...p, startDate: undefined, beginWeek: undefined };
+                  }
+                  const next = planFromRaceDate(value, program.weeks);
+                  return {
+                    ...p,
+                    startDate: next.startDate,
+                    beginWeek: next.beginWeek,
+                  };
+                });
+              }}
               className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-headband"
             />
           </label>
           <label className="block text-sm font-medium">
-            …or race day (Sunday):
+            or training starts (Monday):
             <input
               type="date"
-              value={raceDate}
+              value={effectiveStartDate(plan) ?? ""}
               onChange={(e) =>
                 updatePlan((p) => ({
                   ...p,
-                  startDate: e.target.value
-                    ? startDateFromRace(e.target.value, program.weeks)
-                    : undefined,
+                  // Setting the start directly means running the whole program.
+                  startDate: e.target.value || undefined,
+                  beginWeek: undefined,
                 }))
               }
               className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-headband"
             />
           </label>
         </div>
-        <p className="mt-1 text-[11px] text-foreground/50">
-          Set either one — the other fills in automatically ({program.weeks}{" "}
-          weeks apart).
-        </p>
+
+        {schedule && (
+          <p
+            className={`mt-3 rounded-xl px-4 py-2.5 text-xs leading-relaxed ${
+              schedule.tone === "warn"
+                ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
+                : "bg-headband-light text-headband-dark"
+            }`}
+          >
+            {schedule.message}
+          </p>
+        )}
       </section>
     </div>
   );
