@@ -498,6 +498,21 @@ export function MoodIcon({
 
 /* ------------------------------ small utility ---------------------------- */
 
+export function ChevronIcon({ up, ...props }: IconProps & { up?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path
+        d={up ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function CheckIcon(props: IconProps) {
   return (
     <Svg {...props}>

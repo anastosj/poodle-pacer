@@ -9,6 +9,7 @@ import {
   BoltIcon,
   CheckBadgeIcon,
   CheckIcon,
+  ChevronIcon,
   IconProps,
   MedalIcon,
   MoodIcon,
@@ -103,6 +104,8 @@ function DayCell({
   onOpen: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  /** Actions sit behind a caret so a cell reads as the workout, not controls. */
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [miles, setMiles] = useState("");
   const [time, setTime] = useState("");
 
@@ -231,31 +234,47 @@ function DayCell({
       )}
 
       {!isRest && (
-        <div className="mt-auto flex items-center gap-1 pt-1">
-          <button
-            onClick={onToggle}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-              done
-                ? "bg-headband text-white"
-                : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
-            }`}
-          >
-            {done ? (
-              <span className="flex items-center gap-1">
-                Done <CheckIcon size={9} />
-              </span>
-            ) : (
-              "Mark done"
-            )}
-          </button>
-          <button
-            onClick={() => setEditing((e) => !e)}
-            className="rounded-full p-1 text-foreground/50 transition hover:bg-poodle-cream"
-            aria-label="Log distance and time"
-          >
-            <PencilIcon size={13} />
-          </button>
-
+        <div className="mt-auto pt-1">
+          {actionsOpen ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  onToggle();
+                  setActionsOpen(false);
+                }}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+                  done
+                    ? "bg-headband text-white"
+                    : "bg-poodle-cream text-foreground/60 hover:bg-headband-light"
+                }`}
+              >
+                {done ? "Undo" : "Mark done"}
+              </button>
+              <button
+                onClick={() => setEditing((e) => !e)}
+                className="rounded-full p-1 text-foreground/50 transition hover:bg-white/70"
+                aria-label="Log distance and time"
+              >
+                <PencilIcon size={13} />
+              </button>
+              <button
+                onClick={() => setActionsOpen(false)}
+                aria-label="Hide actions"
+                className="ml-auto rounded-full p-0.5 text-foreground/40 transition hover:bg-white/70"
+              >
+                <ChevronIcon up size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setActionsOpen(true)}
+              aria-label={done ? "Edit this workout" : "Mark done or edit"}
+              aria-expanded={false}
+              className="flex w-full items-center justify-center rounded-lg py-0.5 text-foreground/35 transition hover:bg-white/70 hover:text-foreground/60"
+            >
+              <ChevronIcon size={14} />
+            </button>
+          )}
         </div>
       )}
 

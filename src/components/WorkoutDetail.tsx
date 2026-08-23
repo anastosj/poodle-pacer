@@ -15,6 +15,23 @@ import { RunLog, logSeconds } from "@/lib/store";
 const MAP_W = 320;
 const MAP_H = 200;
 
+/** The real thing: route drawn on streets, proxied so the token stays server side. */
+function RouteMap({ polyline }: { polyline: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <RouteShape polyline={polyline} />;
+  return (
+    <div className="overflow-hidden rounded-2xl ring-1 ring-poodle-fur">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/map?polyline=${encodeURIComponent(polyline)}&w=640&h=380`}
+        alt="Map of the route run"
+        className="h-auto w-full"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function RouteShape({ polyline }: { polyline: string }) {
   const points = decodePolyline(polyline);
   const path = polylineToPath(points, MAP_W, MAP_H);
@@ -147,9 +164,17 @@ export default function WorkoutDetail({
   onClose: () => void;
 }) {
   const [fetched, setFetched] = useState<ActivityDetail | null>(null);
+  const [realMaps, setRealMaps] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = log.stravaActivityId;
   const sample = log.sampleDetail;
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => setRealMaps(Boolean(json?.maps?.configured)))
+      .catch(() => setRealMaps(false));
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -279,7 +304,11 @@ export default function WorkoutDetail({
         {detail && (
           <div className="mt-4 space-y-4">
             {detail.polyline ? (
-              <RouteShape polyline={detail.polyline} />
+              realMaps ? (
+                <RouteMap polyline={detail.polyline} />
+              ) : (
+                <RouteShape polyline={detail.polyline} />
+              )
             ) : (
               <p className="rounded-xl bg-poodle-cream px-4 py-3 text-xs text-foreground/60">
                 No route recorded, so this was probably a treadmill run.
