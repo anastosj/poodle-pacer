@@ -148,6 +148,41 @@ export async function upsertStravaUser(input: {
   };
 }
 
+/** Every runner plus their saved plan, for the shared group view. */
+export async function listUsersWithState(): Promise<
+  { user: UserRecord; state: unknown }[]
+> {
+  await ready();
+  const parse = (data: string | null): unknown => {
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  };
+
+  let rows: (UserRow & { data: string | null })[];
+  if (usingPg()) {
+    const sql = getPg();
+    rows = (await sql`SELECT u.id, u.strava_athlete_id, u.name, u.avatar_url, s.data
+      FROM users u
+      LEFT JOIN user_state s ON s.user_id = u.id
+      ORDER BY u.created_at ASC`) as (UserRow & { data: string | null })[];
+  } else {
+    rows = getSqlite()
+      .prepare(
+        `SELECT u.id, u.strava_athlete_id, u.name, u.avatar_url, s.data
+         FROM users u
+         LEFT JOIN user_state s ON s.user_id = u.id
+         ORDER BY u.created_at ASC`
+      )
+      .all() as (UserRow & { data: string | null })[];
+  }
+
+  return rows.map((row) => ({ user: toUser(row), state: parse(row.data) }));
+}
+
 export async function findUser(id: string): Promise<UserRecord | null> {
   await ready();
   if (usingPg()) {

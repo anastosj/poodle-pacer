@@ -1,5 +1,7 @@
-"use client";
-
+// Plain types and pure helpers — shared by client components and server code
+// (the group view summarizes every runner's plan on the server). The
+// localStorage helpers below guard on `typeof window`, so this is import-safe
+// from either side.
 import { addDaysISO } from "@/lib/dates";
 
 export type Feel = "good" | "medium" | "bad";
