@@ -217,13 +217,15 @@ export function SettingsIcon(props: IconProps) {
 
 /* --------------------------------- awards -------------------------------- */
 
+const GOLD_EDGE = "#c08d2c";
+
 export function BoneIcon(props: IconProps) {
   return (
     <Svg {...props}>
       <g
         transform="rotate(-35 12 12)"
-        fill={FUR}
-        stroke={FUR_EDGE}
+        fill={GOLD}
+        stroke={GOLD_EDGE}
         strokeWidth="1.4"
         strokeLinejoin="round"
       >
@@ -307,71 +309,104 @@ export function ConfettiIcon(props: IconProps) {
 /* -------------------------------- workouts ------------------------------- */
 
 /**
- * Running: a whole poodle at full stride, facing right. Drawn in the show clip
- * (tail pom, hip rosette, ankle poms) because that silhouette says "poodle"
- * faster than any amount of face detail does at this size. The stride itself
- * carries the motion; trailing speed lines just read as stray marks.
+ * Running: a whole poodle at full stride, facing right.
+ *
+ * Legs are jointed, two segments each, and set at four different angles: the
+ * near pair extended front and back, the far pair folded under the body. A
+ * single-segment set at matching angles read as sticks pushed into a balloon,
+ * not a dog running.
  */
 export function RunIcon(props: IconProps) {
   return (
     <Svg box={120} {...props}>
-      {/* far-side legs sit behind the body in a paler tone, which reads as
-          depth instead of the four-legged clutter a flat set produces */}
-      <g stroke={FUR_EDGE} strokeWidth="5" strokeLinecap="round" fill="none">
-        <path d="M64 76 L69 95" />
-        <path d="M40 76 L37 95" />
+      {/* Far legs, folded under. Same ink as the near pair but lighter, so they
+          sit behind the body instead of vanishing. */}
+      <g
+        stroke={INK}
+        strokeWidth="4.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        opacity="0.38"
+      >
+        <path d="M68 70 L74 81 L69 90" />
+        <path d="M40 70 L42 81 L33 88" />
+      </g>
+      <g fill="#e6e0d4" stroke={FUR_EDGE} strokeWidth="1.6">
+        <circle cx="70" cy="93" r="5" />
+        <circle cx="31" cy="90" r="5" />
       </g>
 
-      {/* tail, carried high */}
-      <path d="M27 58 L15 44" stroke={FUR_EDGE} strokeWidth="5" strokeLinecap="round" fill="none" />
-      <circle cx="12" cy="39" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Tail, springing from the top of the hindquarters rather than floating. */}
+      <path
+        d="M30 54 Q19 46 13 33"
+        stroke="#fdfcf9"
+        strokeWidth="8"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M30 54 Q19 46 13 33"
+        stroke={FUR_EDGE}
+        strokeWidth="8"
+        strokeLinecap="round"
+        fill="none"
+        opacity="0.35"
+      />
+      <circle cx="11" cy="28" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
 
-      {/* body: barrel plus the clipped hindquarter */}
-      <ellipse cx="50" cy="66" rx="26" ry="15" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
-      <circle cx="32" cy="64" r="14" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Body: hindquarters, barrel and chest as one continuous mass. */}
+      <circle cx="34" cy="60" r="16" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      <ellipse cx="54" cy="61" rx="23" ry="13.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      <circle cx="72" cy="60" r="14.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Redraw the join so the outlines do not cross through the body. */}
+      <ellipse cx="54" cy="60" rx="21" ry="11" fill="#fdfcf9" />
 
-      {/* near legs, mid-stride: one reaching forward, one driving back */}
-      <g stroke={INK} strokeWidth="6" strokeLinecap="round" fill="none">
-        <path d="M70 74 L88 90" />
-        <path d="M34 74 L17 88" />
+      {/* Near legs, reaching front and driving back. */}
+      <g
+        stroke={INK}
+        strokeWidth="5.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      >
+        <path d="M76 70 L86 79 L96 88" />
+        <path d="M32 70 L21 79 L11 87" />
       </g>
       <g fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2">
-        <circle cx="91" cy="93" r="6.5" />
-        <circle cx="14" cy="91" r="6.5" />
+        <circle cx="99" cy="91" r="6" />
+        <circle cx="8" cy="90" r="6" />
       </g>
 
-      {/* neck, drawn thick so the head never looks detached */}
-      <path d="M70 62 L84 48" stroke="#fdfcf9" strokeWidth="15" strokeLinecap="round" fill="none" />
-      <path d="M70 62 L84 48" stroke={FUR_EDGE} strokeWidth="15" strokeLinecap="round" fill="none" opacity="0.35" />
+      {/* Neck into the head. */}
+      <path d="M78 50 L88 39" stroke="#fdfcf9" strokeWidth="14" strokeLinecap="round" fill="none" />
+      <path d="M78 50 L88 39" stroke={FUR_EDGE} strokeWidth="14" strokeLinecap="round" fill="none" opacity="0.3" />
 
-      {/* head */}
-      <circle cx="88" cy="42" r="14" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
-      {/* ear pouf, oversized on purpose: it is the main "this is a dog" cue */}
-      <ellipse cx="77" cy="52" rx="9.5" ry="12" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
-      {/* muzzle, overlapping the head so it reads as one form */}
-      <ellipse cx="104" cy="48" rx="11" ry="6.8" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.8" />
-      <ellipse cx="113" cy="46" rx="3.4" ry="2.8" fill={INK} />
+      <circle cx="92" cy="34" r="12.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Ear pouf: the clearest "this is a poodle" cue at small sizes. */}
+      <ellipse cx="83" cy="43" rx="8" ry="10" fill={FUR} stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Muzzle, overlapping the skull so head and snout read as one form. */}
+      <ellipse cx="105" cy="39" rx="9.5" ry="6" fill="#fff" stroke={FUR_EDGE} strokeWidth="1.8" />
+      <ellipse cx="113" cy="37" rx="3.2" ry="2.6" fill={INK} />
       <path
-        d="M 104 53 q 5 7 9 2 q -4 1 -9 -2"
+        d="M 105 44 q 4.5 6 8 1.5 q -3.5 1 -8 -1.5"
         fill="#f19bb4"
         stroke="#e57697"
-        strokeWidth="1.2"
+        strokeWidth="1.1"
         strokeLinejoin="round"
       />
-      {/* topknot */}
-      <circle cx="86" cy="27" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
-      {/* Headband hugging the skull. No trailing ribbon here: paired with the
-          pointed muzzle it turned the whole head into a fish. */}
+      {/* Topknot. */}
+      <circle cx="89" cy="21" r="8" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
+      {/* Headband: the one saturated mass, so the icon still reads when small. */}
       <path
-        d="M 75 38 Q 88 26 101 38 L 99 45 Q 88 34 77 45 Z"
+        d="M 80 31 Q 92 20 104 31 L 102 38 Q 92 28 82 38 Z"
         fill={BLUE}
         stroke={BLUE_DEEP}
         strokeWidth="2"
         strokeLinejoin="round"
       />
-      {/* eye sits on the head, clear of the band */}
-      <circle cx="94" cy="47" r="3.2" fill={INK} />
-      <circle cx="95.1" cy="45.9" r="1.1" fill="#fff" />
+      <circle cx="96" cy="38" r="2.9" fill={INK} />
+      <circle cx="97" cy="37" r="1" fill="#fff" />
     </Svg>
   );
 }
