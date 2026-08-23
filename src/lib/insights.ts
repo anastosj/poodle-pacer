@@ -20,9 +20,15 @@ export const SCOPE_LABELS: Record<MetricScope, string> = {
 export interface PeriodStats {
   start: Date;
   end: Date;
-  /** Workouts marked done / scheduled (rest days excluded). */
+  /** Workouts marked done / scheduled in the window (rest days excluded). */
   completed: number;
   scheduled: number;
+  /**
+   * Scheduled workouts whose day has actually arrived. Consistency measures
+   * against this rather than `scheduled`, so tomorrow's run is not counted as
+   * one you have already missed.
+   */
+  due: number;
   runCount: number;
   miles: number;
   plannedMiles: number;
@@ -50,11 +56,20 @@ export interface Insights {
   trend: TrendPoint[];
 }
 
+/** Completed over what was actually due, as a fraction in [0,1]. */
+export function consistencyOf(stats: {
+  completed: number;
+  due: number;
+}): number {
+  return stats.due > 0 ? stats.completed / stats.due : 0;
+}
+
 const EMPTY = (start: Date, end: Date): PeriodStats => ({
   start,
   end,
   completed: 0,
   scheduled: 0,
+  due: 0,
   runCount: 0,
   miles: 0,
   plannedMiles: 0,
@@ -85,9 +100,12 @@ function summarize(
   // otherwise drag the average down without adding miles.
   let paceSeconds = 0;
 
+  const today = startOfToday();
+
   for (const cell of cells) {
     if (cell.workout.type === "rest") continue;
     stats.scheduled += 1;
+    if (cell.date <= today) stats.due += 1;
     if (cell.workout.type === "run") {
       stats.plannedMiles += cell.workout.miles ?? 0;
     }

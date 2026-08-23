@@ -31,10 +31,6 @@ export default function StatsBar({
 }) {
   const begin = beginWeekOf(plan);
 
-  let completed = 0;
-  let totalWorkouts = 0;
-  let milesRun = 0;
-  let plannedMiles = 0;
   let streak = 0;
   let running = 0;
 
@@ -42,12 +38,8 @@ export default function StatsBar({
     if (week.week < begin) continue;
     week.days.forEach((day, i) => {
       if (day.type === "rest") return;
-      totalWorkouts += 1;
-      if (day.type === "run") plannedMiles += day.miles ?? 0;
       const log = plan.logs[logKey(week.week, i)];
       if (log?.completed) {
-        completed += 1;
-        milesRun += log.miles ?? (day.type === "run" ? day.miles ?? 0 : 0);
         running += 1;
         streak = running;
       } else {
@@ -72,15 +64,9 @@ export default function StatsBar({
 
   const weeksTraining = program.weeks - begin + 1;
 
+  // Home shows only the three orienting numbers. Totals and mileage live on
+  // the Progress page, so nothing is stated twice across the two screens.
   const stats: { label: string; value: string }[] = [
-    {
-      label: "Workouts done",
-      value: `${completed} / ${totalWorkouts}`,
-    },
-    {
-      label: "Miles logged",
-      value: `${Math.round(milesRun * 10) / 10} / ~${Math.round(plannedMiles)}`,
-    },
     {
       label: "Current week",
       value: week
@@ -107,7 +93,7 @@ export default function StatsBar({
   ];
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+    <div className="mt-4 grid grid-cols-3 gap-3">
       {stats.map((s) => (
         <div
           key={s.label}

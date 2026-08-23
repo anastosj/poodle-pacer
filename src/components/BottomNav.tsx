@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BoneIcon,
+  ChartIcon,
   HomeIcon,
   PawIcon,
   SettingsIcon,
@@ -11,6 +12,7 @@ import {
 
 const LINKS = [
   { href: "/", label: "Home", Icon: HomeIcon },
+  { href: "/progress", label: "Progress", Icon: ChartIcon },
   { href: "/group", label: "Pack", Icon: PawIcon },
   { href: "/goals", label: "Goals", Icon: BoneIcon },
   { href: "/settings", label: "Settings", Icon: SettingsIcon },

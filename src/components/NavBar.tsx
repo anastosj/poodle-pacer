@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import PoodleMascot from "@/components/PoodleMascot";
 import {
   BoneIcon,
+  ChartIcon,
   HomeIcon,
   PawIcon,
   PoodleFaceIcon,
@@ -15,6 +16,7 @@ import { useApp } from "@/components/AppContext";
 
 const LINKS = [
   { href: "/", label: "Home", Icon: HomeIcon },
+  { href: "/progress", label: "Progress", Icon: ChartIcon },
   { href: "/group", label: "The Pack", Icon: PawIcon },
   { href: "/goals", label: "Goals", Icon: BoneIcon },
   { href: "/settings", label: "Settings", Icon: SettingsIcon },

@@ -1,6 +1,6 @@
 import { UserRecord, listUsersWithState } from "@/lib/db";
 import { fromISO, startOfToday } from "@/lib/dates";
-import { computeInsights } from "@/lib/insights";
+import { computeInsights, consistencyOf } from "@/lib/insights";
 import { Program, programs } from "@/lib/programs";
 import { Plan, RunnerState, activePlan, normalizeState } from "@/lib/store";
 
@@ -17,6 +17,8 @@ export interface RunnerSummary {
   /** Whole-plan totals. */
   completed: number;
   scheduled: number;
+  /** Workouts whose day has arrived, the denominator for consistency. */
+  due: number;
   consistency: number;
   miles: number;
   plannedMiles: number;
@@ -49,6 +51,7 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
     totalWeeks: program.weeks,
     completed: 0,
     scheduled: 0,
+    due: 0,
     consistency: 0,
     miles: 0,
     plannedMiles: 0,
@@ -84,10 +87,8 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
     currentWeek,
     completed: whole.current.completed,
     scheduled: whole.current.scheduled,
-    consistency:
-      whole.current.scheduled > 0
-        ? whole.current.completed / whole.current.scheduled
-        : 0,
+    due: whole.current.due,
+    consistency: consistencyOf(whole.current),
     miles: whole.current.miles,
     plannedMiles: whole.current.plannedMiles,
     avgPace: whole.current.avgPace,

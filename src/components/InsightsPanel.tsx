@@ -7,6 +7,7 @@ import {
   SCOPE_LABELS,
   TrendPoint,
   computeInsights,
+  consistencyOf,
 } from "@/lib/insights";
 import {
   formatDuration,
@@ -163,8 +164,8 @@ function paceSub(delta: ReturnType<typeof paceDelta>, scope: MetricScope) {
 }
 
 function completionTone(s: PeriodStats) {
-  if (s.scheduled === 0) return "default" as const;
-  const rate = s.completed / s.scheduled;
+  if (s.due === 0) return "default" as const;
+  const rate = consistencyOf(s);
   return rate >= 0.8 ? ("good" as const) : rate >= 0.5 ? ("default" as const) : ("warn" as const);
 }
 
@@ -176,6 +177,8 @@ export default function InsightsPanel({
   program: Program;
 }) {
   const [scope, setScope] = useState<MetricScope>("week");
+  // Four tiles answer "how is it going"; the rest are detail worth a click.
+  const [expanded, setExpanded] = useState(false);
   const insights = useMemo(
     () => computeInsights(plan, program, scope),
     [plan, program, scope]
@@ -200,9 +203,11 @@ export default function InsightsPanel({
   const hasHeartRate = current.avgHeartRate !== undefined;
   const hasElevation = current.elevationGain > 0;
   const hasCadence = current.avgCadence !== undefined;
+  const extraCount =
+    1 + [hasHeartRate, hasElevation, hasCadence].filter(Boolean).length;
 
   return (
-    <section className="mt-4 rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow sm:p-5">
+    <section className="mt-4 flex flex-col rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
           Performance
@@ -225,7 +230,7 @@ export default function InsightsPanel({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <Tile
           label="Miles"
           value={`${current.miles}`}
@@ -252,34 +257,52 @@ export default function InsightsPanel({
         />
         <Tile
           label="Completed"
-          value={`${current.completed}/${current.scheduled}`}
+          value={
+            current.due > 0
+              ? `${current.completed}/${current.due}`
+              : `0/0`
+          }
           sub={
-            current.scheduled > 0
-              ? `${Math.round((current.completed / current.scheduled) * 100)}% consistency`
-              : undefined
+            current.due > 0
+              ? `${Math.round(consistencyOf(current) * 100)}% consistency`
+              : "nothing due yet"
           }
           tone={completionTone(current)}
         />
-        <Tile
-          label="Longest run"
-          value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
-        />
-        {hasHeartRate && (
-          <Tile
-            label="Avg heart rate"
-            value={`${current.avgHeartRate} bpm`}
-            sub={current.maxHeartRate ? `max ${current.maxHeartRate}` : undefined}
-          />
-        )}
-        {hasElevation && (
-          <Tile label="Elevation gain" value={`${current.elevationGain} ft`} />
-        )}
-        {hasCadence && (
-          <Tile label="Avg cadence" value={`${current.avgCadence} spm`} />
+        {expanded && (
+          <>
+            <Tile
+              label="Longest run"
+              value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
+            />
+            {hasHeartRate && (
+              <Tile
+                label="Avg heart rate"
+                value={`${current.avgHeartRate} bpm`}
+                sub={
+                  current.maxHeartRate ? `max ${current.maxHeartRate}` : undefined
+                }
+              />
+            )}
+            {hasElevation && (
+              <Tile label="Elevation gain" value={`${current.elevationGain} ft`} />
+            )}
+            {hasCadence && (
+              <Tile label="Avg cadence" value={`${current.avgCadence} spm`} />
+            )}
+          </>
         )}
       </div>
 
-      {trend.length > 0 ? (
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        className="mt-2 self-start rounded-full px-3 py-1 text-[11px] font-bold text-headband-dark transition hover:bg-poodle-cream"
+      >
+        {expanded ? "Fewer metrics" : `More metrics (${extraCount})`}
+      </button>
+
+      {trend.length > 1 ? (
         <div className="mt-4">
           <div className="flex items-center gap-4 text-[11px] font-medium text-foreground/55">
             <span className="flex items-center gap-1">
