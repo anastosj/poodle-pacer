@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import DurationInput from "@/components/DurationInput";
 import PoodleSleeping from "@/components/PoodleSleeping";
+import WorkoutDetail from "@/components/WorkoutDetail";
 import {
   BikeIcon,
   BoltIcon,
@@ -74,7 +75,9 @@ function cellStatus(
 
 const STATUS_STYLES: Record<CellStatus, string> = {
   rest: "bg-poodle-cream/70 ring-poodle-fur",
-  done: "bg-white ring-2 ring-headband",
+  // Completed days fill rather than outline, so a finished week reads at a
+  // glance instead of asking you to notice border weight.
+  done: "bg-headband-light ring-headband/35",
   missed: "bg-poodle-cream/40 ring-poodle-fur opacity-70",
   today: "bg-white ring-poodle-fur",
   upcoming: "bg-white ring-poodle-fur",
@@ -88,6 +91,7 @@ function DayCell({
   onToggle,
   onLog,
   onFeel,
+  onOpen,
 }: {
   cell: CalendarCell;
   log: RunLog | undefined;
@@ -96,6 +100,7 @@ function DayCell({
   onToggle: () => void;
   onLog: (miles?: number, seconds?: number) => void;
   onFeel: (feel: Feel) => void;
+  onOpen: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [miles, setMiles] = useState("");
@@ -186,16 +191,22 @@ function DayCell({
       )}
 
       {done && (log?.miles || seconds) && (
-        <span className="mt-0.5 text-[10px] tabular-nums text-foreground/60">
-          {log?.miles ? `${log.miles} mi` : ""}
-          {log?.miles && seconds ? " · " : ""}
-          {seconds ? formatDurationShort(seconds) : ""}
-        </span>
-      )}
-      {done && pace && (
-        <span className="text-[10px] font-semibold tabular-nums text-headband-dark">
-          {formatPacePerMile(pace)}
-        </span>
+        <button
+          onClick={onOpen}
+          title="See splits, route, and heart rate"
+          className="mt-0.5 -mx-1 flex flex-col items-start rounded-lg px-1 py-0.5 text-left transition hover:bg-white/70"
+        >
+          <span className="text-[10px] tabular-nums text-foreground/60">
+            {log?.miles ? `${log.miles} mi` : ""}
+            {log?.miles && seconds ? " · " : ""}
+            {seconds ? formatDurationShort(seconds) : ""}
+          </span>
+          {pace && (
+            <span className="text-[10px] font-semibold tabular-nums text-headband-dark underline decoration-headband/30 underline-offset-2">
+              {formatPacePerMile(pace)}
+            </span>
+          )}
+        </button>
       )}
 
       {done && (
@@ -244,6 +255,7 @@ function DayCell({
           >
             <PencilIcon size={13} />
           </button>
+
         </div>
       )}
 
@@ -337,6 +349,8 @@ export default function CalendarGrid({
    * plan opens as a readable list rather than a wall of cells.
    */
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
+  /** The completed day whose detail sheet is showing, if any. */
+  const [detailCell, setDetailCell] = useState<CalendarCell | null>(null);
   const today = startOfToday();
 
   const rows = useMemo(
@@ -430,6 +444,7 @@ export default function CalendarGrid({
         log={plan.logs[cell.key]}
         isToday={isSameDay(cell.date, today)}
         isPast={cell.date < today}
+        onOpen={() => setDetailCell(cell)}
         {...handlers}
       />
     );
@@ -571,6 +586,19 @@ export default function CalendarGrid({
           <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-7">
             {row.cells.map(renderCell)}
           </div>
+        )}
+
+        {detailCell && plan.logs[detailCell.key] && (
+          <WorkoutDetail
+            log={plan.logs[detailCell.key]}
+            label={detailCell.workout.label}
+            dateLabel={detailCell.date.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+            onClose={() => setDetailCell(null)}
+          />
         )}
 
         {mode === "program" && (
