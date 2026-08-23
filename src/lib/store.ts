@@ -53,6 +53,8 @@ export interface AlertSettings {
   phone: string;
   time: string; // HH:MM
   enabled: boolean;
+  /** IANA timezone the alert time is interpreted in, e.g. America/New_York. */
+  timezone?: string;
 }
 
 export interface RunnerState {

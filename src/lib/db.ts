@@ -38,6 +38,12 @@ function getSqlite(): Database.Database {
       data TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS sms_sends (
+      user_id TEXT NOT NULL,
+      send_key TEXT NOT NULL,
+      sent_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, send_key)
+    );
   `);
   return sqlite;
 }
@@ -71,6 +77,12 @@ function getPg(): NeonQueryFunction<false, false> {
         user_id TEXT PRIMARY KEY,
         data TEXT NOT NULL,
         updated_at TEXT NOT NULL
+      )`;
+      await sql`CREATE TABLE IF NOT EXISTS sms_sends (
+        user_id TEXT NOT NULL,
+        send_key TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, send_key)
       )`;
     })();
   }
@@ -342,4 +354,33 @@ export async function writeUserState(
        ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
     )
     .run(userId, data, now);
+}
+
+/* ------------------------------ sms sends -------------------------------- */
+
+/**
+ * Record that an alert is being sent. Returns false if this (user, key) pair
+ * was already recorded, so overlapping cron ticks never text twice.
+ */
+export async function claimSmsSend(
+  userId: string,
+  sendKey: string
+): Promise<boolean> {
+  await ready();
+  const now = new Date().toISOString();
+  if (usingPg()) {
+    const sql = getPg();
+    const rows = (await sql`INSERT INTO sms_sends (user_id, send_key, sent_at)
+      VALUES (${userId}, ${sendKey}, ${now})
+      ON CONFLICT (user_id, send_key) DO NOTHING
+      RETURNING user_id`) as { user_id: string }[];
+    return rows.length > 0;
+  }
+  const result = getSqlite()
+    .prepare(
+      `INSERT INTO sms_sends (user_id, send_key, sent_at) VALUES (?, ?, ?)
+       ON CONFLICT(user_id, send_key) DO NOTHING`
+    )
+    .run(userId, sendKey, now);
+  return result.changes > 0;
 }

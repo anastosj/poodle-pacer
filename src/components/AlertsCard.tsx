@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Program, Workout } from "@/lib/programs";
 import { Plan, RunnerState } from "@/lib/store";
 
@@ -27,6 +27,17 @@ export default function AlertsCard({
   const [testResult, setTestResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const { alerts } = state;
+
+  // Alert times are wall-clock, so the server needs to know whose clock.
+  const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  useEffect(() => {
+    if (browserTz && alerts.timezone !== browserTz) {
+      update((prev) => ({
+        ...prev,
+        alerts: { ...prev.alerts, timezone: browserTz },
+      }));
+    }
+  }, [browserTz, alerts.timezone, update]);
   const workout = todaysWorkout(plan, program);
   const preview = workout
     ? `Morning! Today's plan: ${workout.label}. Headband on, let's go.`
@@ -108,6 +119,11 @@ export default function AlertsCard({
       <div className="mt-3 rounded-xl bg-poodle-cream p-3 text-xs text-foreground/70">
         <span className="font-semibold">Preview:</span> {preview}
       </div>
+      <p className="mt-2 text-[11px] text-foreground/50">
+        Texts go out at your alert time on workout days only — rest days stay
+        quiet. The day before your race you&apos;ll get a pep talk, and on race
+        day a good-luck text at 7:00am{alerts.timezone ? ` (${alerts.timezone.replace(/_/g, " ")})` : ""}.
+      </p>
       <div className="mt-2 flex items-center gap-2">
         <button
           onClick={sendTest}
