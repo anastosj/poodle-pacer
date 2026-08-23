@@ -2,7 +2,8 @@ name: Morning alerts
 
 # Ticks the alert scheduler. The endpoint decides who (if anyone) gets a text
 # and dedupes sends, so a missed or doubled tick is harmless. Authenticates
-# with a GitHub OIDC token that the endpoint verifies — no secrets to manage.
+# with a GitHub OIDC token that the endpoint verifies, so there are no
+# secrets to manage.
 on:
   schedule:
     - cron: "*/15 * * * *"

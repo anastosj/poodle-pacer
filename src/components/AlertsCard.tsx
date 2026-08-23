@@ -27,6 +27,24 @@ function toE164(phone: string): string | null {
   return null;
 }
 
+/** Turn Twilio's numeric codes into something a person can act on. */
+function twilioError(code?: number, detail?: string): string {
+  switch (code) {
+    case 21211:
+      return "Twilio does not recognise that number. Check the digits and country code.";
+    case 21608:
+      return "Trial accounts can only text verified numbers. Add this one under Verified Caller IDs in Twilio, then try again.";
+    case 21610:
+      return "That number replied STOP, so Twilio will not text it. Reply START from the phone to opt back in.";
+    case 21614:
+      return "That number cannot receive texts.";
+    default:
+      return detail
+        ? `Twilio said: ${detail}`
+        : "Could not send the text. Please try again.";
+  }
+}
+
 type SendState =
   | { kind: "idle" }
   | { kind: "sending" }
@@ -110,7 +128,7 @@ export default function AlertsCard({
           data.error === "not_configured"
             ? "Texting is not switched on for this app yet, so nothing was sent."
             : data.error === "send_failed"
-              ? "Twilio rejected that number. Check it and try again."
+              ? twilioError(data.code, data.detail)
               : "Could not send the text. Please try again.",
       });
     } catch {
@@ -234,7 +252,9 @@ export default function AlertsCard({
 
       {send.kind === "sent" && (
         <p className="mt-2 text-xs font-semibold text-emerald-700">
-          Text sent. Check your phone.
+          Text handed to Twilio. It should arrive in a few seconds. If nothing
+          turns up, check Monitor then Logs in the Twilio console: carriers can
+          reject a message after Twilio accepts it.
         </p>
       )}
       {send.kind === "error" && (
