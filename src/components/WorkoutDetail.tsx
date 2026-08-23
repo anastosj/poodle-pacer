@@ -146,9 +146,10 @@ export default function WorkoutDetail({
   dateLabel: string;
   onClose: () => void;
 }) {
-  const [detail, setDetail] = useState<ActivityDetail | null>(null);
+  const [fetched, setFetched] = useState<ActivityDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const id = log.stravaActivityId;
+  const sample = log.sampleDetail;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -157,13 +158,13 @@ export default function WorkoutDetail({
   }, [onClose]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || sample) return;
     let cancelled = false;
     fetch(`/api/strava/activity/${id}`)
       .then(async (r) => {
         const json = await r.json().catch(() => ({}));
         if (cancelled) return;
-        if (r.ok) setDetail(json.activity);
+        if (r.ok) setFetched(json.activity);
         else if (json.error === "missing_scope")
           setError("Poodle Pacer needs permission to read your activities.");
         else if (json.error === "not_found")
@@ -174,10 +175,31 @@ export default function WorkoutDetail({
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, sample]);
 
   const seconds = logSeconds(log);
   const pace = paceSecondsPerMile(seconds, log.miles);
+
+  // Seeded demo runs carry their own splits and route, since a demo account has
+  // no Strava connection to fetch from.
+  const detail: ActivityDetail | null =
+    fetched ??
+    (sample
+      ? {
+          id: 0,
+          name: log.stravaName ?? label,
+          startDate: "",
+          miles: log.miles ?? 0,
+          seconds: seconds ?? 0,
+          elapsedSeconds: seconds ?? 0,
+          elevationGain: log.elevationGain ?? 0,
+          avgHeartRate: log.avgHeartRate,
+          maxHeartRate: log.maxHeartRate,
+          cadence: log.cadence,
+          splits: sample.splits,
+          polyline: sample.polyline,
+        }
+      : null);
 
   return (
     <div
@@ -237,7 +259,7 @@ export default function WorkoutDetail({
           </p>
         )}
 
-        {!id && (
+        {!id && !sample && (
           <p className="mt-4 rounded-xl bg-poodle-cream px-4 py-3 text-xs text-foreground/60">
             This one was logged by hand, so there is no route or mile breakdown.
             Runs imported from Strava show both.
@@ -277,6 +299,7 @@ export default function WorkoutDetail({
               </p>
             )}
 
+            {detail.id > 0 && (
             <a
               href={`https://www.strava.com/activities/${detail.id}`}
               target="_blank"
@@ -286,6 +309,7 @@ export default function WorkoutDetail({
               <BoltIcon size={13} />
               Open on Strava
             </a>
+            )}
           </div>
         )}
       </div>
