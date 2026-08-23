@@ -106,6 +106,7 @@ function DayCell({
   /** Actions sit behind a caret so a cell reads as the workout, not controls. */
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [miles, setMiles] = useState("");
   const [time, setTime] = useState("");
 
@@ -113,6 +114,27 @@ function DayCell({
   const status = cellStatus(workout, log, isPast, isToday);
   const isRest = status === "rest";
   const done = status === "done";
+
+  /** One exit for every route out of the editor, so nothing is left half typed. */
+  const closeEditor = () => {
+    setEditing(false);
+    setMiles("");
+    setTime("");
+  };
+
+  useEffect(() => {
+    if (!editing) return;
+    const onClick = (e: MouseEvent) => {
+      if (!formRef.current?.contains(e.target as Node)) closeEditor();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeEditor();
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [editing]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -242,21 +264,27 @@ function DayCell({
           <span className="ml-auto md:hidden">{actions}</span>
         </div>
 
-        {/* Title and status share a line when there is room, and wrap in the
-            narrow desktop column, so one rule serves both widths. */}
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:mt-1">
-          <span
-            className={`font-semibold leading-tight md:text-xs ${
-              isRest ? "text-foreground/50" : ""
-            } ${status === "missed" ? "text-foreground/55 line-through decoration-foreground/30" : ""}`}
-          >
-            {workout.label}
-          </span>
-          {statusChip}
-          <span className="-mr-0.5 -mt-0.5 ml-auto hidden shrink-0 md:block">
+        {/* The artwork sits outside the wrapping group and never moves: when it
+            shared a wrapping row with the title and the status chip, it landed
+            wherever those happened to break, so no two cards lined up. */}
+        <div className="mt-0.5 flex items-start gap-1.5 md:mt-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className={`font-semibold leading-tight md:text-xs ${
+                isRest ? "text-foreground/50" : ""
+              } ${status === "missed" ? "text-foreground/55 line-through decoration-foreground/30" : ""}`}
+            >
+              {workout.label}
+            </span>
+            {/* Inline on a phone, where the row is wide enough to spare. */}
+            <span className="md:hidden">{statusChip}</span>
+          </div>
+          <span className="-mr-0.5 hidden shrink-0 self-start md:block">
             <WorkoutIcon type={workout.type} />
           </span>
         </div>
+
+        {statusChip && <div className="mt-1 hidden md:block">{statusChip}</div>}
 
         {(log?.stravaName || (done && (log?.miles || seconds))) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -319,6 +347,7 @@ function DayCell({
 
       {editing && (
         <form
+          ref={formRef}
           className="absolute left-0 top-full z-20 mt-1 flex w-48 flex-col gap-1 rounded-xl bg-white p-2 ring-1 ring-poodle-fur pouf-shadow"
           onSubmit={(e) => {
             e.preventDefault();
@@ -326,11 +355,22 @@ function DayCell({
               miles ? parseFloat(miles) : undefined,
               time ? parseDuration(time) : undefined
             );
-            setEditing(false);
-            setMiles("");
-            setTime("");
+            closeEditor();
           }}
         >
+          <div className="flex items-center justify-between gap-2 pb-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-foreground/45">
+              Log this run
+            </span>
+            <button
+              type="button"
+              onClick={closeEditor}
+              aria-label="Close without saving"
+              className="rounded-full px-1.5 text-sm leading-none text-foreground/40 transition hover:bg-poodle-cream hover:text-foreground/70"
+            >
+              &#215;
+            </button>
+          </div>
           <input
             type="number"
             step="0.01"
