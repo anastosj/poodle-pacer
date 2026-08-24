@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import DurationInput from "@/components/DurationInput";
-import PoodleSleeping from "@/components/PoodleSleeping";
 import WorkoutDetail from "@/components/WorkoutDetail";
+import WorkoutIcon from "@/components/WorkoutIcon";
 import {
-  BikeIcon,
   BoltIcon,
   CheckBadgeIcon,
   CheckIcon,
   ChevronIcon,
-  IconProps,
-  MedalIcon,
   MoodIcon,
-  RunIcon,
-  SwimIcon,
 } from "@/components/Icons";
 import {
   CalendarCell,
@@ -43,29 +38,15 @@ import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
 type ViewMode = "week" | "program";
 
-const FEELS: { value: Feel; label: string }[] = [
-  { value: "good", label: "Felt good" },
-  { value: "medium", label: "Felt okay" },
-  { value: "bad", label: "Felt rough" },
+/**
+ * Written out rather than built from the value, so Tailwind's scanner sees
+ * every class it has to generate.
+ */
+const FEELS: { value: Feel; label: string; on: string; hover: string }[] = [
+  { value: "good", label: "Felt good", on: "bg-mood-good", hover: "hover:bg-mood-good" },
+  { value: "medium", label: "Felt okay", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
+  { value: "bad", label: "Felt rough", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
 ];
-
-/** Rest days render the sleeping poodle instead, so "rest" is never used here. */
-const TYPE_ICON: Record<Exclude<Workout["type"], "rest">, (p: IconProps) => JSX.Element> = {
-  run: RunIcon,
-  "run-or-cross": BikeIcon,
-  cross: SwimIcon,
-  swim: SwimIcon,
-  bike: BikeIcon,
-  brick: BoltIcon,
-  multi: BoltIcon,
-  race: MedalIcon,
-};
-
-function WorkoutIcon({ type, size = 34 }: { type: Workout["type"]; size?: number }) {
-  if (type === "rest") return <PoodleSleeping size={size + 8} />;
-  const Icon = TYPE_ICON[type];
-  return <Icon size={size} />;
-}
 
 /** Past days read as either done or missed; upcoming days stay neutral. */
 type CellStatus = "rest" | "done" | "missed" | "today" | "upcoming";
@@ -344,22 +325,36 @@ function DayCell({
             className="mt-1 flex items-center gap-0.5"
             aria-label="How did it feel?"
           >
-            {FEELS.map((f) => (
-              <button
-                key={f.value}
-                title={f.label}
-                aria-label={f.label}
-                aria-pressed={log?.feel === f.value}
-                onClick={() => onFeel(f.value)}
-              className={`focus-pouf rounded-full p-0.5 transition ${
-                  log?.feel === f.value
-                    ? "bg-headband-light ring-1 ring-headband"
-                    : "opacity-40 hover:opacity-100"
-                }`}
-              >
-                <MoodIcon mood={f.value} size={18} />
-              </button>
-            ))}
+            {FEELS.map((f) => {
+              const picked = log?.feel === f.value;
+              return (
+                <button
+                  key={f.value}
+                  title={f.label}
+                  aria-label={f.label}
+                  aria-pressed={picked}
+                  onClick={() => onFeel(f.value)}
+                  // Grey and unringed until you reach for it: hovering colours
+                  // the one under the cursor, so the three stay tellable apart
+                  // before anything is chosen as well as after.
+                  className={`focus-pouf group rounded-full border-2 p-0.5 transition ${f.hover} ${
+                    picked
+                      ? `${f.on} border-outline`
+                      : "border-transparent hover:border-outline"
+                  }`}
+                >
+                  <MoodIcon
+                    mood={f.value}
+                    size={22}
+                    className={`transition ${
+                      picked
+                        ? ""
+                        : "opacity-60 grayscale group-hover:opacity-100 group-hover:grayscale-0"
+                    }`}
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
 

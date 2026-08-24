@@ -8,6 +8,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
 import PoodleMascot from "@/components/PoodleMascot";
+import WorkoutIcon from "@/components/WorkoutIcon";
 import { StarIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { fromISO } from "@/lib/dates";
@@ -174,6 +175,9 @@ export default function HomePage() {
 
       {countdown === 0 && next && (
         <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
+          {/* The same poodle the calendar shows for this session, so the banner
+              and the day it points at read as the same workout. */}
+          <WorkoutIcon type={next.workout.type} size={54} className="shrink-0" />
           <div className="flex-1">
             <div className="type-overline flex items-center gap-1.5 text-lilac">
               <StarIcon size={13} />

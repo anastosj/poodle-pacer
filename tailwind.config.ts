@@ -33,6 +33,11 @@ const config: Config = {
         lilac: "var(--lilac)",
         periwinkle: "var(--periwinkle)",
         "pale-cyan": "var(--pale-cyan)",
+        mood: {
+          good: "var(--mood-good)",
+          okay: "var(--mood-okay)",
+          rough: "var(--mood-rough)",
+        },
         success: "var(--success)",
         danger: "var(--danger)",
         "danger-ink": "var(--danger-ink)",

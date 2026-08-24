@@ -24,6 +24,13 @@
   --success: #7ee8ff;
   --danger: #e0d6ff;
   --danger-ink: #0f1330;
+  /* How a run felt. The three poodle faces differ only by expression, which is
+     unreadable at the size they sit in a card, so colour carries the meaning
+     and the face confirms it. Pitched pale enough to take the near-black
+     outline everything else in the palette wears. */
+  --mood-good: #8ce8b4;
+  --mood-okay: #ffd884;
+  --mood-rough: #ffa8b4;
   --headband: #4b2fd6;
   --headband-dark: #3821aa;
   --headband-light: #cfc2ff;

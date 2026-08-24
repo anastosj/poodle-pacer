@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ActivityDetail } from "@/app/api/strava/activity/[id]/route";
-import { BoltIcon, CheckIcon } from "@/components/Icons";
+import { BoltIcon, MoodIcon } from "@/components/Icons";
 import {
   formatDuration,
   formatPace,
@@ -224,8 +224,18 @@ export default function WorkoutDetail({
         </div>
 
         {log.feel && (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1 text-meta font-bold text-ink">
-            <CheckIcon size={11} />
+          // Same colour and same face as the picker in the calendar card, so
+          // how the run felt reads the same wherever it appears.
+          <p
+            className={`mt-3 inline-flex items-center gap-1.5 rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-ink ${
+              log.feel === "good"
+                ? "bg-mood-good"
+                : log.feel === "medium"
+                  ? "bg-mood-okay"
+                  : "bg-mood-rough"
+            }`}
+          >
+            <MoodIcon mood={log.feel} size={14} />
             Felt{" "}
             {log.feel === "good" ? "good" : log.feel === "medium" ? "okay" : "rough"}
           </p>
