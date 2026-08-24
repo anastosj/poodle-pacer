@@ -1,9 +1,8 @@
 /**
- * Google encoded polyline decoding, and projection into an SVG path.
+ * Google encoded polyline decoding and re-encoding.
  *
- * Drawing the route shape needs no map provider and no API key. It shows where
- * the run went relative to itself, not which streets it used; street tiles
- * would mean Mapbox or similar, with a token and a bill attached.
+ * Strava hands routes over in this format. Placing the decoded coordinates on
+ * screen is `mercator.ts`, which has to match how the map tiles are projected.
  */
 
 export interface LatLng {
@@ -79,65 +78,4 @@ export function simplifyToLength(encoded: string, maxLength: number): string {
     if (out.length <= maxLength) return out;
   }
   return encodePolyline([points[0], points[points.length - 1]]);
-}
-
-/**
- * Project coordinates into an SVG path, fitted to the box with a margin.
- *
- * Longitude degrees shrink towards the poles, so they are scaled by cos(lat)
- * before fitting. Without that a north-south route comes out stretched sideways.
- */
-export function polylineToPath(
-  points: LatLng[],
-  width: number,
-  height: number,
-  margin = 6
-): string | null {
-  if (points.length < 2) return null;
-
-  const midLat = (points[0].lat + points[points.length - 1].lat) / 2;
-  const lngScale = Math.cos((midLat * Math.PI) / 180);
-
-  const xs = points.map((p) => p.lng * lngScale);
-  const ys = points.map((p) => -p.lat); // north upwards
-
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
-  const spanX = maxX - minX || 1e-9;
-  const spanY = maxY - minY || 1e-9;
-
-  // One scale for both axes keeps the route's proportions honest.
-  const scale = Math.min(
-    (width - margin * 2) / spanX,
-    (height - margin * 2) / spanY
-  );
-
-  const offsetX = (width - spanX * scale) / 2;
-  const offsetY = (height - spanY * scale) / 2;
-
-  return points
-    .map((_, i) => {
-      const x = (xs[i] - minX) * scale + offsetX;
-      const y = (ys[i] - minY) * scale + offsetY;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-}
-
-/** Start and end markers, in the same projected space as the path. */
-export function polylineEndpoints(
-  points: LatLng[],
-  width: number,
-  height: number,
-  margin = 6
-): { start: [number, number]; end: [number, number] } | null {
-  const path = polylineToPath(points, width, height, margin);
-  if (!path) return null;
-  const coords = path
-    .split(" ")
-    .map((c) => c.slice(1).split(",").map(Number) as [number, number]);
-  return { start: coords[0], end: coords[coords.length - 1] };
 }

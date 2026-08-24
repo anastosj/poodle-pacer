@@ -61,6 +61,73 @@ body {
     }
   }
 
+  /* The route replay's poodle: a stride cycle, kept in CSS so the browser
+     animates the limbs while React only moves the whole dog along the path. */
+  .poodle-stride {
+    animation: poodle-stride 0.36s linear infinite;
+  }
+  @keyframes poodle-stride {
+    0%,
+    100% {
+      transform: rotate(-24deg);
+    }
+    50% {
+      transform: rotate(24deg);
+    }
+  }
+
+  .poodle-bob {
+    animation: poodle-bob 0.36s ease-in-out infinite;
+  }
+  @keyframes poodle-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-1.5px);
+    }
+  }
+
+  .poodle-tail {
+    animation: poodle-tail 0.3s ease-in-out infinite;
+  }
+  @keyframes poodle-tail {
+    0%,
+    100% {
+      transform: rotate(-14deg);
+    }
+    50% {
+      transform: rotate(14deg);
+    }
+  }
+
+  .poodle-ear {
+    animation: poodle-ear 0.36s ease-in-out infinite;
+  }
+  @keyframes poodle-ear {
+    0%,
+    100% {
+      transform: rotate(6deg);
+    }
+    50% {
+      transform: rotate(-14deg);
+    }
+  }
+
+  .poodle-tongue {
+    animation: poodle-tongue 0.72s ease-in-out infinite;
+  }
+  @keyframes poodle-tongue {
+    0%,
+    100% {
+      transform: rotate(-8deg);
+    }
+    50% {
+      transform: rotate(10deg);
+    }
+  }
+
   .bounce-in {
     animation: bounce-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
@@ -78,7 +145,12 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .wag,
-  .bounce-in {
+  .bounce-in,
+  .poodle-stride,
+  .poodle-bob,
+  .poodle-tail,
+  .poodle-ear,
+  .poodle-tongue {
     animation: none;
   }
   .pouf-lift:hover {
