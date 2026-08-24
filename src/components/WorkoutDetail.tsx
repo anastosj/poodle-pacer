@@ -12,6 +12,7 @@ import {
   paceSecondsPerMile,
 } from "@/lib/pace";
 import RouteReplay from "@/components/RouteReplay";
+import { compareHalves } from "@/lib/splits";
 import { FEEL_LABEL, RunLog, logSeconds } from "@/lib/store";
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -21,6 +22,58 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </div>
       <div className="text-meta font-medium text-ink-soft">{label}</div>
+    </div>
+  );
+}
+
+/**
+ * First half against second half. The verdict is the headline, because that is
+ * the thing runners look for, and the bars are there to show how far apart the
+ * two halves actually were.
+ */
+function Halves({ detail }: { detail: ActivityDetail }) {
+  const halves = compareHalves(detail.splits);
+  if (!halves) return null;
+  const { firstPace, secondPace, deltaSeconds, kind } = halves;
+  const gap = formatPace(Math.abs(deltaSeconds));
+  // Longer bar = slower half, matching the mile splits below.
+  const slowest = Math.max(firstPace, secondPace) || 1;
+
+  const verdict =
+    kind === "negative"
+      ? `Negative split. Second half ${gap}/mi faster.`
+      : kind === "positive"
+        ? `Positive split. Second half ${gap}/mi slower.`
+        : "Even split. Both halves at the same pace.";
+
+  return (
+    <div
+      className={`rounded-sm border-2 border-outline px-4 py-3 ${
+        kind === "negative" ? "bg-mood-good" : "bg-lilac"
+      }`}
+    >
+      <p className="text-meta font-bold text-ink">{verdict}</p>
+      <div className="mt-2 space-y-1.5">
+        {[
+          { name: "First half", pace: firstPace },
+          { name: "Second half", pace: secondPace },
+        ].map((half) => (
+          <div key={half.name} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-meta text-ink-soft">
+              {half.name}
+            </span>
+            <span className="h-2 flex-1 overflow-hidden border border-outline bg-surface">
+              <span
+                className="block h-full bg-primary"
+                style={{ width: `${(half.pace / slowest) * 100}%` }}
+              />
+            </span>
+            <span className="w-14 shrink-0 text-right text-meta font-bold tabular-nums text-ink">
+              {formatPace(half.pace)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -301,12 +354,15 @@ export default function WorkoutDetail({
                 miles={detail.miles}
                 seconds={detail.seconds}
                 tiles={realMaps}
+                splits={detail.splits}
               />
             ) : (
               <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
                 No route recorded, so this was probably a treadmill run.
               </p>
             )}
+
+            <Halves detail={detail} />
 
             {detail.splits.length > 0 ? (
               <div>

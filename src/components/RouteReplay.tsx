@@ -72,6 +72,111 @@ function pointsFromPolyline(
   });
 }
 
+/** A point on the elevation profile: miles covered, and feet above sea level. */
+interface Rise {
+  d: number;
+  e: number;
+}
+
+/**
+ * The run's elevation against distance.
+ *
+ * Strava's altitude stream is the good case. A demo run, or a run whose device
+ * recorded no altitude, falls back to the per-mile elevation changes, which
+ * gives the same shape at a coarser resolution rather than nothing at all.
+ */
+function elevationProfile(
+  points: RoutePoint[],
+  splits: { miles: number; elevationChange: number }[]
+): Rise[] {
+  const traced = points.filter((p) => p.e !== undefined);
+  if (traced.length > 2) {
+    return traced.map((p) => ({ d: p.d, e: p.e as number }));
+  }
+  if (!splits.length) return [];
+  const rises: Rise[] = [{ d: 0, e: 0 }];
+  let d = 0;
+  let e = 0;
+  for (const s of splits) {
+    d += s.miles;
+    e += s.elevationChange;
+    rises.push({ d, e });
+  }
+  return rises;
+}
+
+function ElevationChart({
+  rises,
+  atMiles,
+}: {
+  rises: Rise[];
+  atMiles: number;
+}) {
+  const W = 640;
+  const H = 90;
+  const PAD = 6;
+
+  const totalMiles = rises[rises.length - 1].d || 1;
+  const lo = Math.min(...rises.map((r) => r.e));
+  const hi = Math.max(...rises.map((r) => r.e));
+  // A flat run would otherwise divide by zero and draw a line off the top.
+  const range = Math.max(hi - lo, 1);
+
+  const x = (d: number) => (d / totalMiles) * W;
+  const y = (e: number) => H - PAD - ((e - lo) / range) * (H - PAD * 2);
+
+  const line = rises
+    .map((r, i) => `${i === 0 ? "M" : "L"}${x(r.d).toFixed(1)},${y(r.e).toFixed(1)}`)
+    .join(" ");
+  const area = `${line} L${W},${H} L0,${H} Z`;
+
+  // Total climb, which is what runners mean by a run's elevation.
+  const gain = rises.reduce(
+    (sum, r, i) => (i === 0 ? 0 : sum + Math.max(0, r.e - rises[i - 1].e)),
+    0
+  );
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-meta font-bold uppercase tracking-wide text-ink-soft">
+          Elevation
+        </h3>
+        <span className="text-meta tabular-nums text-ink-soft">
+          {Math.round(gain)} ft climbed · {Math.round(hi - lo)} ft range
+        </span>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="mt-1 block h-20 w-full rounded-sm border-2 border-outline bg-lilac"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Elevation profile, ${Math.round(gain)} feet of climbing`}
+      >
+        <path d={area} fill="#2f6fed" opacity="0.28" />
+        <path
+          d={line}
+          fill="none"
+          stroke="#1d4ed8"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {/* Where the poodle has got to, so the hills line up with the replay. */}
+        <line
+          x1={x(atMiles)}
+          x2={x(atMiles)}
+          y1="0"
+          y2={H}
+          stroke="#0f1330"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
+  );
+}
+
 /** Index of the last point at or before `elapsed`. */
 function seek(points: RoutePoint[], elapsed: number): number {
   let lo = 0;
@@ -90,6 +195,7 @@ export default function RouteReplay({
   miles,
   seconds,
   tiles,
+  splits = [],
 }: {
   polyline: string;
   /** Strava id, when there is one to fetch timing streams from. */
@@ -98,6 +204,8 @@ export default function RouteReplay({
   seconds: number;
   /** Whether a Mapbox token is configured, i.e. whether there are streets. */
   tiles: boolean;
+  /** Fallback for the elevation profile when there is no altitude stream. */
+  splits?: { miles: number; elevationChange: number }[];
 }) {
   const [streams, setStreams] = useState<RouteStreams | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
@@ -125,6 +233,11 @@ export default function RouteReplay({
   );
 
   const duration = points.length ? points[points.length - 1].t : 0;
+
+  const rises = useMemo(
+    () => elevationProfile(points, splits),
+    [points, splits]
+  );
 
   const view: Viewport | null = useMemo(
     () => fitViewport(points, MAP_W, MAP_H, PADDING),
@@ -358,6 +471,10 @@ export default function RouteReplay({
           [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2
           [&::-moz-range-thumb]:border-outline [&::-moz-range-thumb]:bg-surface"
       />
+
+      {rises.length > 2 && (
+        <ElevationChart rises={rises} atMiles={frame.miles} />
+      )}
 
       <p className="mt-1.5 text-[10px] text-foreground/45">
         {streams
