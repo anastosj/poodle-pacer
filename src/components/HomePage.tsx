@@ -11,15 +11,13 @@ import PoodleMascot from "@/components/PoodleMascot";
 import WorkoutIcon from "@/components/WorkoutIcon";
 import { StarIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
-import { fromISO } from "@/lib/dates";
+import { planCells } from "@/lib/calendar";
+import { fromISO, startOfToday, toLocalISO } from "@/lib/dates";
 import { computeInsights, consistencyOf } from "@/lib/insights";
 import { formatDuration, parseDuration } from "@/lib/pace";
-import { Workout } from "@/lib/programs";
 import {
-  beginWeekOf,
   daysUntilStart,
   effectiveStartDate,
-  logKey,
   makePlan,
   raceDateFromStart,
 } from "@/lib/store";
@@ -32,42 +30,6 @@ const CHEERS = [
   "Race day? That's just a lot of very focused zoomies.",
   "Blue headband on. Game face on.",
 ];
-
-interface NextWorkout {
-  week: number;
-  dayIndex: number;
-  workout: Workout;
-  date: Date | null;
-}
-
-function findNextWorkout(
-  schedule: { week: number; days: Workout[] }[],
-  logs: Record<string, { completed: boolean }>,
-  startDate?: string
-): NextWorkout | null {
-  const start = startDate ? new Date(startDate + "T00:00:00") : null;
-  let fromDay = 0;
-  if (start) {
-    const diffDays = Math.floor((Date.now() - start.getTime()) / 86400000);
-    if (diffDays > 0) fromDay = diffDays;
-  }
-  for (const week of schedule) {
-    for (let dayIndex = 0; dayIndex < week.days.length; dayIndex++) {
-      const workout = week.days[dayIndex];
-      if (workout.type === "rest") continue;
-      const dayNumber = (week.week - 1) * 7 + dayIndex;
-      if (dayNumber < fromDay) continue;
-      if (logs[logKey(week.week, dayIndex)]?.completed) continue;
-      return {
-        week: week.week,
-        dayIndex,
-        workout,
-        date: start ? new Date(start.getTime() + dayNumber * 86400000) : null,
-      };
-    }
-  }
-  return null;
-}
 
 export default function HomePage() {
   const { state, loaded, plan, program, update, updatePlan } = useApp();
@@ -110,15 +72,14 @@ export default function HomePage() {
     .find((workout) => workout.type === "race");
   const raceLabel = raceWorkout?.label ?? program.name;
 
-  const next = useMemo(
-    () =>
-      findNextWorkout(
-        program.schedule.filter((w) => w.week >= beginWeekOf(plan)),
-        plan.logs,
-        plan.startDate
-      ),
-    [program.schedule, plan]
-  );
+  // Today's own cell, from the same builder the calendar grid uses, so the
+  // banner and the highlighted column can never disagree.
+  const todayCell = useMemo(() => {
+    const iso = toLocalISO(startOfToday());
+    return planCells(program, plan).find((c) => c.iso === iso) ?? null;
+  }, [program, plan]);
+  const todayLog = todayCell ? plan.logs[todayCell.key] : undefined;
+  const todayDone = todayLog?.completed ?? false;
 
   // Wait for the server copy, otherwise the wizard flashes over an existing plan.
   const showOnboarding =
@@ -173,56 +134,62 @@ export default function HomePage() {
         </section>
       )}
 
-      {countdown === 0 && next && (
+      {countdown === 0 && todayCell && (
         <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
           {/* The same poodle the calendar shows for this session, so the banner
-              and the day it points at read as the same workout. */}
-          <WorkoutIcon type={next.workout.type} size={54} className="shrink-0" />
+              and today's column read as the same workout. */}
+          <WorkoutIcon
+            type={todayCell.workout.type}
+            size={54}
+            className="shrink-0"
+          />
           <div className="flex-1">
             <div className="type-overline flex items-center gap-1.5 text-lilac">
               <StarIcon size={13} />
-              Next workout
+              Today
             </div>
             <div className="mt-1 font-display text-title uppercase">
-              {next.workout.label}
+              {todayCell.workout.label}
             </div>
             <div className="type-body text-white/85">
-              {next.date ? (
-                <>
-                  {/* Numbered from this runner's first training day, matching
-                      the calendar cells, not from program week 1. */}
-                  Day{" "}
-                  {(next.week - beginWeekOf(plan)) * 7 + next.dayIndex + 1} ·{" "}
-                  {next.date.toLocaleDateString(undefined, {
-                    weekday: "long",
-                    month: "short",
-                    day: "numeric",
-                  })}{" "}
-                  · Week {next.week}
-                </>
-              ) : (
-                <>Week {next.week}</>
-              )}
+              {/* Numbered from this runner's first training day, matching the
+                  calendar cells, not from program week 1. */}
+              Day {todayCell.dayNumber + 1} ·{" "}
+              {todayCell.date.toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "short",
+                day: "numeric",
+              })}{" "}
+              · Week {todayCell.week}
             </div>
           </div>
-          <button
-            onClick={() => {
-              celebrate(celebrationKind(next.workout));
-              updatePlan((prev) => ({
-                ...prev,
-                logs: {
-                  ...prev.logs,
-                  [logKey(next.week, next.dayIndex)]: {
-                    ...prev.logs[logKey(next.week, next.dayIndex)],
-                    completed: true,
+          {todayCell.workout.type === "rest" ? (
+            <p className="rounded-sm border-3 border-outline bg-lilac px-5 py-2 text-sm font-bold uppercase text-ink">
+              Rest day
+            </p>
+          ) : (
+            <button
+              onClick={() => {
+                if (!todayDone) celebrate(celebrationKind(todayCell.workout));
+                updatePlan((prev) => ({
+                  ...prev,
+                  logs: {
+                    ...prev.logs,
+                    [todayCell.key]: {
+                      ...prev.logs[todayCell.key],
+                      completed: !todayDone,
+                    },
                   },
-                },
-              }));
-            }}
-            className="hard-button focus-pouf w-full rounded-sm bg-highlight px-5 py-2 text-sm font-bold uppercase text-ink sm:w-auto"
-          >
-            Mark done
-          </button>
+                }));
+              }}
+              aria-pressed={todayDone}
+              className={`hard-button focus-pouf w-full rounded-sm px-5 py-2 text-sm font-bold uppercase sm:w-auto ${
+                todayDone ? "bg-lilac text-ink" : "bg-highlight text-ink"
+              }`}
+            >
+              {todayDone ? "Done" : "Mark done"}
+            </button>
+          )}
         </section>
       )}
 

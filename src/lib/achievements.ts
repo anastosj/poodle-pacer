@@ -20,6 +20,19 @@ export interface Achievement {
   unlocked: boolean;
   /** Unlocked: the earned value ("23:41"). Locked: what it takes. */
   detail: string;
+  /** The run that earned it, so a badge can point at the day it happened. */
+  earnedBy?: EarnedBy;
+}
+
+/** Enough to date an achievement and open the run behind it. */
+export interface EarnedBy {
+  planId: string;
+  /** Key into `plan.logs`. */
+  logKey: string;
+  /** Local ISO date of the run. */
+  iso: string;
+  /** The workout's label, for the detail view's heading. */
+  label: string;
 }
 
 const MILE = 1;
@@ -47,16 +60,37 @@ const STREAK_TARGETS: { id: string; title: string; days: number }[] = [
   { id: "streak-50", title: "50-day streak", days: 50 },
 ];
 
-/** Best average-pace time over `targetMiles`, from any plan's logged runs. */
-function bestEffortSeconds(plans: Plan[], targetMiles: number): number | null {
-  let best: number | null = null;
+/**
+ * Best average-pace time over `targetMiles`, and the run that set it.
+ *
+ * Walks the calendar rather than the logs directly, because a badge has to say
+ * when it happened and a bare log key carries no date.
+ */
+function bestEffort(
+  plans: Plan[],
+  targetMiles: number
+): { seconds: number; earnedBy: EarnedBy } | null {
+  let best: { seconds: number; earnedBy: EarnedBy } | null = null;
   for (const plan of plans) {
-    for (const log of Object.values(plan.logs)) {
-      if (!log.completed || !log.miles || log.miles < targetMiles) continue;
+    const program =
+      programs.find((p) => p.id === plan.programId) ?? programs[0];
+    for (const cell of planCells(program, plan)) {
+      const log = plan.logs[cell.key];
+      if (!log?.completed || !log.miles || log.miles < targetMiles) continue;
       const seconds = logSeconds(log);
       if (!seconds) continue;
       const projected = (seconds / log.miles) * targetMiles;
-      if (best === null || projected < best) best = projected;
+      if (best === null || projected < best.seconds) {
+        best = {
+          seconds: projected,
+          earnedBy: {
+            planId: plan.id,
+            logKey: cell.key,
+            iso: cell.iso,
+            label: log.stravaName ?? cell.workout.label,
+          },
+        };
+      }
     }
   }
   return best;
@@ -67,20 +101,36 @@ function bestEffortSeconds(plans: Plan[], targetMiles: number): number | null {
  * kept when its scheduled workout is completed (rest days are free); today
  * doesn't break a streak until it's missed, it just doesn't extend it yet.
  */
-export function bestStreak(plan: Plan, program: Program): number {
+function walkStreak(
+  plan: Plan,
+  program: Program
+): { best: number; days: { length: number; earnedBy: EarnedBy }[] } {
   const todayIso = toLocalISO(startOfToday());
+  const days: { length: number; earnedBy: EarnedBy }[] = [];
   let best = 0;
   let current = 0;
   let hasWorkout = false; // an all-rest run of days isn't a streak
 
   for (const cell of planCells(program, plan)) {
     if (cell.iso > todayIso) break;
-    const done = plan.logs[cell.key]?.completed ?? false;
+    const log = plan.logs[cell.key];
+    const done = log?.completed ?? false;
     const kept = cell.workout.type === "rest" || done;
     if (kept) {
       current += 1;
       if (done) hasWorkout = true;
-      if (hasWorkout) best = Math.max(best, current);
+      if (hasWorkout) {
+        best = Math.max(best, current);
+        days.push({
+          length: current,
+          earnedBy: {
+            planId: plan.id,
+            logKey: cell.key,
+            iso: cell.iso,
+            label: log?.stravaName ?? cell.workout.label,
+          },
+        });
+      }
     } else if (cell.iso === todayIso) {
       break; // the day isn't over; don't count it either way
     } else {
@@ -88,7 +138,11 @@ export function bestStreak(plan: Plan, program: Program): number {
       hasWorkout = false;
     }
   }
-  return best;
+  return { best, days };
+}
+
+export function bestStreak(plan: Plan, program: Program): number {
+  return walkStreak(plan, program).best;
 }
 
 export function computeAchievements(state: RunnerState): Achievement[] {
@@ -96,18 +150,18 @@ export function computeAchievements(state: RunnerState): Achievement[] {
   const program = programs.find((p) => p.id === plan.programId) ?? programs[0];
 
   const speed: Achievement[] = SPEED_TARGETS.map((t) => {
-    const seconds = bestEffortSeconds(state.plans, t.miles);
+    const best = bestEffort(state.plans, t.miles);
     return {
       id: t.id,
       title: t.title,
       kind: "speed",
-      unlocked: seconds !== null,
-      detail:
-        seconds !== null ? formatDuration(Math.round(seconds)) : t.lockedDetail,
+      unlocked: best !== null,
+      detail: best ? formatDuration(Math.round(best.seconds)) : t.lockedDetail,
+      earnedBy: best?.earnedBy,
     };
   });
 
-  const streak = bestStreak(plan, program);
+  const { best: streak, days } = walkStreak(plan, program);
   const streaks: Achievement[] = STREAK_TARGETS.map((t) => ({
     id: t.id,
     title: t.title,
@@ -117,6 +171,9 @@ export function computeAchievements(state: RunnerState): Achievement[] {
       streak >= t.days
         ? `Best: ${streak} days`
         : `${streak} of ${t.days} days`,
+    // The day the streak first reached this length: a streak has no single run
+    // behind it, but the day it got there is the one worth linking to.
+    earnedBy: days.find((d) => d.length === t.days)?.earnedBy,
   }));
 
   return [...speed, ...streaks];
