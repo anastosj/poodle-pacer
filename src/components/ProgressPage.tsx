@@ -37,7 +37,9 @@ export default function ProgressPage() {
         label={`${completed} of ${totalWorkouts} workouts`}
       />
 
-      <RacePredictorCard plan={plan} program={program} />
+      {program.raceDistanceMiles && (
+        <RacePredictorCard plan={plan} program={program} />
+      )}
 
       <InsightsPanel plan={plan} program={program} />
 

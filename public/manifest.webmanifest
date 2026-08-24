@@ -1,7 +1,7 @@
 {
   "name": "Poodle Pacer",
   "short_name": "Poodle Pacer",
-  "description": "A fun white-poodle-themed sidekick for half marathon training.",
+  "description": "A white-poodle-themed sidekick for running and triathlon training.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fdfcf9",

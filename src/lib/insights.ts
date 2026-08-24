@@ -5,7 +5,7 @@ import {
   startOfMonth,
   startOfToday,
 } from "@/lib/dates";
-import { Program } from "@/lib/programs";
+import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { paceSecondsPerMile } from "@/lib/pace";
 import { Plan, RunLog, logSeconds } from "@/lib/store";
 
@@ -80,8 +80,10 @@ const EMPTY = (start: Date, end: Date): PeriodStats => ({
 
 /** Miles credited for a workout: what was logged, else what was planned. */
 function loggedMiles(cell: CalendarCell, log: RunLog | undefined): number {
+  if (!workoutTracksRunningMiles(cell.workout)) return 0;
   if (typeof log?.miles === "number") return log.miles;
-  return cell.workout.type === "run" ? cell.workout.miles ?? 0 : 0;
+  if (cell.workout.type === "run-or-cross") return 0;
+  return cell.workout.miles ?? 0;
 }
 
 function summarize(
@@ -106,7 +108,7 @@ function summarize(
     if (cell.workout.type === "rest") continue;
     stats.scheduled += 1;
     if (cell.date <= today) stats.due += 1;
-    if (cell.workout.type === "run") {
+    if (workoutTracksRunningMiles(cell.workout)) {
       stats.plannedMiles += cell.workout.miles ?? 0;
     }
 
@@ -184,7 +186,10 @@ function buildTrend(
   if (scope === "week") {
     // One point per completed run, in order.
     return inWindow
-      .filter((c) => c.workout.type !== "rest" && logs[c.key]?.completed)
+      .filter(
+        (c) =>
+          workoutTracksRunningMiles(c.workout) && logs[c.key]?.completed,
+      )
       .map((cell) => {
         const log = logs[cell.key];
         const miles = loggedMiles(cell, log);

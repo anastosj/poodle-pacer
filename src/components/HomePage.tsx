@@ -23,7 +23,7 @@ const CHEERS = [
   "Every mile earns extra belly rubs.",
   "Fluffy on the outside, fierce on the inside.",
   "Trot, jog, zoom, repeat!",
-  "13.1 miles? That's just 26.2 zoomies.",
+  "Race day? That's just a lot of very focused zoomies.",
   "Blue headband on. Game face on.",
 ];
 

@@ -6,7 +6,7 @@
  */
 import { CalendarCell, planCells } from "@/lib/calendar";
 import { daysBetween, fromISO, startOfToday } from "@/lib/dates";
-import { Program } from "@/lib/programs";
+import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { Plan, logSeconds } from "@/lib/store";
 
 export const HALF_MARATHON_MILES = 13.1094;
@@ -25,6 +25,7 @@ export interface RacePrediction {
   sampleCount: number;
   /** Days until race day; undefined when the race date is unknown or past. */
   daysToRace?: number;
+  targetMiles: number;
 }
 
 export function riegelPredict(
@@ -42,7 +43,12 @@ interface Effort {
   predicted: number;
 }
 
-function effortOf(cell: CalendarCell, plan: Plan): Effort | null {
+function effortOf(
+  cell: CalendarCell,
+  plan: Plan,
+  targetMiles: number,
+): Effort | null {
+  if (!workoutTracksRunningMiles(cell.workout)) return null;
   const log = plan.logs[cell.key];
   if (!log?.completed || !log.miles || log.miles < MIN_BASIS_MILES) return null;
   const seconds = logSeconds(log);
@@ -51,24 +57,26 @@ function effortOf(cell: CalendarCell, plan: Plan): Effort | null {
     miles: log.miles,
     seconds,
     iso: cell.iso,
-    predicted: riegelPredict(log.miles, seconds),
+    predicted: riegelPredict(log.miles, seconds, targetMiles),
   };
 }
 
 /**
- * Predict the half-marathon finish from the fastest qualifying run. Recent
- * runs first, any run as a fallback so early weeks still get an estimate.
+ * Predict the target running race from the fastest qualifying run. Recent runs
+ * come first, with any run as a fallback so early weeks still get an estimate.
  */
 export function predictRace(
   plan: Plan,
   program: Program
 ): RacePrediction | null {
+  const targetMiles = program.raceDistanceMiles;
+  if (!targetMiles) return null;
   const cells = planCells(program, plan);
   if (cells.length === 0) return null;
 
   const today = startOfToday();
   const efforts = cells
-    .map((cell) => effortOf(cell, plan))
+    .map((cell) => effortOf(cell, plan, targetMiles))
     .filter((e): e is Effort => e !== null);
   if (efforts.length === 0) return null;
 
@@ -78,14 +86,15 @@ export function predictRace(
   const pool = recent.length > 0 ? recent : efforts;
   const best = pool.reduce((a, b) => (b.predicted < a.predicted ? b : a));
 
-  const race = cells.find((c) => c.workout.type === "race");
+  const race = cells.filter((c) => c.workout.type === "race").at(-1);
   const daysToRace = race ? daysBetween(today, race.date) : undefined;
 
   return {
     seconds: Math.round(best.predicted),
-    pace: best.predicted / HALF_MARATHON_MILES,
+    pace: best.predicted / targetMiles,
     basis: { miles: best.miles, seconds: best.seconds, iso: best.iso },
     sampleCount: efforts.length,
+    targetMiles,
     daysToRace:
       daysToRace !== undefined && daysToRace >= 0 ? daysToRace : undefined,
   };

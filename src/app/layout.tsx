@@ -14,9 +14,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Poodle Pacer · Half Marathon Trainer",
+  title: "Poodle Pacer · Training Plan Tracker",
   description:
-    "A fun white-poodle-themed sidekick for half marathon training. Hal Higdon programs, Strava sync, and progress tracking.",
+    "A white-poodle-themed sidekick for running and triathlon training plans, Strava run sync, and progress tracking.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

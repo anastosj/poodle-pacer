@@ -31,7 +31,7 @@ export default function RacePredictorCard({
                 {formatDuration(prediction.seconds)}
               </div>
               <div className="text-[11px] font-medium text-foreground/60">
-                Predicted half marathon
+                Predicted {program.raceLabel.toLowerCase()}
               </div>
             </div>
             <div>
@@ -57,8 +57,8 @@ export default function RacePredictorCard({
             An estimate (Riegel formula) from your best recent run:{" "}
             {prediction.basis.miles} mi in{" "}
             {formatDuration(prediction.basis.seconds)} on{" "}
-            {formatShortDate(fromISO(prediction.basis.iso))}. It sharpens as
-            your long runs get longer.
+            {formatShortDate(fromISO(prediction.basis.iso))}. It sharpens as you
+            log longer runs.
           </p>
         </>
       ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { Program } from "@/lib/programs";
+import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { Plan, beginWeekOf, logKey } from "@/lib/store";
 
 function currentWeek(plan: Plan, program: Program): number | null {
@@ -26,15 +26,15 @@ export default function MileageChart({
       let planned = 0;
       let logged = 0;
       week.days.forEach((day, i) => {
-        const plannedMiles =
-          day.type === "run" || day.type === "run-or-cross"
-            ? day.miles ?? 0
-            : day.type === "race"
-              ? 13.1
-              : 0;
+        const plannedMiles = workoutTracksRunningMiles(day)
+          ? day.miles ?? 0
+          : 0;
         planned += plannedMiles;
         const log = plan.logs[logKey(week.week, i)];
-        if (log?.completed) logged += log.miles ?? plannedMiles;
+        if (log?.completed && workoutTracksRunningMiles(day)) {
+          logged +=
+            log.miles ?? (day.type === "run-or-cross" ? 0 : plannedMiles);
+        }
       });
       return { week: week.week, planned, logged };
     });
@@ -44,7 +44,7 @@ export default function MileageChart({
     <section className="mt-4 rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
-          Weekly miles
+          Weekly running miles
         </h2>
         <div className="flex items-center gap-3 text-[10px] text-foreground/60">
           <span className="flex items-center gap-1">

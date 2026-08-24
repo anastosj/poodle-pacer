@@ -17,16 +17,17 @@ export default function Terms() {
   return (
     <LegalPage title="Terms of Service" updated="23 August 2026">
       <p>
-        Poodle Pacer is a personal half marathon training tracker. By signing in
-        you agree to these terms.
+        Poodle Pacer is a personal running and triathlon training tracker. By
+        signing in you agree to these terms.
       </p>
 
       <H>The service</H>
       <p>
-        The app follows a published Hal Higdon training programme, records the
-        workouts you complete, can import runs from Strava, and shows how you
-        are progressing. It is provided free and as is, with no guarantee that
-        it will be available or error free.
+        The app offers attributed training programmes from Hal Higdon,
+        Triathlete, and other published sources; records completed workouts;
+        can import runs from Strava; and shows how you are progressing. It is
+        provided free and as is, with no guarantee that it will be available or
+        error free.
       </p>
 
       <H>Your account</H>
@@ -90,9 +91,9 @@ export default function Terms() {
       <H>Training advice</H>
       <p>
         Poodle Pacer is not medical advice and is not a substitute for a coach
-        or a doctor. Training for a half marathon carries a risk of injury. Talk
-        to a qualified professional before starting, listen to your body, and
-        stop if something hurts. You train at your own risk.
+        or a doctor. Endurance training carries a risk of injury. Talk to a
+        qualified professional before starting, listen to your body, and stop
+        if something hurts. You train at your own risk.
       </p>
 
       <H>Strava</H>

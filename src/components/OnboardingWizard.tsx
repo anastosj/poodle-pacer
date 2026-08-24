@@ -92,6 +92,14 @@ export default function OnboardingWizard() {
             <p className="mt-2 text-xs text-foreground/60">
               {chosenProgram.description}
             </p>
+            <a
+              href={chosenProgram.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-block text-xs font-semibold text-headband-dark underline"
+            >
+              {chosenProgram.sourceLabel}
+            </a>
           </div>
         )}
 
