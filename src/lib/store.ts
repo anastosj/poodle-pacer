@@ -2,7 +2,13 @@
 // (the group view summarizes every runner's plan on the server). The
 // localStorage helpers below guard on `typeof window`, so this is import-safe
 // from either side.
-import { addDaysISO, daysBetween, fromISO, startOfToday } from "@/lib/dates";
+import {
+  addDaysISO,
+  daysBetween,
+  fromISO,
+  isISODate,
+  startOfToday,
+} from "@/lib/dates";
 
 export type Feel = "good" | "medium" | "bad";
 
@@ -257,21 +263,7 @@ function sanitizePlan(value: unknown): Plan | undefined {
     plan.beginWeek = beginWeek;
   }
 
-  if (
-    typeof value.startDate === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(value.startDate)
-  ) {
-    const date = new Date(`${value.startDate}T00:00:00`);
-    const [year, month, day] = value.startDate.split("-").map(Number);
-    if (
-      !Number.isNaN(date.getTime()) &&
-      date.getFullYear() === year &&
-      date.getMonth() + 1 === month &&
-      date.getDate() === day
-    ) {
-      plan.startDate = value.startDate;
-    }
-  }
+  if (isISODate(value.startDate)) plan.startDate = value.startDate;
   return plan;
 }
 
