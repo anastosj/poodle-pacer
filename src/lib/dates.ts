@@ -11,6 +11,14 @@ export function fromISO(iso: string): Date {
   return new Date(iso + "T00:00:00");
 }
 
+export function isISODate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = fromISO(value);
+  return !Number.isNaN(date.getTime()) && toLocalISO(date) === value;
+}
+
 export function addDays(d: Date, days: number): Date {
   const next = new Date(d);
   next.setDate(next.getDate() + days);
