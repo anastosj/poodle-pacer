@@ -31,15 +31,20 @@ export default function WorkoutIcon({
   type,
   size = 34,
   className,
+  onPrimary = false,
 }: {
   type: Workout["type"];
   size?: number;
   className?: string;
+  /** Rendering on the blue banner rather than the app's pale ground. */
+  onPrimary?: boolean;
 }) {
   // The sleeping poodle is curled up, so it reads smaller than the others at
   // the same box size and gets a little more room to compensate.
   if (type === "rest") {
-    return <PoodleSleeping size={size + 8} className={className} />;
+    return (
+      <PoodleSleeping size={size + 8} className={className} onPrimary={onPrimary} />
+    );
   }
   const Icon = TYPE_ICON[type];
   return <Icon size={size} className={className} />;

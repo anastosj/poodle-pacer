@@ -33,7 +33,7 @@ import {
   parseDuration,
   paceSecondsPerMile,
 } from "@/lib/pace";
-import { Feel, Plan, RunLog, logSeconds } from "@/lib/store";
+import { FEEL_LABEL, Feel, Plan, RunLog, logSeconds } from "@/lib/store";
 import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
 type ViewMode = "week" | "program";
@@ -42,10 +42,10 @@ type ViewMode = "week" | "program";
  * Written out rather than built from the value, so Tailwind's scanner sees
  * every class it has to generate.
  */
-const FEELS: { value: Feel; label: string; on: string; hover: string }[] = [
-  { value: "good", label: "Felt good", on: "bg-mood-good", hover: "hover:bg-mood-good" },
-  { value: "medium", label: "Felt okay", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
-  { value: "bad", label: "Felt rough", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
+const FEELS: { value: Feel; on: string; hover: string }[] = [
+  { value: "good", on: "bg-mood-good", hover: "hover:bg-mood-good" },
+  { value: "medium", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
+  { value: "bad", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
 ];
 
 /** Past days read as either done or missed; upcoming days stay neutral. */
@@ -330,8 +330,8 @@ function DayCell({
               return (
                 <button
                   key={f.value}
-                  title={f.label}
-                  aria-label={f.label}
+                  title={FEEL_LABEL[f.value]}
+                  aria-label={FEEL_LABEL[f.value]}
                   aria-pressed={picked}
                   onClick={() => onFeel(f.value)}
                   // Grey and unringed until you reach for it: hovering colours
@@ -704,6 +704,8 @@ export default function CalendarGrid({
         {detailCell && plan.logs[detailCell.key] && (
           <WorkoutDetail
             log={plan.logs[detailCell.key]}
+            planId={plan.id}
+            logKey={detailCell.key}
             label={detailCell.workout.label}
             dateLabel={detailCell.date.toLocaleDateString(undefined, {
               weekday: "long",

@@ -142,6 +142,7 @@ export default function HomePage() {
             type={todayCell.workout.type}
             size={54}
             className="shrink-0"
+            onPrimary
           />
           <div className="flex-1">
             <div className="type-overline flex items-center gap-1.5 text-lilac">

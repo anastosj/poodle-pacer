@@ -53,9 +53,11 @@ export default function AchievementsPanel({ state }: { state: RunnerState }) {
       >
         {a.detail}
       </div>
-      {a.unlocked && a.earnedBy && (
+      {a.unlocked && (a.earnedBy || a.span) && (
         <div className="mt-0.5 text-meta text-ink-soft">
-          {shortDate(a.earnedBy.iso)}
+          {a.span
+            ? `${shortDate(a.span.fromIso)} – ${shortDate(a.span.toIso)}`
+            : shortDate(a.earnedBy!.iso)}
         </div>
       )}
     </>
@@ -103,6 +105,8 @@ export default function AchievementsPanel({ state }: { state: RunnerState }) {
       {open && openLog && (
         <WorkoutDetail
           log={openLog}
+          planId={open.planId}
+          logKey={open.logKey}
           label={open.label}
           dateLabel={longDate(open.iso)}
           onClose={() => setOpen(null)}

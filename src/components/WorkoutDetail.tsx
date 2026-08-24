@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActivityDetail } from "@/app/api/strava/activity/[id]/route";
-import { BoltIcon, MoodIcon } from "@/components/Icons";
+import { BoltIcon, MedalIcon, MoodIcon } from "@/components/Icons";
+import { useApp } from "@/components/AppContext";
+import { computeAchievements } from "@/lib/achievements";
 import {
   formatDuration,
   formatPace,
@@ -10,7 +12,7 @@ import {
   paceSecondsPerMile,
 } from "@/lib/pace";
 import RouteReplay from "@/components/RouteReplay";
-import { RunLog, logSeconds } from "@/lib/store";
+import { FEEL_LABEL, RunLog, logSeconds } from "@/lib/store";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -104,12 +106,35 @@ export default function WorkoutDetail({
   label,
   dateLabel,
   onClose,
+  planId,
+  logKey,
 }: {
   log: RunLog;
   label: string;
   dateLabel: string;
   onClose: () => void;
+  /**
+   * Which log this is. Only needed to work out whether the run set a personal
+   * best; without them the sheet simply shows no badges.
+   */
+  planId?: string;
+  logKey?: string;
 }) {
+  const { state } = useApp();
+  // Speed badges name the run that set them. Streaks are earned across days
+  // rather than by one run, so they never appear here.
+  const badges = useMemo(
+    () =>
+      planId && logKey
+        ? computeAchievements(state).filter(
+            (a) =>
+              a.unlocked &&
+              a.earnedBy?.planId === planId &&
+              a.earnedBy?.logKey === logKey
+          )
+        : [],
+    [state, planId, logKey]
+  );
   const [fetched, setFetched] = useState<ActivityDetail | null>(null);
   const [realMaps, setRealMaps] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,24 +248,33 @@ export default function WorkoutDetail({
           )}
         </div>
 
-        {log.feel && (
-          // Same colour and same face as the picker in the calendar card, so
-          // how the run felt reads the same wherever it appears.
-          <p
-            className={`mt-3 inline-flex items-center gap-1.5 rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-ink ${
-              log.feel === "good"
-                ? "bg-mood-good"
-                : log.feel === "medium"
-                  ? "bg-mood-okay"
-                  : "bg-mood-rough"
-            }`}
-          >
-            <MoodIcon mood={log.feel} size={14} />
-            Felt{" "}
-            {log.feel === "good" ? "good" : log.feel === "medium" ? "okay" : "rough"}
-          </p>
-        )}
-
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {log.feel && (
+            // Same colour and same face as the picker in the calendar card, so
+            // how the run felt reads the same wherever it appears.
+            <p
+              className={`inline-flex items-center gap-1.5 rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-ink ${
+                log.feel === "good"
+                  ? "bg-mood-good"
+                  : log.feel === "medium"
+                    ? "bg-mood-okay"
+                    : "bg-mood-rough"
+              }`}
+            >
+              <MoodIcon mood={log.feel} size={14} />
+              {FEEL_LABEL[log.feel]}
+            </p>
+          )}
+          {badges.map((b) => (
+            <p
+              key={b.id}
+              className="inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1 text-meta font-bold text-ink"
+            >
+              <MedalIcon size={14} />
+              {b.title} · {b.detail}
+            </p>
+          ))}
+        </div>
         {!id && !sample && (
           <p className="mt-4 rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
             This one was logged by hand, so there is no route or mile breakdown.

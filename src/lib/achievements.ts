@@ -20,8 +20,13 @@ export interface Achievement {
   unlocked: boolean;
   /** Unlocked: the earned value ("23:41"). Locked: what it takes. */
   detail: string;
-  /** The run that earned it, so a badge can point at the day it happened. */
+  /**
+   * The single run that earned it. Speed badges have one; a streak is earned
+   * over many days, so it carries `span` instead.
+   */
   earnedBy?: EarnedBy;
+  /** The days a streak ran across, first to last. */
+  span?: { fromIso: string; toIso: string };
 }
 
 /** Enough to date an achievement and open the run behind it. */
@@ -104,32 +109,25 @@ function bestEffort(
 function walkStreak(
   plan: Plan,
   program: Program
-): { best: number; days: { length: number; earnedBy: EarnedBy }[] } {
+): { best: number; days: { length: number; fromIso: string; toIso: string }[] } {
   const todayIso = toLocalISO(startOfToday());
-  const days: { length: number; earnedBy: EarnedBy }[] = [];
+  const days: { length: number; fromIso: string; toIso: string }[] = [];
   let best = 0;
   let current = 0;
   let hasWorkout = false; // an all-rest run of days isn't a streak
+  let fromIso = "";
 
   for (const cell of planCells(program, plan)) {
     if (cell.iso > todayIso) break;
-    const log = plan.logs[cell.key];
-    const done = log?.completed ?? false;
+    const done = plan.logs[cell.key]?.completed ?? false;
     const kept = cell.workout.type === "rest" || done;
     if (kept) {
+      if (current === 0) fromIso = cell.iso;
       current += 1;
       if (done) hasWorkout = true;
       if (hasWorkout) {
         best = Math.max(best, current);
-        days.push({
-          length: current,
-          earnedBy: {
-            planId: plan.id,
-            logKey: cell.key,
-            iso: cell.iso,
-            label: log?.stravaName ?? cell.workout.label,
-          },
-        });
+        days.push({ length: current, fromIso, toIso: cell.iso });
       }
     } else if (cell.iso === todayIso) {
       break; // the day isn't over; don't count it either way
@@ -171,9 +169,9 @@ export function computeAchievements(state: RunnerState): Achievement[] {
       streak >= t.days
         ? `Best: ${streak} days`
         : `${streak} of ${t.days} days`,
-    // The day the streak first reached this length: a streak has no single run
-    // behind it, but the day it got there is the one worth linking to.
-    earnedBy: days.find((d) => d.length === t.days)?.earnedBy,
+    // A streak is earned across days, not by one run, so it gets the range it
+    // ran over and nothing to click through to.
+    span: days.find((d) => d.length === t.days),
   }));
 
   return [...speed, ...streaks];
