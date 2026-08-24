@@ -78,7 +78,7 @@ export default function PoodleProgressBar({
           />
         </svg>
         {/* bone at the finish */}
-        <span className="absolute right-1 top-[-1rem]" role="img" aria-label="bone">
+        <span className="absolute -top-1 right-2" role="img" aria-label="bone">
           <BoneIcon size={22} />
         </span>
         {/* running poodle */}
