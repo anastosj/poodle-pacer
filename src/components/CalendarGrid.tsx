@@ -268,7 +268,11 @@ function DayCell({
               day: "numeric",
             })}
           </span>
-          <span className="min-w-0 truncate text-meta text-ink-soft md:ml-auto md:pr-10">
+          <span
+            className={`shrink-0 whitespace-nowrap text-meta text-ink-soft md:ml-auto ${
+              isToday ? "md:pr-10" : ""
+            }`}
+          >
             Day {cell.dayNumber + 1}
           </span>
           {isToday && (
