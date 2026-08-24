@@ -61,7 +61,7 @@ const TYPE_ICON: Record<Exclude<Workout["type"], "rest">, (p: IconProps) => JSX.
   race: MedalIcon,
 };
 
-function WorkoutIcon({ type, size = 22 }: { type: Workout["type"]; size?: number }) {
+function WorkoutIcon({ type, size = 34 }: { type: Workout["type"]; size?: number }) {
   if (type === "rest") return <PoodleSleeping size={size + 8} />;
   const Icon = TYPE_ICON[type];
   return <Icon size={size} />;
@@ -227,12 +227,12 @@ function DayCell({
 
   return (
     <div
-      className={`relative flex gap-3 rounded-sm border-3 p-2.5 text-body transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
+      className={`relative flex gap-3 rounded-sm border-3 p-2.5 text-body shadow-card transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
         STATUS_STYLES[status]
-      } ${isToday ? "rotate-[-1deg] outline outline-2 outline-offset-2 outline-primary" : ""}`}
+      } ${isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""}`}
     >
       {isToday && (
-        <span className="absolute -top-2 right-2 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
+        <span className="absolute -top-3 right-2 z-10 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
           Today
         </span>
       )}
@@ -240,7 +240,7 @@ function DayCell({
       {/* Top aligned, not centred: a tall card left the artwork floating in
           the middle with the text stranded beside it. */}
       <div className="flex shrink-0 items-start pt-0.5 md:hidden">
-        <WorkoutIcon type={workout.type} size={44} />
+        <WorkoutIcon type={workout.type} size={50} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -248,7 +248,7 @@ function DayCell({
             controls take the free space on the right. */}
         <div className="flex items-center gap-2">
           <span
-              className={`text-meta font-bold uppercase tracking-wide ${
+              className={`shrink-0 text-meta font-bold uppercase tracking-wide ${
               isToday ? "text-ink" : "text-ink-soft"
             }`}
           >
@@ -260,11 +260,11 @@ function DayCell({
               day: "numeric",
             })}
           </span>
-          <span className="text-meta text-ink-soft md:ml-auto">
+          <span className="min-w-0 truncate text-meta text-ink-soft md:ml-auto md:pr-10">
             Day {cell.dayNumber + 1}
           </span>
           {isToday && (
-            <span className="rounded-full border-2 border-outline bg-ink px-1.5 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:hidden">
+            <span className="z-10 shrink-0 rounded-full border-2 border-outline bg-ink px-1.5 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:hidden">
               Today
             </span>
           )}
@@ -277,7 +277,7 @@ function DayCell({
         <div className="mt-0.5 flex items-start gap-1.5 md:mt-1">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
             <span
-              className={`font-semibold leading-tight md:text-xs ${
+              className={`font-display text-meta uppercase leading-tight tracking-tight ${
                 isRest ? "text-foreground/50" : ""
               } ${status === "missed" ? "text-foreground/55 line-through decoration-foreground/30" : ""}`}
             >

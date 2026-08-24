@@ -26,11 +26,11 @@ export default async function Group({
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-6">
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+        <h1 className="type-display flex items-center gap-2">
           <PawIcon size={26} />
           The Pack
         </h1>
-        <p className="mt-1 text-sm text-foreground/60">
+        <p className="mt-1 type-body text-ink-muted">
           Train solo or share progress with a pack you choose.
         </p>
         {!selected ? (

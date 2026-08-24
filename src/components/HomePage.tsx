@@ -215,7 +215,7 @@ export default function HomePage() {
                 },
               }));
             }}
-            className="hard-button focus-pouf rounded-sm bg-highlight px-5 py-2 text-sm font-bold uppercase text-ink"
+            className="hard-button focus-pouf w-full rounded-sm bg-highlight px-5 py-2 text-sm font-bold uppercase text-ink sm:w-auto"
           >
             Mark done
           </button>

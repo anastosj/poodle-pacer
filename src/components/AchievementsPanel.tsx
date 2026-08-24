@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FlameIcon, MedalIcon } from "@/components/Icons";
+import { BoneIcon, FlameIcon, MedalIcon } from "@/components/Icons";
 import { computeAchievements } from "@/lib/achievements";
 import { RunnerState } from "@/lib/store";
 
@@ -29,11 +29,18 @@ export default function AchievementsPanel({ state }: { state: RunnerState }) {
                 : "bg-surface opacity-55 grayscale"
             }`}
           >
-            {a.kind === "speed" ? (
-              <MedalIcon size={26} />
-            ) : (
-              <FlameIcon size={26} />
-            )}
+            <span className="relative inline-flex">
+              {a.kind === "speed" ? (
+                <MedalIcon size={30} />
+              ) : (
+                <FlameIcon size={30} />
+              )}
+              {a.unlocked && (
+                <span className="absolute -right-3 -top-2 rotate-12">
+                  <BoneIcon size={15} />
+                </span>
+              )}
+            </span>
             <div className="mt-1 text-meta font-bold uppercase">{a.title}</div>
             <div
               className={`mt-0.5 text-meta font-medium tabular-nums ${

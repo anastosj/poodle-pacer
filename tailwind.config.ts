@@ -22,7 +22,6 @@ const config: Config = {
         outline: "var(--outline)",
         border: {
           DEFAULT: "var(--border)",
-          soft: "var(--border-soft)",
         },
         primary: {
           DEFAULT: "var(--primary)",
@@ -35,6 +34,8 @@ const config: Config = {
         periwinkle: "var(--periwinkle)",
         "pale-cyan": "var(--pale-cyan)",
         success: "var(--success)",
+        danger: "var(--danger)",
+        "danger-ink": "var(--danger-ink)",
         nav: "var(--primary-dark)",
         headband: {
           DEFAULT: "var(--headband)",

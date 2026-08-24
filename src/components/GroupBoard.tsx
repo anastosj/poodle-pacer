@@ -37,9 +37,9 @@ function ConsistencyBar({ value }: { value: number }) {
         <span className="font-medium text-ink-soft">Consistency</span>
         <span className="font-bold tabular-nums text-primary-dark">{pct}%</span>
       </div>
-      <div className="mt-1 h-3 overflow-hidden border-2 border-outline bg-lilac">
+      <div className="mt-1 h-4 overflow-hidden border-2 border-outline bg-lilac">
         <div
-          className="h-full bg-accent transition-all"
+          className="h-full border-r-2 border-outline bg-primary transition-all"
           style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
@@ -123,7 +123,7 @@ function RunnerCard({
           <div className="mt-3">
             <ConsistencyBar value={summary.consistency} />
           </div>
-          <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat
               label="This week"
               value={`${summary.weekMiles} mi`}
@@ -159,6 +159,7 @@ export default function GroupBoard({
   if (summaries.length === 0) {
     return (
       <p className="mt-6 rounded-sm border-3 border-outline bg-surface p-6 text-center type-body text-ink-soft">
+        <PoodleFaceIcon size={60} className="mx-auto mb-3" />
         No runners yet. Share the link and get the family signed up.
       </p>
     );

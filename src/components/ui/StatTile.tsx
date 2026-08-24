@@ -17,9 +17,9 @@ export default function StatTile({
       as="div"
       interactive
       tone={tone === "default" ? "white" : tone}
-      className={`flex min-h-[6.25rem] flex-col justify-center p-4 ${className}`}
+      className={`flex min-h-[6.25rem] flex-col justify-center p-3 sm:p-4 ${className}`}
     >
-      <div className="font-display text-3xl leading-none">{value}</div>
+      <div className="font-display text-title leading-none">{value}</div>
       <div className="mt-2 text-meta font-bold uppercase">{label}</div>
     </Card>
   );

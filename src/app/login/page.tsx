@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import PoodleMascot from "@/components/PoodleMascot";
+import { PawIcon } from "@/components/Icons";
 import { findUser } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
 import { stravaConfigured } from "@/lib/strava";
@@ -38,7 +39,8 @@ export default async function LoginPage({
         <div className="flex justify-center">
           <PoodleMascot size={96} />
         </div>
-        <h1 className="type-display mt-4">
+        <h1 className="type-display mt-4 flex items-center justify-center gap-2">
+          <PawIcon size={24} />
           Poodle Pacer
         </h1>
         <p className="mt-1 type-body text-ink-muted">

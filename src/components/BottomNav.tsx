@@ -24,7 +24,7 @@ export default function BottomNav() {
   const { raceCount } = useApp();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t-3 border-outline bg-lilac/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t-3 border-outline bg-primary-dark pb-[env(safe-area-inset-bottom)] sm:hidden">
       <div className="flex">
         {LINKS.filter(
           ({ href }) => href !== "/group" || raceCount > 0
@@ -34,8 +34,8 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`focus-pouf flex flex-1 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase transition ${
-                active ? "text-ink" : "text-ink-soft"
+                className={`focus-pouf flex flex-1 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase transition ${
+                active ? "text-white" : "text-white/70"
               }`}
             >
               <span

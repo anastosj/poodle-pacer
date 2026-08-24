@@ -39,23 +39,55 @@ export default function PoodleProgressBar({
         <span>Road to race day</span>
         <span>{label}</span>
       </div>
-      <div className="relative mt-1 h-12">
-        {/* track */}
-        <div className="bone-track absolute bottom-2 left-0 right-0 h-5 bg-lilac" />
-        <div
-          className="bone-fill stripe-fill absolute bottom-2 left-0 h-5 border-r-2 border-outline transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
+      <div className="relative mt-1 h-20">
+        <svg
+          className="absolute inset-x-0 bottom-1 h-16 w-full overflow-visible"
+          viewBox="0 0 800 100"
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="Bone-shaped training progress track"
+        >
+          <defs>
+            <clipPath id="bone-progress-clip">
+              <path d="M58 25H742c2-10 10-17 21-17 12 0 21 9 21 21 12 0 20 9 20 21s-8 21-20 21c0 12-9 21-21 21-11 0-19-7-21-17H58c-2 10-10 17-21 17-12 0-21-9-21-21-12 0-20-9-20-21s8-21 20-21c0-12 9-21 21-21 11 0 19 7 21 17Z" />
+            </clipPath>
+            <pattern id="bone-progress-stripes" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-25)">
+              <rect width="18" height="18" fill="#2f6fed" />
+              <rect width="7" height="18" fill="#a88bff" />
+            </pattern>
+          </defs>
+          <path
+            d="M58 25H742c2-10 10-17 21-17 12 0 21 9 21 21 12 0 20 9 20 21s-8 21-20 21c0 12-9 21-21 21-11 0-19-7-21-17H58c-2 10-10 17-21 17-12 0-21-9-21-21-12 0-20-9-20-21s8-21 20-21c0-12 9-21 21-21 11 0 19 7 21 17Z"
+            fill="#e0d6ff"
+          />
+          <rect
+            x="0"
+            y="0"
+            width={`${pct}%`}
+            height="100"
+            fill="url(#bone-progress-stripes)"
+            clipPath="url(#bone-progress-clip)"
+          />
+          <path
+            d="M58 25H742c2-10 10-17 21-17 12 0 21 9 21 21 12 0 20 9 20 21s-8 21-20 21c0 12-9 21-21 21-11 0-19-7-21-17H58c-2 10-10 17-21 17-12 0-21-9-21-21-12 0-20-9-20-21s8-21 20-21c0-12 9-21 21-21 11 0 19 7 21 17Z"
+            fill="none"
+            stroke="#0f1330"
+            strokeWidth="6"
+            strokeLinejoin="round"
+          />
+        </svg>
         {/* bone at the finish */}
-        <span className="absolute -right-1 bottom-5 text-xl" role="img" aria-label="bone">
+        <span className="absolute right-0 top-0" role="img" aria-label="bone">
           <BoneIcon size={22} />
         </span>
         {/* running poodle */}
         <div
-          className="absolute bottom-3 transition-all duration-700"
-          style={{ left: `calc(${pct}% - 20px)` }}
+          className="absolute bottom-1 transition-all duration-700"
+          style={{
+            left: `clamp(0px, calc(${pct}% - 29px), calc(100% - 58px))`,
+          }}
         >
-          <MiniPoodle />
+          <MiniPoodle size={58} />
         </div>
       </div>
       <p className="text-center text-meta text-ink-soft">

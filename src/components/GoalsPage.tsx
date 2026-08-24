@@ -2,6 +2,7 @@
 
 import { programs } from "@/lib/programs";
 import { useApp } from "@/components/AppContext";
+import { BoneIcon, PawIcon } from "@/components/Icons";
 import {
   Plan,
   beginWeekOf,
@@ -63,7 +64,8 @@ export default function GoalsPage() {
       </p>
 
       <section className="mt-5 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
-        <h2 className="type-overline text-ink-soft">
+        <h2 className="type-overline flex items-center gap-1.5 text-ink-soft">
+          <PawIcon size={14} />
           Races
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -214,7 +216,10 @@ export default function GoalsPage() {
                 : "bg-pale-cyan text-ink"
             }`}
           >
-            {schedule.message}
+            <span className="flex items-center gap-1.5">
+              <BoneIcon size={16} />
+              {schedule.message}
+            </span>
           </p>
         )}
       </section>

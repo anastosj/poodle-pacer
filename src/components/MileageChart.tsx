@@ -68,7 +68,7 @@ export default function MileageChart({
               />
               {w.logged > 0 && (
                 <div
-                  className="absolute inset-x-[18%] bottom-0 border-x-2 border-t-2 border-outline bg-primary"
+                  className="absolute inset-x-[18%] bottom-0 border-2 border-outline bg-primary"
                   style={{ height: `${(w.logged / max) * 100}%` }}
                   title={`Week ${w.week}: ${Math.round(w.logged * 10) / 10} mi run`}
                 />

@@ -18,7 +18,7 @@ export default function Button({
     primary: "bg-primary text-white",
     secondary: "bg-highlight text-ink",
     ghost: "bg-surface text-ink hover:bg-lilac",
-    danger: "bg-red-100 text-red-900",
+    danger: "bg-danger text-danger-ink",
   };
   const sizes = {
     sm: "px-3 py-1.5 text-xs",

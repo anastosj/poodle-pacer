@@ -94,14 +94,14 @@ export default function StatsBar({
   ];
 
   return (
-    <div className="mt-4 grid grid-cols-3 gap-3">
+    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
       {stats.map((s, index) => (
         <StatTile
           key={s.label}
           value={s.value}
           label={s.label}
           tone={index === 1 ? "cyan" : index === 2 ? "lilac" : "default"}
-          className="text-center"
+          className={`text-center ${index === 0 ? "col-span-2 sm:col-span-1" : ""}`}
         />
       ))}
     </div>

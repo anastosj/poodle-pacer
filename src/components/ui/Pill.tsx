@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 
-type PillTone = "dark" | "violet" | "cyan" | "lilac" | "success";
+type PillTone = "dark" | "violet" | "cyan" | "lilac";
 
 export default function Pill({
   tone = "dark",
@@ -12,7 +12,6 @@ export default function Pill({
     violet: "bg-primary text-white",
     cyan: "bg-highlight text-ink",
     lilac: "bg-lilac text-ink",
-    success: "bg-highlight text-ink",
   };
   return (
     <span

@@ -2,7 +2,7 @@
 
 import AlertsCard from "@/components/AlertsCard";
 import StravaCard from "@/components/StravaCard";
-import { PoodleFaceIcon } from "@/components/Icons";
+import { PawIcon, PoodleFaceIcon } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
 import Link from "next/link";
 
@@ -17,7 +17,8 @@ export default function SettingsPage() {
       </p>
 
       <section className="mt-5 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
-        <h2 className="type-overline text-ink-soft">
+        <h2 className="type-overline flex items-center gap-1.5 text-ink-soft">
+          <PawIcon size={14} />
           Profile
         </h2>
         <div className="mt-3 flex items-center gap-3">
