@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BellIcon, CheckIcon, PhoneIcon } from "@/components/Icons";
-import { confirmationMessage, previewMessage } from "@/lib/alerts";
+import { previewMessage } from "@/lib/alerts";
+import { normalize, toE164 } from "@/lib/phone";
 import { Program, Workout } from "@/lib/programs";
 import { Plan, RunnerState } from "@/lib/store";
 
@@ -13,18 +14,6 @@ function todaysWorkout(plan: Plan, program: Program): Workout | null {
   if (diffDays < 0 || diffDays >= program.weeks * 7) return null;
   const week = Math.floor(diffDays / 7);
   return program.schedule[week]?.days[diffDays % 7] ?? null;
-}
-
-/** Digits only, so "+1 (555) 123-4567" and "+15551234567" compare equal. */
-const normalize = (phone: string) => phone.replace(/\D/g, "");
-
-/** Twilio wants E.164. Accept a bare 10-digit US number and add the country code. */
-function toE164(phone: string): string | null {
-  const digits = normalize(phone);
-  if (phone.trim().startsWith("+") && digits.length >= 8) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return null;
 }
 
 /** Turn Twilio's numeric codes into something a person can act on. */
@@ -105,13 +94,21 @@ export default function AlertsCard({
     }
     setSend({ kind: "sending" });
     try {
+      const stateToSave = {
+        ...state,
+        alerts: { ...state.alerts, phone: alerts.phone },
+      };
+      const saveRes = await fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: stateToSave }),
+      });
+      if (!saveRes.ok) {
+        setSend({ kind: "error", message: "Could not save the phone number." });
+        return;
+      }
       const res = await fetch("/api/alerts/test", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: e164,
-          message: confirmationMessage(),
-        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -127,14 +124,20 @@ export default function AlertsCard({
         message:
           data.error === "not_configured"
             ? "Texting is not switched on for this app yet, so nothing was sent."
-            : data.error === "send_failed"
-              ? twilioError(data.code, data.detail)
-              : "Could not send the text. Please try again.",
+            : data.error === "no_phone"
+              ? "Add a phone number before sending a confirmation text."
+              : data.error === "invalid_phone"
+                ? "That does not look like a phone number. Try +1 555 123 4567."
+                : data.error === "rate_limited"
+                  ? "That's enough confirmation texts for today. Try again tomorrow."
+                  : data.error === "send_failed"
+                  ? twilioError(data.code, data.detail)
+                  : "Could not send the text. Please try again.",
       });
     } catch {
       setSend({ kind: "error", message: "Could not reach the server." });
     }
-  }, [e164, update]);
+  }, [alerts.phone, e164, state, update]);
 
   const setEnabled = (enabled: boolean) =>
     update((prev) => ({ ...prev, alerts: { ...prev.alerts, enabled } }));
