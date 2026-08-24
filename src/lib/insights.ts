@@ -229,11 +229,15 @@ export function computeInsights(
   if (!plan.startDate) return null;
   const cells = planCells(program, plan);
   if (cells.length === 0) return null;
+  const logs =
+    plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
+      ? plan.logs
+      : {};
 
   const window = scopeWindow(scope, cells);
   const current = summarize(
     within(cells, window.start, window.end),
-    plan.logs,
+    logs,
     window.start,
     window.end
   );
@@ -246,13 +250,13 @@ export function computeInsights(
     const prevStart = addDays(prevEnd, -(span - 1));
     const prevCells = within(cells, prevStart, prevEnd);
     if (prevCells.length > 0) {
-      previous = summarize(prevCells, plan.logs, prevStart, prevEnd);
+      previous = summarize(prevCells, logs, prevStart, prevEnd);
     }
   }
 
   return {
     current,
     previous,
-    trend: buildTrend(scope, cells, plan.logs, window),
+    trend: buildTrend(scope, cells, logs, window),
   };
 }

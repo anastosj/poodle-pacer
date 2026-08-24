@@ -35,6 +35,30 @@ function programFor(plan: Plan): Program {
   return programs.find((p) => p.id === plan.programId) ?? programs[0];
 }
 
+function placeholder(user: UserRecord): RunnerSummary {
+  return {
+    userId: user.id,
+    name: user.name ?? "Runner",
+    avatarUrl: user.avatarUrl,
+    raceName: null,
+    raceDate: null,
+    daysToRace: null,
+    currentWeek: null,
+    totalWeeks: 0,
+    completed: 0,
+    scheduled: 0,
+    due: 0,
+    consistency: 0,
+    miles: 0,
+    plannedMiles: 0,
+    longestRun: 0,
+    weekMiles: 0,
+    weekCompleted: 0,
+    weekScheduled: 0,
+    started: false,
+  };
+}
+
 function summarize(user: UserRecord, raw: unknown): RunnerSummary {
   const state: RunnerState = normalizeState(raw);
   const plan = activePlan(state);
@@ -70,7 +94,9 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
 
   const today = startOfToday();
   const start = fromISO(plan.startDate);
+  if (Number.isNaN(start.getTime())) return base;
   const raceDate = whole.current.end;
+  if (Number.isNaN(raceDate.getTime())) return base;
   const dayDiff = Math.floor(
     (today.getTime() - start.getTime()) / 86400000
   );
@@ -107,7 +133,14 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
 export async function groupSummaries(): Promise<RunnerSummary[]> {
   const rows = await listUsersWithState();
   return rows
-    .map(({ user, state }) => summarize(user, state))
+    .map(({ user, state }) => {
+      try {
+        return summarize(user, state);
+      } catch (error) {
+        console.error("Failed to summarize group runner", user.id, error);
+        return placeholder(user);
+      }
+    })
     .sort((a, b) => {
       if (a.started !== b.started) return a.started ? -1 : 1;
       if (b.consistency !== a.consistency) return b.consistency - a.consistency;
