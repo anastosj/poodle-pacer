@@ -16,8 +16,9 @@ export default function Privacy() {
   return (
     <LegalPage title="Privacy Policy" updated="23 August 2026">
       <p>
-        Poodle Pacer is a half marathon training tracker. This policy describes
-        exactly what the app stores, why it stores it, and who else sees it.
+        Poodle Pacer is a running and triathlon training tracker. This policy
+        describes exactly what the app stores, why it stores it, and who else
+        sees it.
       </p>
 
       <H>What we collect</H>
@@ -32,7 +33,7 @@ export default function Privacy() {
         <strong>Your training data.</strong> The race you are training for, its
         date, and a record of each workout you complete: distance, duration,
         heart rate, elevation gain, cadence, the Strava activity name, and how
-        the run felt.
+        the workout felt.
       </p>
       <p>
         <strong>If you turn on text alerts.</strong> Your phone number, the time

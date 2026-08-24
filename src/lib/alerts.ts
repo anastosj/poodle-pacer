@@ -65,13 +65,22 @@ export function workoutMessage(workout: Workout): string {
   return `🐩 Morning! Today's plan: ${workout.label}. Headband on, let's go!`;
 }
 
-export const PRE_RACE_MESSAGE =
-  "🐩 Tomorrow is race day! You've put in the miles, so trust your training. " +
-  "Lay out your gear, eat well, and get some good sleep. See you at the start line!";
+export function preRaceMessage(raceLabel: string): string {
+  return (
+    `🐩 Tomorrow is your ${raceLabel}! Trust your training. ` +
+    "Lay out your gear, eat well, and get some good sleep. See you at the start line!"
+  );
+}
 
-export const RACE_DAY_MESSAGE =
-  "🐩💙 IT'S RACE DAY! 13.1 miles, one blue headband, zero doubts. " +
-  "Good luck out there. You've absolutely got this!";
+export function raceDayMessage(raceLabel: string): string {
+  return (
+    `🐩💙 IT'S ${raceLabel.toUpperCase()} DAY! One blue headband, zero doubts. ` +
+    "Good luck out there. You've absolutely got this!"
+  );
+}
+
+export const PRE_RACE_MESSAGE = preRaceMessage("race");
+export const RACE_DAY_MESSAGE = raceDayMessage("race");
 
 /**
  * The opt-in confirmation, sent once when a runner confirms their number.
@@ -119,17 +128,23 @@ export function dueAlert(
   const cells = planCells(program, plan);
   if (cells.length === 0) return null;
 
-  const race = cells.find((c) => c.workout.type === "race");
+  const race = cells.filter((c) => c.workout.type === "race").at(-1);
   const alertMinutes = parseHHMM(alerts.time);
 
   if (race && race.iso === now.iso) {
     if (!inWindow(now.minutes, RACE_DAY_MINUTES)) return null;
-    return { key: `race:${race.iso}`, body: RACE_DAY_MESSAGE };
+    return {
+      key: `race:${race.iso}`,
+      body: raceDayMessage(program.raceLabel),
+    };
   }
 
   if (race && addDaysISO(race.iso, -1) === now.iso) {
     if (!inWindow(now.minutes, alertMinutes)) return null;
-    return { key: `prerace:${now.iso}`, body: PRE_RACE_MESSAGE };
+    return {
+      key: `prerace:${now.iso}`,
+      body: preRaceMessage(program.raceLabel),
+    };
   }
 
   const cell = cells.find((c) => c.iso === now.iso);

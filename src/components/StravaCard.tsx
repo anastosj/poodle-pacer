@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Program } from "@/lib/programs";
+import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { Plan, logKey } from "@/lib/store";
 
 interface StravaStatus {
@@ -81,6 +81,10 @@ export default function StravaCard({
           program.weeks
         );
         if (!slot) continue;
+        const workout = program.schedule.find(
+          (programWeek) => programWeek.week === slot.week,
+        )?.days[slot.dayIndex];
+        if (!workout || !workoutTracksRunningMiles(workout)) continue;
         const key = logKey(slot.week, slot.dayIndex);
         const existing = logs[key];
         if (existing?.stravaActivityId === run.id) continue;
@@ -110,7 +114,7 @@ export default function StravaCard({
     } finally {
       setSyncing(false);
     }
-  }, [plan, program.weeks, updatePlan]);
+  }, [plan, program, updatePlan]);
 
   const disconnect = useCallback(async () => {
     if (

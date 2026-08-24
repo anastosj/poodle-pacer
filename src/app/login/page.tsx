@@ -42,8 +42,8 @@ export default async function LoginPage({
           Poodle Pacer
         </h1>
         <p className="mt-1 text-sm text-foreground/60">
-          Your half marathon training sidekick. Sign in to pick up your plan
-          where you left off.
+          Your running and triathlon training sidekick. Sign in to pick up your
+          plan where you left off.
         </p>
 
         {error && (

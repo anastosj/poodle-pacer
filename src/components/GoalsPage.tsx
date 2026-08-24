@@ -28,7 +28,7 @@ function describeSchedule(
       tone: "warn",
       message: `Your race is sooner than the full ${weeks} week program, so you are joining at week ${begin} and training for the final ${remaining} week${
         remaining === 1 ? "" : "s"
-      }. The schedule works backwards from race day, so you get the taper and the long runs that matter most.`,
+      }. The schedule works backwards from race day, so you get the taper and key workouts that matter most.`,
     };
   }
 
@@ -37,13 +37,13 @@ function describeSchedule(
       tone: "info",
       message: `All set. Training begins in ${countdown} day${
         countdown === 1 ? "" : "s"
-      }, and you will run the full ${weeks} week program.`,
+      }, and you will complete the full ${weeks} week program.`,
     };
   }
 
   return {
     tone: "info",
-    message: `You are running the full ${weeks} week program.`,
+    message: `You are completing the full ${weeks} week program.`,
   };
 }
 
@@ -130,9 +130,23 @@ export default function GoalsPage() {
         </h2>
         <select
           value={plan.programId}
-          onChange={(e) =>
-            updatePlan((p) => ({ ...p, programId: e.target.value }))
-          }
+          onChange={(e) => {
+            const nextProgram = programs.find(
+              (candidate) => candidate.id === e.target.value,
+            );
+            updatePlan((p) => {
+              if (!nextProgram || !raceDate) {
+                return { ...p, programId: e.target.value };
+              }
+              const next = planFromRaceDate(raceDate, nextProgram.weeks);
+              return {
+                ...p,
+                programId: e.target.value,
+                startDate: next.startDate,
+                beginWeek: next.beginWeek,
+              };
+            });
+          }}
           className="mt-2 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-headband"
         >
           {programs.map((p) => (
@@ -143,6 +157,14 @@ export default function GoalsPage() {
           ))}
         </select>
         <p className="mt-2 text-xs text-foreground/60">{program.description}</p>
+        <a
+          href={program.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block text-xs font-semibold text-headband-dark underline"
+        >
+          {program.sourceLabel}
+        </a>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium">
             Race day (Sunday):
@@ -174,7 +196,7 @@ export default function GoalsPage() {
               onChange={(e) =>
                 updatePlan((p) => ({
                   ...p,
-                  // Setting the start directly means running the whole program.
+                  // Setting the start directly means completing the whole program.
                   startDate: e.target.value || undefined,
                   beginWeek: undefined,
                 }))

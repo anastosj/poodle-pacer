@@ -27,7 +27,11 @@ import {
 } from "@/lib/calendar";
 import { addDays, isSameDay, startOfToday } from "@/lib/dates";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
-import { Program, Workout } from "@/lib/programs";
+import {
+  Program,
+  Workout,
+  workoutTracksRunningMiles,
+} from "@/lib/programs";
 import {
   formatDurationShort,
   formatPacePerMile,
@@ -49,6 +53,10 @@ const TYPE_ICON: Record<Exclude<Workout["type"], "rest">, (p: IconProps) => JSX.
   run: RunIcon,
   "run-or-cross": BikeIcon,
   cross: SwimIcon,
+  swim: SwimIcon,
+  bike: BikeIcon,
+  brick: BoltIcon,
+  multi: BoltIcon,
   race: MedalIcon,
 };
 
@@ -352,7 +360,9 @@ function DayCell({
           onSubmit={(e) => {
             e.preventDefault();
             onLog(
-              miles ? parseFloat(miles) : undefined,
+              workoutTracksRunningMiles(workout) && miles
+                ? parseFloat(miles)
+                : undefined,
               time ? parseDuration(time) : undefined
             );
             closeEditor();
@@ -360,7 +370,7 @@ function DayCell({
         >
           <div className="flex items-center justify-between gap-2 pb-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide text-foreground/45">
-              Log this run
+              Log this workout
             </span>
             <button
               type="button"
@@ -371,18 +381,22 @@ function DayCell({
               &#215;
             </button>
           </div>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Miles"
-            value={miles}
-            onChange={(e) => setMiles(e.target.value)}
-            className="rounded-lg border border-poodle-fur px-2 py-1 text-[11px] tabular-nums focus:outline-none focus:ring-2 focus:ring-headband"
-          />
+          {workoutTracksRunningMiles(workout) && (
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Running miles"
+              value={miles}
+              onChange={(e) => setMiles(e.target.value)}
+              className="rounded-lg border border-poodle-fur px-2 py-1 text-[11px] tabular-nums focus:outline-none focus:ring-2 focus:ring-headband"
+            />
+          )}
           <DurationInput value={time} onChange={setTime} />
           <span className="text-[9px] leading-tight text-foreground/45">
-            mm:ss or h:mm:ss, used to compute pace
+            {workoutTracksRunningMiles(workout)
+              ? "mm:ss or h:mm:ss, used to compute pace"
+              : "mm:ss or h:mm:ss"}
           </span>
           <button
             type="submit"
@@ -406,9 +420,12 @@ function rowSummary(row: CalendarRow, plan: Plan) {
     const log = plan.logs[cell.key];
     if (log?.completed) {
       done += 1;
-      miles +=
-        log.miles ??
-        (cell.workout.type === "run" ? cell.workout.miles ?? 0 : 0);
+      miles += workoutTracksRunningMiles(cell.workout)
+        ? log.miles ??
+          (cell.workout.type === "run-or-cross"
+            ? 0
+            : cell.workout.miles ?? 0)
+        : 0;
     }
   }
   return { done, total, miles: Math.round(miles * 10) / 10 };
