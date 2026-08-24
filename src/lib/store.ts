@@ -113,21 +113,239 @@ interface LegacyState {
   logs?: Record<string, RunLog>;
 }
 
+const DEFAULT_PROGRAM_ID = "hal-higdon-half-novice-1";
+const MAX_PLANS = 25;
+const MAX_LOGS = 2000;
+const MAX_SPLITS = 200;
+const MAX_ID_LENGTH = 200;
+const MAX_NAME_LENGTH = 200;
+const MAX_NOTE_LENGTH = 2000;
+const MAX_POLYLINE_LENGTH = 10000;
+const MAX_PHONE_LENGTH = 50;
+const MAX_TIMEZONE_LENGTH = 100;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function boundedString(value: unknown, maxLength: number): string | undefined {
+  return typeof value === "string" ? value.slice(0, maxLength) : undefined;
+}
+
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function sanitizeSampleDetail(value: unknown): RunLog["sampleDetail"] {
+  if (!isRecord(value) || typeof value.polyline !== "string") return undefined;
+  if (!Array.isArray(value.splits) || value.splits.length > MAX_SPLITS) {
+    return undefined;
+  }
+
+  const splits = [];
+  for (const split of value.splits) {
+    if (!isRecord(split)) return undefined;
+    const mile = finiteNumber(split.mile);
+    const miles = finiteNumber(split.miles);
+    const seconds = finiteNumber(split.seconds);
+    const pace = finiteNumber(split.pace);
+    const elevationChange = finiteNumber(split.elevationChange);
+    if (
+      mile === undefined ||
+      miles === undefined ||
+      seconds === undefined ||
+      pace === undefined ||
+      elevationChange === undefined
+    ) {
+      return undefined;
+    }
+    const heartRate = finiteNumber(split.heartRate);
+    splits.push({
+      mile,
+      miles,
+      seconds,
+      pace,
+      elevationChange,
+      ...(heartRate === undefined ? {} : { heartRate }),
+    });
+  }
+
+  return {
+    splits,
+    polyline: value.polyline.slice(0, MAX_POLYLINE_LENGTH),
+  };
+}
+
+function sanitizeLog(value: unknown): RunLog | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const log: RunLog = {
+    completed: typeof value.completed === "boolean" ? value.completed : false,
+  };
+  const numberFields = [
+    "miles",
+    "minutes",
+    "seconds",
+    "avgHeartRate",
+    "maxHeartRate",
+    "elevationGain",
+    "cadence",
+    "stravaActivityId",
+  ] as const;
+  for (const field of numberFields) {
+    const number = finiteNumber(value[field]);
+    if (number !== undefined) log[field] = number;
+  }
+
+  const note = boundedString(value.note, MAX_NOTE_LENGTH);
+  if (note !== undefined) log.note = note;
+  const stravaName = boundedString(value.stravaName, MAX_NAME_LENGTH);
+  if (stravaName !== undefined) log.stravaName = stravaName;
+  if (value.feel === "good" || value.feel === "medium" || value.feel === "bad") {
+    log.feel = value.feel;
+  }
+  const sampleDetail = sanitizeSampleDetail(value.sampleDetail);
+  if (sampleDetail) log.sampleDetail = sampleDetail;
+  return log;
+}
+
+function sanitizeLogs(value: unknown): Record<string, RunLog> {
+  if (!isRecord(value)) return {};
+
+  const logs: Record<string, RunLog> = {};
+  for (const [key, rawLog] of Object.entries(value)) {
+    if (
+      key === "__proto__" ||
+      key === "constructor" ||
+      key === "prototype" ||
+      key.length > MAX_ID_LENGTH
+    ) {
+      continue;
+    }
+    const log = sanitizeLog(rawLog);
+    if (log) logs[key] = log;
+    if (Object.keys(logs).length >= MAX_LOGS) break;
+  }
+  return logs;
+}
+
+function sanitizePlan(value: unknown): Plan | undefined {
+  if (!isRecord(value)) return undefined;
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+  if (!id) return undefined;
+
+  const plan: Plan = {
+    id: id.slice(0, MAX_ID_LENGTH),
+    name: boundedString(value.name, MAX_NAME_LENGTH) ?? "",
+    programId:
+      typeof value.programId === "string" && value.programId.trim()
+        ? value.programId.slice(0, MAX_ID_LENGTH)
+        : DEFAULT_PROGRAM_ID,
+    logs: sanitizeLogs(value.logs),
+  };
+  const beginWeek = finiteNumber(value.beginWeek);
+  if (
+    beginWeek !== undefined &&
+    Number.isInteger(beginWeek) &&
+    beginWeek >= 1 &&
+    beginWeek <= 100
+  ) {
+    plan.beginWeek = beginWeek;
+  }
+
+  if (
+    typeof value.startDate === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value.startDate)
+  ) {
+    const date = new Date(`${value.startDate}T00:00:00`);
+    const [year, month, day] = value.startDate.split("-").map(Number);
+    if (
+      !Number.isNaN(date.getTime()) &&
+      date.getFullYear() === year &&
+      date.getMonth() + 1 === month &&
+      date.getDate() === day
+    ) {
+      plan.startDate = value.startDate;
+    }
+  }
+  return plan;
+}
+
+function sanitizeAlerts(value: unknown): AlertSettings {
+  const alerts = isRecord(value) ? value : {};
+  const time =
+    typeof alerts.time === "string" && /^\d{2}:\d{2}$/.test(alerts.time)
+      ? alerts.time
+      : "07:00";
+  const settings: AlertSettings = {
+    phone: boundedString(alerts.phone, MAX_PHONE_LENGTH) ?? "",
+    time,
+    enabled: typeof alerts.enabled === "boolean" ? alerts.enabled : false,
+  };
+  const timezone = boundedString(alerts.timezone, MAX_TIMEZONE_LENGTH);
+  if (timezone !== undefined) settings.timezone = timezone;
+  const confirmedPhone = boundedString(
+    alerts.confirmedPhone,
+    MAX_PHONE_LENGTH
+  );
+  if (confirmedPhone !== undefined) settings.confirmedPhone = confirmedPhone;
+  return settings;
+}
+
+function sanitizeStateInternal(raw: unknown): RunnerState {
+  if (!isRecord(raw)) return defaultState();
+  const plans = Array.isArray(raw.plans)
+    ? raw.plans
+        .map(sanitizePlan)
+        .filter((plan): plan is Plan => plan !== undefined)
+        .slice(0, MAX_PLANS)
+    : [];
+  if (plans.length === 0) return defaultState();
+
+  const activePlanId =
+    typeof raw.activePlanId === "string" &&
+    plans.some((plan) => plan.id === raw.activePlanId)
+      ? raw.activePlanId
+      : plans[0].id;
+  return {
+    plans,
+    activePlanId,
+    alerts: sanitizeAlerts(raw.alerts),
+    ...(typeof raw.onboarded === "boolean" ? { onboarded: raw.onboarded } : {}),
+  };
+}
+
+export function sanitizeState(raw: unknown): RunnerState {
+  try {
+    return sanitizeStateInternal(raw);
+  } catch {
+    return defaultState();
+  }
+}
+
 function migrate(raw: LegacyState & Partial<RunnerState>): RunnerState {
   if (Array.isArray(raw.plans) && raw.plans.length > 0) {
+    const firstPlan = raw.plans.find((plan) => isRecord(plan));
     return {
       plans: raw.plans,
       activePlanId:
-        raw.activePlanId && raw.plans.some((p) => p.id === raw.activePlanId)
+        typeof raw.activePlanId === "string" &&
+        raw.plans.some((p) => isRecord(p) && p.id === raw.activePlanId)
           ? raw.activePlanId
-          : raw.plans[0].id,
+          : typeof firstPlan?.id === "string"
+            ? firstPlan.id
+            : "",
       alerts: raw.alerts ?? { phone: "", time: "07:00", enabled: false },
       onboarded: raw.onboarded,
     };
   }
   const plan: Plan = {
     ...makePlan("My Half Marathon"),
-    programId: raw.programId ?? "hal-higdon-half-novice-1",
+    programId: raw.programId ?? DEFAULT_PROGRAM_ID,
     startDate: raw.startDate,
     logs: raw.logs ?? {},
   };
@@ -140,9 +358,12 @@ function migrate(raw: LegacyState & Partial<RunnerState>): RunnerState {
 
 /** Normalize state loaded from any source (server or localStorage). */
 export function normalizeState(raw: unknown): RunnerState {
-  if (!raw || typeof raw !== "object") return defaultState();
   try {
-    return migrate(raw as LegacyState & Partial<RunnerState>);
+    return sanitizeState(
+      !raw || typeof raw !== "object"
+        ? defaultState()
+        : migrate(raw as LegacyState & Partial<RunnerState>)
+    );
   } catch {
     return defaultState();
   }
@@ -158,7 +379,7 @@ export function loadState(userId: string): RunnerState {
   try {
     const raw = window.localStorage.getItem(storageKey(userId));
     if (!raw) return defaultState();
-    return migrate(JSON.parse(raw));
+    return normalizeState(JSON.parse(raw));
   } catch {
     return defaultState();
   }
@@ -166,7 +387,10 @@ export function loadState(userId: string): RunnerState {
 
 export function saveState(userId: string, state: RunnerState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(userId), JSON.stringify(state));
+  window.localStorage.setItem(
+    storageKey(userId),
+    JSON.stringify(normalizeState(state))
+  );
 }
 
 export function activePlan(state: RunnerState): Plan {

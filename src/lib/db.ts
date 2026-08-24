@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import fs from "node:fs";
 import path from "node:path";
-import { MAX_STATE_BYTES } from "@/lib/state-schema";
+import { MAX_STATE_BYTES } from "@/lib/state-limits";
 
 let sqlite: Database.Database | null = null;
 let pg: NeonQueryFunction<false, false> | null = null;

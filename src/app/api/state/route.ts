@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { readUserState, writeUserState } from "@/lib/db";
 import { allowRequest } from "@/lib/rate-limit";
 import { currentUserId } from "@/lib/session";
-import { MAX_STATE_BYTES, sanitizeRunnerState } from "@/lib/state-schema";
+import { MAX_STATE_BYTES } from "@/lib/state-limits";
+import { normalizeState } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ export async function PUT(request: NextRequest) {
 
   const text = await readBoundedText(request, MAX_STATE_BYTES);
   if (text === null) {
-    return NextResponse.json({ error: "state_too_large" }, { status: 413 });
+    return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
   }
 
   let body: { state?: unknown } | null = null;
@@ -76,13 +77,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
 
-  // Store a rebuilt, bounded copy: the blob is re-parsed for every runner on
-  // the group board and on every cron alert tick.
-  const state = sanitizeRunnerState(body.state);
-  if (!state) {
-    return NextResponse.json({ error: "bad_state" }, { status: 400 });
-  }
-
-  await writeUserState(userId, state);
+  await writeUserState(userId, normalizeState(body.state));
   return NextResponse.json({ ok: true });
 }
