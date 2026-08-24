@@ -2,15 +2,7 @@
 
 import { PoodleFaceIcon } from "@/components/Icons";
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  void error;
-
+export default function Error({ reset }: { reset: () => void }) {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-12">
