@@ -74,15 +74,16 @@ export default function PoodleProgressBar({
             stroke="#0f1330"
             strokeWidth="6"
             strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
           />
         </svg>
         {/* bone at the finish */}
-        <span className="absolute right-0 top-0" role="img" aria-label="bone">
+        <span className="absolute right-1 top-[-1rem]" role="img" aria-label="bone">
           <BoneIcon size={22} />
         </span>
         {/* running poodle */}
         <div
-          className="absolute bottom-1 transition-all duration-700"
+          className="absolute bottom-2 transition-all duration-700"
           style={{
             left: `clamp(0px, calc(${pct}% - 29px), calc(100% - 58px))`,
           }}

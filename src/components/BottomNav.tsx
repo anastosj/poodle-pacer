@@ -34,7 +34,7 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-                className={`focus-pouf flex flex-1 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase transition ${
+                className={`focus-pouf flex min-w-0 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase leading-none transition ${
                 active ? "text-white" : "text-white/70"
               }`}
             >
@@ -45,7 +45,7 @@ export default function BottomNav() {
               >
                 <Icon size={19} className={active ? "" : "opacity-60"} />
               </span>
-              {label}
+              <span className="whitespace-nowrap">{label}</span>
             </Link>
           );
         })}

@@ -203,7 +203,7 @@ export default function WorkoutDetail({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Stat label="Distance" value={log.miles ? `${log.miles} mi` : "–"} />
           <Stat label="Time" value={seconds ? formatDuration(seconds) : "–"} />
           <Stat label="Avg pace" value={formatPacePerMile(pace)} />

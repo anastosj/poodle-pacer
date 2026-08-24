@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import DurationInput from "@/components/DurationInput";
 import PoodleSleeping from "@/components/PoodleSleeping";
 import WorkoutDetail from "@/components/WorkoutDetail";
@@ -112,7 +112,8 @@ function DayCell({
   const [editing, setEditing] = useState(false);
   /** Actions sit behind a caret so a cell reads as the workout, not controls. */
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const desktopMenuRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [miles, setMiles] = useState("");
   const [time, setTime] = useState("");
@@ -146,7 +147,13 @@ function DayCell({
   useEffect(() => {
     if (!menuOpen) return;
     const onClick = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      const target = e.target as Node;
+      if (
+        !mobileMenuRef.current?.contains(target) &&
+        !desktopMenuRef.current?.contains(target)
+      ) {
+        setMenuOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
     document.addEventListener("mousedown", onClick);
@@ -166,7 +173,8 @@ function DayCell({
    * column is narrow, so it stays pinned to the bottom. The menu is absolutely
    * positioned either way, so opening it never reflows the card.
    */
-  const actions = isRest ? null : (
+  const renderActions = (menuRef: RefObject<HTMLDivElement>) =>
+    isRest ? null : (
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setMenuOpen((o) => !o)}
@@ -268,7 +276,9 @@ function DayCell({
               Today
             </span>
           )}
-          <span className="ml-auto md:hidden">{actions}</span>
+          <span className="ml-auto md:hidden">
+            {renderActions(mobileMenuRef)}
+          </span>
         </div>
 
         {/* The artwork sits outside the wrapping group and never moves: when it
@@ -349,7 +359,9 @@ function DayCell({
           </div>
         )}
 
-        <div className="mt-auto hidden pt-1 md:block">{actions}</div>
+        <div className="mt-auto hidden pt-1 md:block">
+          {renderActions(desktopMenuRef)}
+        </div>
       </div>
 
       {editing && (
