@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 import fs from "node:fs";
 import path from "node:path";
+import { MAX_STATE_BYTES } from "@/lib/state-limits";
 
 let sqlite: Database.Database | null = null;
 let pg: NeonQueryFunction<false, false> | null = null;
@@ -341,6 +342,12 @@ export async function writeUserState(
 ): Promise<void> {
   await ready();
   const data = JSON.stringify(state);
+  // Every stored blob is re-parsed for all users by listUsersWithState, so an
+  // oversized record would be everyone's problem. Callers validate first; this
+  // is the backstop.
+  if (Buffer.byteLength(data, "utf8") > MAX_STATE_BYTES) {
+    throw new Error("state_too_large");
+  }
   const now = new Date().toISOString();
   if (usingPg()) {
     const sql = getPg();
