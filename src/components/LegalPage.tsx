@@ -20,26 +20,26 @@ export default function LegalPage({
       <article className="mx-auto max-w-2xl">
         <Link href="/" className="flex items-center gap-2">
           <PoodleMascot size={36} />
-          <span className="text-base font-extrabold tracking-tight">
+          <span className="font-display text-base uppercase tracking-tight">
             Poodle Pacer
           </span>
         </Link>
 
-        <h1 className="mt-6 text-3xl font-extrabold tracking-tight">{title}</h1>
-        <p className="mt-1 text-sm text-foreground/55">Last updated {updated}</p>
+        <h1 className="type-display mt-6">{title}</h1>
+        <p className="mt-1 type-body text-ink-soft">Last updated {updated}</p>
 
-        <div className="legal mt-8 space-y-5 text-[15px] leading-relaxed text-foreground/80">
+        <div className="legal mt-8 space-y-5 type-body leading-relaxed text-ink-muted">
           {children}
         </div>
 
-        <nav className="mt-12 flex gap-4 border-t border-poodle-fur pt-5 text-sm">
-          <Link href="/privacy" className="font-semibold text-headband-dark underline">
+        <nav className="mt-12 flex gap-4 border-t-2 border-outline pt-5 text-sm">
+          <Link href="/privacy" className="font-bold text-primary-dark underline">
             Privacy Policy
           </Link>
-          <Link href="/terms" className="font-semibold text-headband-dark underline">
+          <Link href="/terms" className="font-bold text-primary-dark underline">
             Terms of Service
           </Link>
-          <Link href="/" className="text-foreground/55 underline">
+          <Link href="/" className="text-ink-soft underline">
             Back to the app
           </Link>
         </nav>

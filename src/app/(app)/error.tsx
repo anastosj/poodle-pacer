@@ -10,12 +10,12 @@ export default function Error({ reset }: { reset: () => void }) {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-12">
-        <section className="rounded-pouf bg-poodle-white p-6 text-center ring-1 ring-poodle-fur pouf-shadow">
+        <section className="rounded-sm border-3 border-outline bg-surface p-6 text-center shadow-card">
           <PoodleFaceIcon size={64} className="mx-auto" />
-          <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+          <h1 className="type-title mt-4">
             Something went wrong
           </h1>
-          <p className="mt-2 text-sm text-foreground/60">
+          <p className="mt-2 type-body text-ink-muted">
             The pack hit a snag. Give it another try.
           </p>
           <button
@@ -26,7 +26,7 @@ export default function Error({ reset }: { reset: () => void }) {
                 router.refresh();
               });
             }}
-            className="mt-5 rounded-full bg-headband px-4 py-2.5 text-sm font-bold text-white transition hover:bg-headband-dark"
+            className="hard-button focus-pouf mt-5 rounded-sm bg-primary px-4 py-2.5 text-sm font-bold uppercase text-white"
           >
             Try again
           </button>

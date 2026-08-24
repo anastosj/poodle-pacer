@@ -7,10 +7,10 @@
  */
 
 const FUR = "#fdfcf9";
-const FUR_EDGE = "#d9d2c4";
+const FUR_EDGE = "#0f1330";
 const BLUE = "#2f6fed";
 const BLUE_DEEP = "#1d4ed8";
-const INK = "#3a3630";
+const INK = "#0f1330";
 const BLUSH = "#f7ccd6";
 const GOLD = "#e8b04b";
 const SILVER = "#c2c8d0";
@@ -327,7 +327,7 @@ export function RunIcon(props: IconProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
-        opacity="0.38"
+        opacity="0.72"
       >
         <path d="M68 70 L74 81 L69 90" />
         <path d="M40 70 L42 81 L33 88" />
@@ -351,7 +351,6 @@ export function RunIcon(props: IconProps) {
         strokeWidth="8"
         strokeLinecap="round"
         fill="none"
-        opacity="0.35"
       />
       <circle cx="11" cy="28" r="8.5" fill="#fdfcf9" stroke={FUR_EDGE} strokeWidth="2" />
 

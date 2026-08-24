@@ -41,18 +41,18 @@ export default function MileageChart({
   const max = Math.max(...weeks.map((w) => Math.max(w.planned, w.logged)), 1);
 
   return (
-    <section className="mt-4 rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow">
+    <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+        <h2 className="type-overline text-ink-soft">
           Weekly running miles
         </h2>
-        <div className="flex items-center gap-3 text-[10px] text-foreground/60">
+        <div className="flex items-center gap-3 text-meta text-ink-soft">
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-poodle-cream ring-1 ring-poodle-fur" />
+            <span className="inline-block h-2.5 w-2.5 border-2 border-outline bg-lilac" />
             planned
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-headband" />
+            <span className="inline-block h-2.5 w-2.5 border-2 border-outline bg-primary" />
             run
           </span>
         </div>
@@ -62,23 +62,23 @@ export default function MileageChart({
           <div key={w.week} className="flex flex-1 flex-col items-center gap-1">
             <div className="relative flex h-24 w-full items-end justify-center">
               <div
-                className="w-full rounded-t-md bg-poodle-cream ring-1 ring-poodle-fur"
+                className="w-full border-2 border-outline bg-lilac"
                 style={{ height: `${(w.planned / max) * 100}%` }}
                 title={`Week ${w.week}: ~${Math.round(w.planned)} mi planned`}
               />
               {w.logged > 0 && (
                 <div
-                  className="absolute inset-x-[18%] bottom-0 rounded-t-md bg-headband"
+                  className="absolute inset-x-[18%] bottom-0 border-2 border-outline bg-primary"
                   style={{ height: `${(w.logged / max) * 100}%` }}
                   title={`Week ${w.week}: ${Math.round(w.logged * 10) / 10} mi run`}
                 />
               )}
             </div>
             <span
-              className={`text-[10px] ${
+              className={`text-meta ${
                 w.week === nowWeek
-                  ? "font-extrabold text-headband-dark"
-                  : "text-foreground/50"
+                  ? "font-bold text-primary-dark"
+                  : "text-ink-soft"
               }`}
             >
               {w.week}

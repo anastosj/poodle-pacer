@@ -25,8 +25,8 @@ export default function ProgressPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">Progress</h1>
-      <p className="mt-1 text-sm text-foreground/60">
+      <h1 className="type-display">Progress</h1>
+      <p className="mt-1 type-body text-ink-muted">
         {plan.startDate
           ? `How ${plan.name} is going so far.`
           : "Set a race date to start tracking your training."}
@@ -47,8 +47,8 @@ export default function ProgressPage() {
 
       <MileageChart plan={plan} program={program} />
 
-      <p className="mt-6 text-center text-xs text-foreground/50">
-        <Link href="/" className="font-semibold text-headband-dark underline">
+      <p className="mt-6 text-center text-meta text-ink-soft">
+        <Link href="/" className="font-bold text-primary underline">
           Back to this week
         </Link>
       </p>

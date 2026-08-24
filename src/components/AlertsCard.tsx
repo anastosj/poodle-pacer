@@ -143,14 +143,14 @@ export default function AlertsCard({
     update((prev) => ({ ...prev, alerts: { ...prev.alerts, enabled } }));
 
   return (
-    <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-      <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-foreground/60">
+    <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+      <h2 className="type-overline flex items-center gap-2 text-ink-soft">
         <PhoneIcon size={16} />
         Morning workout texts
       </h2>
 
       {smsConfigured === false && (
-        <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800 ring-1 ring-amber-200">
+        <p className="mt-3 rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta leading-relaxed text-ink">
           <strong className="font-bold">Texting is not set up yet.</strong> This
           app needs a Twilio account before it can send anything, so the settings
           below will save but no messages will arrive.
@@ -158,14 +158,14 @@ export default function AlertsCard({
       )}
 
       {/* On/off is the first decision, so it leads and states plainly what it means. */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-poodle-cream px-4 py-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-sm border-2 border-outline bg-lilac px-4 py-3">
         <div className="flex items-center gap-2.5">
           <BellIcon size={20} muted={!alerts.enabled} />
           <div>
             <div className="text-sm font-bold">
               {alerts.enabled ? "Texts are on" : "Texts are off"}
             </div>
-            <div className="text-[11px] text-foreground/55">
+            <div className="text-meta text-ink-soft">
               {alerts.enabled
                 ? `Every workout morning at ${alerts.time}`
                 : "You will not receive any texts"}
@@ -177,14 +177,14 @@ export default function AlertsCard({
           aria-checked={alerts.enabled}
           aria-label="Morning workout texts"
           onClick={() => setEnabled(!alerts.enabled)}
-          className={`relative h-7 w-12 shrink-0 rounded-full ring-1 transition ${
+          className={`relative h-7 w-12 shrink-0 rounded-full border-2 border-outline transition ${
             alerts.enabled
-              ? "bg-headband ring-headband-dark"
-              : "bg-foreground/25 ring-foreground/20"
+              ? "bg-primary"
+              : "bg-ink-soft"
           }`}
         >
           <span
-            className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-all ${
+            className={`absolute top-1 h-5 w-5 rounded-full border-2 border-outline bg-surface transition-all ${
               alerts.enabled ? "left-6" : "left-1"
             }`}
           />
@@ -192,7 +192,7 @@ export default function AlertsCard({
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <label className="block text-xs font-semibold text-foreground/60">
+        <label className="block text-meta font-bold text-ink-soft">
           Phone number
           <input
             type="tel"
@@ -205,10 +205,10 @@ export default function AlertsCard({
                 alerts: { ...prev.alerts, phone: e.target.value },
               }));
             }}
-            className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-headband"
+            className="focus-pouf mt-1 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm font-normal"
           />
         </label>
-        <label className="block text-xs font-semibold text-foreground/60">
+        <label className="block text-meta font-bold text-ink-soft">
           Send at
           <input
             type="time"
@@ -219,7 +219,7 @@ export default function AlertsCard({
                 alerts: { ...prev.alerts, time: e.target.value },
               }))
             }
-            className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-headband"
+            className="focus-pouf mt-1 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm font-normal"
           />
         </label>
       </div>
@@ -227,7 +227,7 @@ export default function AlertsCard({
       {/* Confirmation state for the number itself, separate from on/off. */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {confirmed ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-headband-light px-3 py-1.5 text-xs font-bold text-headband-dark">
+          <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1.5 text-meta font-bold text-ink">
             <CheckIcon size={12} />
             Number confirmed
           </span>
@@ -235,7 +235,7 @@ export default function AlertsCard({
           <button
             onClick={sendConfirmation}
             disabled={send.kind === "sending" || !alerts.phone}
-            className="rounded-full bg-headband px-4 py-2 text-xs font-bold text-white transition hover:bg-headband-dark disabled:opacity-50"
+            className="hard-button focus-pouf rounded-sm bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           >
             {send.kind === "sending"
               ? "Sending…"
@@ -246,7 +246,7 @@ export default function AlertsCard({
           <button
             onClick={sendConfirmation}
             disabled={send.kind === "sending"}
-            className="rounded-full px-3 py-1.5 text-xs font-semibold text-foreground/60 ring-1 ring-poodle-fur transition hover:bg-poodle-cream disabled:opacity-50"
+            className="focus-pouf rounded-full border-2 border-outline px-3 py-1.5 text-xs font-bold text-ink-muted transition hover:bg-lilac disabled:opacity-50"
           >
             Send another
           </button>
@@ -254,22 +254,22 @@ export default function AlertsCard({
       </div>
 
       {send.kind === "sent" && (
-        <p className="mt-2 text-xs font-semibold text-emerald-700">
+        <p className="mt-2 text-meta font-bold text-primary-dark">
           Text handed to Twilio. It should arrive in a few seconds. If nothing
           turns up, check Monitor then Logs in the Twilio console: carriers can
           reject a message after Twilio accepts it.
         </p>
       )}
       {send.kind === "error" && (
-        <p role="alert" className="mt-2 text-xs font-semibold text-red-600">
+        <p role="alert" className="mt-2 text-meta font-bold text-red-700">
           {send.message}
         </p>
       )}
 
-      <div className="mt-3 rounded-xl bg-poodle-cream p-3 text-xs text-foreground/70">
+      <div className="mt-3 rounded-sm border-2 border-outline bg-lilac p-3 text-meta text-ink-muted">
         <span className="font-semibold">Preview:</span> {preview}
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-foreground/50">
+      <p className="mt-2 text-meta leading-relaxed text-ink-soft">
         Texts go out at your alert time on workout days only, so rest days stay
         quiet. The day before your race you get a pep talk, and on race day a
         good luck text at 7:00am

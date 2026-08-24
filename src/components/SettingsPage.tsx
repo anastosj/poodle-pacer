@@ -2,7 +2,7 @@
 
 import AlertsCard from "@/components/AlertsCard";
 import StravaCard from "@/components/StravaCard";
-import { PoodleFaceIcon } from "@/components/Icons";
+import { PawIcon, PoodleFaceIcon } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
 import Link from "next/link";
 
@@ -11,13 +11,14 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
-      <p className="mt-1 text-sm text-foreground/60">
+      <h1 className="type-display">Settings</h1>
+      <p className="mt-1 type-body text-ink-muted">
         Profile, notifications, and connections.
       </p>
 
-      <section className="mt-5 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+      <section className="mt-5 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+        <h2 className="type-overline flex items-center gap-1.5 text-ink-soft">
+          <PawIcon size={14} />
           Profile
         </h2>
         <div className="mt-3 flex items-center gap-3">
@@ -26,14 +27,14 @@ export default function SettingsPage() {
             <img
               src={user.avatarUrl}
               alt=""
-              className="h-12 w-12 rounded-full object-cover ring-1 ring-poodle-fur"
+              className="h-12 w-12 rounded-full border-2 border-outline object-cover"
             />
           ) : (
             <PoodleFaceIcon size={48} />
           )}
           <div>
             <div className="text-base font-bold">{user.name ?? "Runner"}</div>
-            <div className="text-xs text-foreground/55">
+            <div className="text-meta text-ink-soft">
               Signed in with Strava · your races, logs, and alerts are private
               to this account.
             </div>
@@ -42,7 +43,7 @@ export default function SettingsPage() {
         <form action="/api/auth/logout" method="post" className="mt-4">
           <button
             type="submit"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-red-600 ring-1 ring-red-200 transition hover:bg-red-50"
+            className="focus-pouf rounded-full border-2 border-red-700 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50"
           >
             Sign out
           </button>
@@ -66,7 +67,7 @@ export default function SettingsPage() {
         <StravaCard plan={plan} updatePlan={updatePlan} program={program} />
       </div>
 
-      <p className="mt-6 flex justify-center gap-4 pb-2 text-xs text-foreground/50">
+      <p className="mt-6 flex justify-center gap-4 pb-2 text-meta text-ink-soft">
         <a href="/privacy" className="underline hover:text-foreground/70">
           Privacy Policy
         </a>

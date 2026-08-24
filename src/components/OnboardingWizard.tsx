@@ -45,22 +45,22 @@ export default function OnboardingWizard() {
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/30 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-pouf bg-poodle-white p-6 ring-1 ring-poodle-fur pouf-shadow">
+      <div className="w-full max-w-md rounded-sm border-3 border-outline bg-surface p-6 shadow-hero">
         <div className="flex items-center gap-3">
           <PoodleMascot size={56} />
           <div>
-            <h2 className="text-lg font-extrabold tracking-tight">
+            <h2 className="type-title">
               {step === 0 && "Welcome to Poodle Pacer"}
               {step === 1 && "Pick your program"}
               {step === 2 && "When's the big day?"}
             </h2>
-            <p className="text-xs text-foreground/60">Step {step + 1} of 3</p>
+            <p className="text-meta text-ink-soft">Step {step + 1} of 3</p>
           </div>
         </div>
 
         {step === 0 && (
           <div className="mt-4">
-            <p className="text-sm text-foreground/70">
+            <p className="type-body text-ink-muted">
               Let&apos;s set up your race in three quick steps. First, what
               are you training for?
             </p>
@@ -70,7 +70,7 @@ export default function OnboardingWizard() {
               placeholder="e.g. Brooklyn Half 2026"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-3 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf mt-3 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2.5 text-sm font-semibold"
             />
           </div>
         )}
@@ -80,7 +80,7 @@ export default function OnboardingWizard() {
             <select
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
-              className="w-full rounded-xl border border-poodle-fur bg-white px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf w-full rounded-sm border-2 border-outline bg-surface px-3 py-2.5 text-sm font-medium"
             >
               {programs.map((p) => (
                 <option key={p.id} value={p.id} disabled={!p.available}>
@@ -89,7 +89,7 @@ export default function OnboardingWizard() {
                 </option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-foreground/60">
+            <p className="mt-2 text-meta text-ink-soft">
               {chosenProgram.description}
             </p>
             <a
@@ -108,20 +108,20 @@ export default function OnboardingWizard() {
             <div className="flex gap-2">
               <button
                 onClick={() => setDateMode("race")}
-                className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                className={`focus-pouf flex-1 rounded-sm border-2 border-outline px-3 py-2 text-sm font-bold transition ${
                   dateMode === "race"
-                    ? "bg-headband text-white"
-                    : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur"
+                    ? "bg-primary text-white"
+                    : "bg-lilac text-ink-muted"
                 }`}
               >
                 I know my race day
               </button>
               <button
                 onClick={() => setDateMode("start")}
-                className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                className={`focus-pouf flex-1 rounded-sm border-2 border-outline px-3 py-2 text-sm font-bold transition ${
                   dateMode === "start"
-                    ? "bg-headband text-white"
-                    : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur"
+                    ? "bg-primary text-white"
+                    : "bg-lilac text-ink-muted"
                 }`}
               >
                 Pick a start date
@@ -131,9 +131,9 @@ export default function OnboardingWizard() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="mt-3 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf mt-3 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2.5 text-sm"
             />
-            <p className="mt-2 text-xs text-foreground/60">
+            <p className="mt-2 text-meta text-ink-soft">
               {dateMode === "race"
                 ? `Week 1 starts ${chosenProgram.weeks} weeks before race day.`
                 : `Race day lands ${chosenProgram.weeks} weeks after Week 1 starts (a Sunday).`}
@@ -144,7 +144,7 @@ export default function OnboardingWizard() {
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={skip}
-            className="text-xs font-medium text-foreground/50 hover:text-foreground/80"
+            className="focus-pouf text-meta font-bold text-ink-soft hover:text-ink"
           >
             Skip for now
           </button>
@@ -152,7 +152,7 @@ export default function OnboardingWizard() {
             {step > 0 && (
               <button
                 onClick={() => setStep((s) => s - 1)}
-                className="rounded-full px-4 py-2 text-sm font-semibold text-foreground/60 ring-1 ring-poodle-fur hover:bg-poodle-cream"
+                className="hard-button focus-pouf rounded-sm bg-surface px-4 py-2 text-sm font-bold text-ink-muted"
               >
                 Back
               </button>
@@ -160,14 +160,14 @@ export default function OnboardingWizard() {
             {step < 2 ? (
               <button
                 onClick={() => setStep((s) => s + 1)}
-                className="rounded-full bg-headband px-5 py-2 text-sm font-bold text-white transition hover:bg-headband-dark"
+                className="hard-button focus-pouf rounded-sm bg-primary px-5 py-2 text-sm font-bold uppercase text-white"
               >
                 Next →
               </button>
             ) : (
               <button
                 onClick={finish}
-                className="rounded-full bg-headband px-5 py-2 text-sm font-bold text-white transition hover:bg-headband-dark"
+                className="hard-button focus-pouf rounded-sm bg-primary px-5 py-2 text-sm font-bold uppercase text-white"
               >
                 Let&apos;s go
               </button>

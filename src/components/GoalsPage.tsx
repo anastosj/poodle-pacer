@@ -2,6 +2,7 @@
 
 import { programs } from "@/lib/programs";
 import { useApp } from "@/components/AppContext";
+import { BoneIcon, PawIcon } from "@/components/Icons";
 import {
   Plan,
   beginWeekOf,
@@ -57,13 +58,14 @@ export default function GoalsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">Goals</h1>
-      <p className="mt-1 text-sm text-foreground/60">
+      <h1 className="type-display">Goals</h1>
+      <p className="mt-1 type-body text-ink-muted">
         Pick your race, program, and dates. The poodle handles the rest.
       </p>
 
-      <section className="mt-5 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+      <section className="mt-5 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+        <h2 className="type-overline flex items-center gap-1.5 text-ink-soft">
+          <PawIcon size={14} />
           Races
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -71,10 +73,10 @@ export default function GoalsPage() {
             <button
               key={p.id}
               onClick={() => update((prev) => ({ ...prev, activePlanId: p.id }))}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+              className={`focus-pouf rounded-full border-2 border-outline px-4 py-1.5 text-sm font-bold transition ${
                 p.id === state.activePlanId
-                  ? "bg-headband text-white"
-                  : "bg-poodle-cream text-foreground/60 ring-1 ring-poodle-fur hover:bg-headband-light"
+                  ? "bg-ink text-background"
+                  : "bg-lilac text-ink-muted hover:bg-highlight"
               }`}
             >
               {p.name}
@@ -91,7 +93,7 @@ export default function GoalsPage() {
                 activePlanId: newPlan.id,
               }));
             }}
-            className="rounded-full px-4 py-1.5 text-sm font-semibold text-headband-dark ring-1 ring-dashed ring-headband hover:bg-headband-light"
+            className="focus-pouf rounded-full border-2 border-dashed border-primary px-4 py-1.5 text-sm font-bold text-primary hover:bg-lilac"
           >
             + New race
           </button>
@@ -102,7 +104,7 @@ export default function GoalsPage() {
             value={plan.name}
             onChange={(e) => updatePlan((p) => ({ ...p, name: e.target.value }))}
             aria-label="Race name"
-            className="rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-headband"
+            className="focus-pouf rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm font-bold"
           />
           {state.plans.length > 1 && (
             <button
@@ -116,7 +118,7 @@ export default function GoalsPage() {
                   return { ...prev, plans, activePlanId: plans[0].id };
                 });
               }}
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-red-500 ring-1 ring-red-200 hover:bg-red-50"
+              className="focus-pouf rounded-full border-2 border-red-700 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50"
             >
               Delete race
             </button>
@@ -124,8 +126,8 @@ export default function GoalsPage() {
         </div>
       </section>
 
-      <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+      <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+        <h2 className="type-overline text-ink-soft">
           Training Program
         </h2>
         <select
@@ -147,7 +149,7 @@ export default function GoalsPage() {
               };
             });
           }}
-          className="mt-2 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-headband"
+          className="focus-pouf mt-2 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm font-medium"
         >
           {programs.map((p) => (
             <option key={p.id} value={p.id} disabled={!p.available}>
@@ -156,12 +158,12 @@ export default function GoalsPage() {
             </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-foreground/60">{program.description}</p>
+        <p className="mt-2 text-meta text-ink-soft">{program.description}</p>
         <a
           href={program.sourceUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-1 inline-block text-xs font-semibold text-headband-dark underline"
+          className="mt-1 inline-block text-meta font-bold text-primary underline"
         >
           {program.sourceLabel}
         </a>
@@ -185,7 +187,7 @@ export default function GoalsPage() {
                   };
                 });
               }}
-              className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf mt-1 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm"
             />
           </label>
           <label className="block text-sm font-medium">
@@ -201,20 +203,23 @@ export default function GoalsPage() {
                   beginWeek: undefined,
                 }))
               }
-              className="mt-1 w-full rounded-xl border border-poodle-fur bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf mt-1 w-full rounded-sm border-2 border-outline bg-surface px-3 py-2 text-sm"
             />
           </label>
         </div>
 
         {schedule && (
           <p
-            className={`mt-3 rounded-xl px-4 py-2.5 text-xs leading-relaxed ${
+            className={`mt-3 rounded-sm border-2 border-outline px-4 py-2.5 text-meta leading-relaxed ${
               schedule.tone === "warn"
-                ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200"
-                : "bg-headband-light text-headband-dark"
+                ? "bg-lilac text-ink"
+                : "bg-pale-cyan text-ink"
             }`}
           >
-            {schedule.message}
+            <span className="flex items-center gap-1.5">
+              <BoneIcon size={16} />
+              {schedule.message}
+            </span>
           </p>
         )}
       </section>

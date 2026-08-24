@@ -3,22 +3,51 @@
 @tailwind utilities;
 
 :root {
-  --background: #fbf8f2; /* fluffy poodle white */
-  --foreground: #3a3630;
-  --headband: #2f6fed; /* blue headband */
+  --background: #e8eeff;
+  --foreground: #0f1330;
+  --surface: #ffffff;
+  --surface-tinted: #cfe0ff;
+  --ink: #0f1330;
+  --ink-muted: #30365d;
+  --ink-soft: #596080;
+  --ink-faint: #7a82a5;
+  --outline: #0f1330;
+  --border: #0f1330;
+  --primary: #2f6fed;
+  --primary-dark: #1b1f52;
+  --primary-soft: #cfe0ff;
+  --accent: #a88bff;
+  --highlight: #7ee8ff;
+  --lilac: #e0d6ff;
+  --periwinkle: #cfe0ff;
+  --pale-cyan: #cff3ff;
+  --success: #7ee8ff;
+  --danger: #e0d6ff;
+  --danger-ink: #0f1330;
+  --headband: #4b2fd6;
+  --headband-dark: #3821aa;
+  --headband-light: #cfc2ff;
+  --poodle-white: #ffffff;
+  --poodle-cream: #e0d6ff;
+  --poodle-fur: #0f1330;
+  --grid: rgba(15, 19, 48, 0.12);
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --shadow-soft: 3px 3px 0 var(--outline);
+  --shadow-card: 5px 5px 0 var(--outline);
+  --shadow-lifted: 3px 3px 0 var(--outline);
+  --shadow-hero: 8px 8px 0 var(--outline);
 }
 
 body {
   color: var(--foreground);
   background-color: var(--background);
-  /* A faint scatter of paw-pad dots, so the page reads soft rather than flat. */
-  background-image:
-    radial-gradient(circle at 12% 18%, rgba(47, 111, 237, 0.05) 0 12px, transparent 13px),
-    radial-gradient(circle at 84% 34%, rgba(247, 204, 214, 0.28) 0 10px, transparent 11px),
-    radial-gradient(circle at 68% 82%, rgba(47, 111, 237, 0.04) 0 14px, transparent 15px),
-    radial-gradient(circle at 26% 68%, rgba(232, 176, 75, 0.13) 0 9px, transparent 10px);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-image: radial-gradient(var(--grid) 1.5px, transparent 1.6px);
+  background-size: 22px 22px;
+  font-family: var(--font-body), "Space Grotesk", system-ui, sans-serif;
 }
 
 @layer utilities {
@@ -28,25 +57,23 @@ body {
 
   /* Soft, slightly lifted surfaces. Two layers read rounder than one. */
   .pouf-shadow {
-    box-shadow:
-      0 1px 2px rgba(58, 54, 48, 0.04),
-      0 6px 18px rgba(58, 54, 48, 0.07);
+    box-shadow: var(--shadow-card);
   }
 
-  /* Cards that should feel like they could be picked up. */
   .pouf-lift {
     transition:
-      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 180ms ease;
+      transform 100ms ease,
+      box-shadow 100ms ease;
   }
   .pouf-lift:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 2px 4px rgba(58, 54, 48, 0.05),
-      0 12px 26px rgba(58, 54, 48, 0.1);
+    transform: translate(2px, 2px);
+    box-shadow: var(--shadow-lifted);
+  }
+  .pouf-lift:active {
+    transform: translate(5px, 5px);
+    box-shadow: 0 0 0 var(--outline);
   }
 
-  /* A gentle wag for celebratory moments. */
   .wag {
     animation: wag 1.6s ease-in-out infinite;
     transform-origin: 70% 70%;
@@ -141,6 +168,55 @@ body {
       transform: none;
     }
   }
+
+  .type-display {
+    @apply font-display text-display uppercase;
+  }
+  .type-title {
+    @apply font-display text-title uppercase;
+  }
+  .type-body {
+    @apply text-body;
+  }
+  .type-meta {
+    @apply text-meta;
+  }
+  .type-overline {
+    @apply text-overline font-bold uppercase;
+  }
+  .focus-pouf {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-outline focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .hard-surface {
+    border: 3px solid var(--outline);
+    box-shadow: var(--shadow-card);
+  }
+
+  .hard-button {
+    border: 3px solid var(--outline);
+    box-shadow: var(--shadow-soft);
+    transition: transform 100ms ease, box-shadow 100ms ease;
+  }
+  .hard-button:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--outline);
+  }
+  .hard-button:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--outline);
+  }
+
+  .stripe-fill {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--accent) 0,
+      var(--accent) 8px,
+      var(--primary) 8px,
+      var(--primary) 12px
+    );
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -154,6 +230,10 @@ body {
     animation: none;
   }
   .pouf-lift:hover {
+    transform: none;
+  }
+  .hard-button:hover,
+  .hard-button:active {
     transform: none;
   }
 }

@@ -55,11 +55,11 @@ export default function NavBar() {
   }, [open]);
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-poodle-fur bg-poodle-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-2">
-        <Link href="/" className="flex items-center gap-2">
+    <nav className="sticky top-0 z-30 border-b-3 border-outline bg-nav text-white backdrop-blur">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-3 px-4 py-2.5">
+        <Link href="/" className="focus-pouf flex items-center gap-2">
           <PoodleMascot size={40} />
-          <span className="text-lg font-extrabold tracking-tight">
+          <span className="font-display text-lg uppercase tracking-tight text-white">
             Poodle Pacer
           </span>
         </Link>
@@ -70,10 +70,10 @@ export default function NavBar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+              className={`focus-pouf flex items-center gap-1.5 rounded-full border-2 border-transparent px-3 py-1.5 text-sm font-bold uppercase transition ${
                 pathname === href
-                  ? "bg-headband text-white"
-                  : "text-foreground/70 hover:bg-poodle-cream"
+                  ? "border-white bg-highlight text-ink"
+                  : "text-white/80 hover:border-white hover:bg-white/10"
               }`}
             >
               <Icon
@@ -90,17 +90,17 @@ export default function NavBar() {
             onClick={() => setOpen((o) => !o)}
             aria-haspopup="menu"
             aria-expanded={open}
-            className="flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-sm font-semibold text-foreground/80 ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+            className="focus-pouf flex items-center gap-2 rounded-full border-2 border-white bg-white py-1 pl-1 pr-3 text-sm font-bold text-ink transition hover:bg-highlight"
           >
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatarUrl}
                 alt=""
-                className="h-7 w-7 rounded-full object-cover ring-1 ring-poodle-fur"
+                className="h-7 w-7 rounded-full border-2 border-outline object-cover"
               />
             ) : initials(user.name) ? (
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-headband text-xs font-bold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-outline bg-primary text-xs font-bold text-white">
                 {initials(user.name)}
               </span>
             ) : (
@@ -115,13 +115,13 @@ export default function NavBar() {
           {open && (
             <div
               role="menu"
-              className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl bg-white py-1 ring-1 ring-poodle-fur pouf-shadow"
+              className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-sm border-3 border-outline bg-surface py-1 shadow-card"
             >
-              <div className="border-b border-poodle-fur px-4 py-2">
+              <div className="border-b-2 border-outline px-4 py-2">
                 <div className="truncate text-sm font-bold">
                   {user.name ?? "Runner"}
                 </div>
-                <div className="text-[11px] text-foreground/50">
+                <div className="text-meta text-ink-soft">
                   Signed in with Strava
                 </div>
               </div>
@@ -129,7 +129,7 @@ export default function NavBar() {
                 href="/settings"
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-foreground/80 hover:bg-poodle-cream"
+                className="focus-pouf flex items-center gap-2 px-4 py-2 text-sm text-ink hover:bg-lilac"
               >
                 <SettingsIcon size={15} />
                 Settings
@@ -138,7 +138,7 @@ export default function NavBar() {
                 <button
                   type="submit"
                   role="menuitem"
-                  className="w-full px-4 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+                  className="focus-pouf w-full px-4 py-2 text-left text-sm font-bold text-red-700 hover:bg-red-50"
                 >
                   Sign out
                 </button>
