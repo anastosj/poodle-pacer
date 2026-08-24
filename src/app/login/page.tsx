@@ -34,14 +34,14 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-pouf bg-poodle-white p-8 text-center ring-1 ring-poodle-fur pouf-shadow">
+      <div className="w-full max-w-md rounded-sm border-3 border-outline bg-surface p-8 text-center shadow-hero">
         <div className="flex justify-center">
           <PoodleMascot size={96} />
         </div>
-        <h1 className="mt-4 text-2xl font-extrabold tracking-tight">
+        <h1 className="type-display mt-4">
           Poodle Pacer
         </h1>
-        <p className="mt-1 text-sm text-foreground/60">
+        <p className="mt-1 type-body text-ink-muted">
           Your running and triathlon training sidekick. Sign in to pick up your
           plan where you left off.
         </p>
@@ -49,7 +49,7 @@ export default async function LoginPage({
         {error && (
           <p
             role="alert"
-            className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200"
+            className="mt-5 rounded-sm border-2 border-red-700 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
           >
             {error}
           </p>
@@ -62,23 +62,23 @@ export default async function LoginPage({
                 ? `?next=${encodeURIComponent(searchParams.next)}`
                 : ""
             }`}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#fc4c02] px-6 py-3 text-base font-bold text-white transition hover:opacity-90"
+            className="hard-button focus-pouf mt-6 inline-flex w-full items-center justify-center gap-2 rounded-sm border-3 border-outline bg-[#fc4c02] px-6 py-3 text-base font-bold uppercase text-white transition hover:opacity-90"
           >
             Sign in with Strava
           </a>
         ) : (
-          <p className="mt-6 rounded-xl bg-poodle-cream px-4 py-3 text-sm text-foreground/70">
+          <p className="mt-6 rounded-sm border-2 border-outline bg-lilac px-4 py-3 type-body text-ink-muted">
             Sign-in is unavailable until <code>STRAVA_CLIENT_ID</code> and{" "}
             <code>STRAVA_CLIENT_SECRET</code> are set on the server.
           </p>
         )}
 
-        <p className="mt-5 text-xs leading-relaxed text-foreground/50">
+        <p className="mt-5 text-meta leading-relaxed text-ink-soft">
           We use Strava to sign you in and to import your runs. Your training
           plan is private to your account.
         </p>
 
-        <p className="mt-5 text-xs leading-relaxed text-foreground/45">
+        <p className="mt-5 text-meta leading-relaxed text-ink-soft">
           By signing in you agree to the{" "}
           <Link href="/terms" className="underline hover:text-foreground/70">
             Terms of Service

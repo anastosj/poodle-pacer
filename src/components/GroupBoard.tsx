@@ -10,7 +10,7 @@ function Avatar({ summary }: { summary: RunnerSummary }) {
       <img
         src={summary.avatarUrl}
         alt=""
-        className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-poodle-fur"
+        className="h-11 w-11 shrink-0 rounded-full border-2 border-outline object-cover"
       />
     );
   }
@@ -22,7 +22,7 @@ function Avatar({ summary }: { summary: RunnerSummary }) {
     .join("");
   if (!initials) return <PoodleFaceIcon size={44} className="shrink-0" />;
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-headband text-sm font-bold text-white">
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-outline bg-primary text-sm font-bold text-white">
       {initials}
     </span>
   );
@@ -33,13 +33,13 @@ function ConsistencyBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   return (
     <div>
-      <div className="flex items-baseline justify-between text-[11px]">
-        <span className="font-medium text-foreground/55">Consistency</span>
-        <span className="font-bold tabular-nums text-headband-dark">{pct}%</span>
+      <div className="flex items-baseline justify-between text-meta">
+        <span className="font-medium text-ink-soft">Consistency</span>
+        <span className="font-bold tabular-nums text-primary-dark">{pct}%</span>
       </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-poodle-cream ring-1 ring-poodle-fur">
+      <div className="mt-1 h-3 overflow-hidden border-2 border-outline bg-lilac">
         <div
-          className="h-full rounded-full bg-headband transition-all"
+          className="h-full bg-accent transition-all"
           style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
@@ -50,10 +50,10 @@ function ConsistencyBar({ value }: { value: number }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-sm font-extrabold tabular-nums text-foreground/85">
+      <div className="font-display text-title tabular-nums text-ink">
         {value}
       </div>
-      <div className="text-[10px] font-medium text-foreground/50">{label}</div>
+      <div className="text-meta font-medium text-ink-soft">{label}</div>
     </div>
   );
 }
@@ -71,8 +71,8 @@ function RunnerCard({
 
   return (
     <li
-      className={`rounded-pouf bg-poodle-white p-4 ring-1 pouf-shadow pouf-lift ${
-        isMe ? "ring-2 ring-headband" : "ring-poodle-fur"
+      className={`rounded-sm border-3 border-outline bg-surface p-4 shadow-card pouf-lift ${
+        isMe ? "bg-highlight" : ""
       }`}
     >
       <div className="flex items-center gap-3">
@@ -81,13 +81,13 @@ function RunnerCard({
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate font-extrabold">{summary.name}</span>
             {isMe && (
-              <span className="rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
+              <span className="rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold text-background">
                 You
               </span>
             )}
             {place && <RosetteIcon place={place} size={17} title={`#${place}`} />}
           </div>
-          <div className="truncate text-xs text-foreground/55">
+          <div className="truncate text-meta text-ink-soft">
             {summary.followingAlong ? (
               "Following along · stats private"
             ) : summary.started ? (
@@ -104,10 +104,10 @@ function RunnerCard({
         </div>
         {summary.daysToRace !== null && (
           <div className="shrink-0 text-right">
-            <div className="text-lg font-extrabold tabular-nums text-headband-dark">
+            <div className="font-display text-title tabular-nums text-primary-dark">
               {summary.daysToRace}
             </div>
-            <div className="text-[10px] font-medium text-foreground/50">
+            <div className="text-meta font-medium text-ink-soft">
               days to race
             </div>
           </div>
@@ -140,7 +140,7 @@ function RunnerCard({
           </div>
         </>
       ) : (
-        <p className="mt-3 rounded-xl bg-poodle-cream px-3 py-2 text-xs text-foreground/60">
+        <p className="mt-3 rounded-sm border-2 border-outline bg-lilac px-3 py-2 text-meta text-ink-soft">
           Once {summary.name.split(" ")[0]} picks a race date, their progress
           shows up here.
         </p>
@@ -158,7 +158,7 @@ export default function GroupBoard({
 }) {
   if (summaries.length === 0) {
     return (
-      <p className="mt-6 rounded-pouf bg-poodle-white p-6 text-center text-sm text-foreground/60 ring-1 ring-poodle-fur">
+      <p className="mt-6 rounded-sm border-3 border-outline bg-surface p-6 text-center type-body text-ink-soft">
         No runners yet. Share the link and get the family signed up.
       </p>
     );
@@ -173,27 +173,27 @@ export default function GroupBoard({
   return (
     <>
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <div className="rounded-pouf bg-headband p-4 text-center text-white pouf-shadow">
-          <div className="text-xl font-extrabold tabular-nums">
+        <div className="rounded-sm border-3 border-outline bg-primary p-4 text-center text-white shadow-card">
+          <div className="font-display text-title tabular-nums">
             {summaries.length}
           </div>
-          <div className="text-[11px] font-medium text-white/75">
+          <div className="text-meta font-medium text-white/75">
             {summaries.length === 1 ? "runner" : "runners"}
           </div>
         </div>
-        <div className="rounded-pouf bg-poodle-white p-4 text-center ring-1 ring-poodle-fur pouf-shadow">
-          <div className="text-xl font-extrabold tabular-nums text-headband-dark">
+        <div className="rounded-sm border-3 border-outline bg-surface p-4 text-center shadow-card">
+          <div className="font-display text-title tabular-nums text-primary">
             {weekMiles}
           </div>
-          <div className="text-[11px] font-medium text-foreground/55">
+          <div className="text-meta font-medium text-ink-soft">
             miles this week
           </div>
         </div>
-        <div className="rounded-pouf bg-poodle-white p-4 text-center ring-1 ring-poodle-fur pouf-shadow">
-          <div className="text-xl font-extrabold tabular-nums text-headband-dark">
+        <div className="rounded-sm border-3 border-outline bg-surface p-4 text-center shadow-card">
+          <div className="font-display text-title tabular-nums text-primary">
             {totalMiles}
           </div>
-          <div className="text-[11px] font-medium text-foreground/55">
+          <div className="text-meta font-medium text-ink-soft">
             miles together
           </div>
         </div>

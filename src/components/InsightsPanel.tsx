@@ -33,18 +33,18 @@ function Tile({
 }) {
   const toneClass =
     tone === "good"
-      ? "text-emerald-600"
+        ? "text-primary-dark"
       : tone === "warn"
-        ? "text-amber-600"
-        : "text-headband-dark";
+        ? "text-accent"
+        : "text-primary-dark";
   return (
-    <div className="rounded-pouf bg-poodle-white p-3 text-center ring-1 ring-poodle-fur pouf-shadow pouf-lift">
-      <div className={`text-lg font-extrabold tabular-nums ${toneClass}`}>
+    <div className="rounded-sm border-2 border-outline bg-surface p-3 text-center shadow-soft pouf-lift">
+      <div className={`font-display text-title tabular-nums ${toneClass}`}>
         {value}
       </div>
-      <div className="text-[11px] font-medium text-foreground/60">{label}</div>
+      <div className="text-meta font-bold uppercase text-ink-soft">{label}</div>
       {sub && (
-        <div className="mt-0.5 text-[10px] font-medium text-foreground/45">
+        <div className="mt-0.5 text-meta font-medium text-ink-soft">
           {sub}
         </div>
       )}
@@ -96,7 +96,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
               width={barW}
               height={Math.max(padTop + plotH - yMiles(p.miles), 0)}
               rx="5"
-              fill="#dbe7ff"
+              fill="var(--periwinkle)"
             />
             <text
               x={x(i)}
@@ -115,7 +115,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
                 textAnchor="middle"
                 fontSize="9"
                 fontWeight="700"
-                fill="#1d4ed8"
+                fill="var(--primary-dark)"
                 opacity="0.75"
               >
                 {p.miles}
@@ -128,7 +128,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
           <path
             d={paceLine}
             fill="none"
-            stroke="#2f6fed"
+            stroke="var(--primary)"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -140,8 +140,8 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
             cx={x(points.indexOf(p))}
             cy={yPace(p.pace!)}
             r="3.5"
-            fill="#fff"
-            stroke="#2f6fed"
+            fill="var(--surface)"
+            stroke="var(--primary)"
             strokeWidth="2"
           >
             <title>{`${p.label} · ${formatPacePerMile(p.pace)}`}</title>
@@ -186,11 +186,11 @@ export default function InsightsPanel({
 
   if (!insights) {
     return (
-      <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+      <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+        <h2 className="type-overline text-ink-soft">
           Performance
         </h2>
-        <p className="mt-2 text-sm text-foreground/60">
+        <p className="mt-2 type-body text-ink-muted">
           Set a race date to start tracking pace, mileage, and heart-rate trends.
         </p>
       </section>
@@ -207,21 +207,21 @@ export default function InsightsPanel({
     1 + [hasHeartRate, hasElevation, hasCadence].filter(Boolean).length;
 
   return (
-    <section className="mt-4 flex flex-col rounded-pouf bg-poodle-white p-4 ring-1 ring-poodle-fur pouf-shadow sm:p-5">
+    <section className="mt-4 flex flex-col rounded-sm border-3 border-outline bg-surface p-4 shadow-card sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+        <h2 className="type-overline text-ink-soft">
           Performance
         </h2>
-        <div className="inline-flex rounded-full bg-poodle-cream p-1 ring-1 ring-poodle-fur">
+        <div className="inline-flex rounded-full border-2 border-outline bg-lilac p-1">
           {SCOPES.map((s) => (
             <button
               key={s}
               onClick={() => setScope(s)}
               aria-pressed={scope === s}
-              className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
+              className={`focus-pouf rounded-full px-3 py-1 text-meta font-bold transition ${
                 scope === s
-                  ? "bg-headband text-white"
-                  : "text-foreground/60 hover:text-headband-dark"
+                  ? "bg-ink text-highlight"
+                  : "text-ink-muted hover:text-ink"
               }`}
             >
               {SCOPE_LABELS[s]}
@@ -297,27 +297,27 @@ export default function InsightsPanel({
       <button
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}
-        className="mt-2 self-start rounded-full px-3 py-1 text-[11px] font-bold text-headband-dark transition hover:bg-poodle-cream"
+        className="focus-pouf mt-2 self-start rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-primary-dark transition hover:bg-lilac"
       >
         {expanded ? "Fewer metrics" : `More metrics (${extraCount})`}
       </button>
 
       {trend.length > 1 ? (
         <div className="mt-4">
-          <div className="flex items-center gap-4 text-[11px] font-medium text-foreground/55">
+          <div className="flex items-center gap-4 text-meta font-medium text-ink-soft">
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-3 rounded-sm bg-[#dbe7ff]" />
+              <span className="inline-block h-2 w-3 border-2 border-outline bg-periwinkle" />
               Miles
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-0.5 w-3 rounded-full bg-headband" />
+              <span className="inline-block h-0.5 w-3 bg-primary" />
               Avg pace (higher = faster)
             </span>
           </div>
           <TrendChart points={trend} />
         </div>
       ) : (
-        <p className="mt-4 text-xs text-foreground/50">
+        <p className="mt-4 text-meta text-ink-soft">
           Log a run, or connect Strava, to see pace and mileage trends here.
         </p>
       )}

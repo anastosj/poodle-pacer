@@ -130,39 +130,36 @@ export default function HomePage() {
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
+          <h1 className="type-display">
             {plan.name}
           </h1>
-          <p className="text-sm text-foreground/60">
+          <p className="type-body text-ink-muted">
             {program.author}&apos;s {program.name}
             {!plan.startDate && (
               <>
                 {" · "}
-                <Link
-                  href="/goals"
-                  className="font-semibold text-headband-dark underline"
-                >
+                <Link href="/goals" className="font-bold text-primary underline">
                   set your race date
                 </Link>
               </>
             )}
           </p>
         </div>
-        <p className="rounded-full bg-headband-light px-4 py-1 text-sm font-medium text-headband-dark">
+        <p className="rotate-[1.5deg] rounded-full border-2 border-outline bg-highlight px-4 py-1 text-sm font-bold text-ink shadow-soft">
           {cheer}
         </p>
       </div>
 
       {countdown > 0 && (
-        <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
+        <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
           <div className="flex-1">
-            <div className="text-xs font-bold uppercase tracking-wide text-white/70">
+            <div className="type-overline text-lilac">
               Countdown
             </div>
-            <div className="mt-1 text-2xl font-extrabold">
+            <div className="mt-1 font-display text-title uppercase">
               {countdown} day{countdown === 1 ? "" : "s"} until training starts
             </div>
-            <div className="text-sm text-white/80">
+            <div className="type-body text-white/85">
               {startsOn &&
                 `Week 1 begins ${startsOn.toLocaleDateString(undefined, {
                   weekday: "long",
@@ -176,16 +173,16 @@ export default function HomePage() {
       )}
 
       {countdown === 0 && next && (
-        <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
+        <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
           <div className="flex-1">
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-white/70">
+            <div className="type-overline flex items-center gap-1.5 text-lilac">
               <StarIcon size={13} />
               Next workout
             </div>
-            <div className="mt-1 text-xl font-extrabold">
+            <div className="mt-1 font-display text-title uppercase">
               {next.workout.label}
             </div>
-            <div className="text-sm text-white/80">
+            <div className="type-body text-white/85">
               {next.date ? (
                 <>
                   {/* Numbered from this runner's first training day, matching
@@ -218,7 +215,7 @@ export default function HomePage() {
                 },
               }));
             }}
-            className="rounded-full bg-white px-5 py-2 text-sm font-bold text-headband-dark transition hover:bg-headband-light"
+            className="hard-button focus-pouf rounded-sm bg-highlight px-5 py-2 text-sm font-bold uppercase text-ink"
           >
             Mark done
           </button>
@@ -386,8 +383,8 @@ export default function HomePage() {
 
       <CalendarGrid plan={plan} program={program} updatePlan={updatePlan} />
 
-      <p className="mt-6 text-center text-xs text-foreground/50">
-        <Link href="/progress" className="font-semibold text-headband-dark underline">
+      <p className="mt-6 text-center text-meta text-ink-soft">
+        <Link href="/progress" className="font-bold text-primary underline">
           See your full progress
         </Link>
       </p>

@@ -39,6 +39,7 @@ import {
   paceSecondsPerMile,
 } from "@/lib/pace";
 import { Feel, Plan, RunLog, logSeconds } from "@/lib/store";
+import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
 type ViewMode = "week" | "program";
 
@@ -82,13 +83,11 @@ function cellStatus(
 }
 
 const STATUS_STYLES: Record<CellStatus, string> = {
-  rest: "bg-poodle-cream/70 ring-poodle-fur",
-  // Completed days fill rather than outline, so a finished week reads at a
-  // glance instead of asking you to notice border weight.
-  done: "bg-headband-light ring-headband/35",
-  missed: "bg-poodle-cream/40 ring-poodle-fur opacity-70",
-  today: "bg-white ring-poodle-fur",
-  upcoming: "bg-white ring-poodle-fur",
+  rest: "border-outline bg-surface-tinted",
+  done: "border-outline bg-periwinkle",
+  missed: "border-outline bg-lilac opacity-70",
+  today: "border-outline bg-highlight",
+  upcoming: "border-outline bg-surface",
 };
 
 function DayCell({
@@ -174,10 +173,10 @@ function DayCell({
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={done ? "Edit this workout" : "Mark done or edit"}
-        className={`flex items-center justify-center rounded-lg px-2 py-0.5 transition hover:bg-white/70 md:w-full ${
+        className={`focus-pouf flex items-center justify-center rounded-sm px-2 py-0.5 transition hover:bg-lilac md:w-full ${
           menuOpen
-            ? "bg-white/80 text-foreground/70"
-            : "text-foreground/35 hover:text-foreground/60"
+            ? "bg-lilac text-ink"
+            : "text-ink-soft hover:text-ink"
         }`}
       >
         <ChevronIcon up={menuOpen} size={14} />
@@ -186,7 +185,7 @@ function DayCell({
       {menuOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-xl bg-white py-1 text-left ring-1 ring-poodle-fur pouf-shadow"
+          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-sm border-2 border-outline bg-surface py-1 text-left shadow-soft"
         >
           <button
             role="menuitem"
@@ -194,7 +193,7 @@ function DayCell({
               onToggle();
               setMenuOpen(false);
             }}
-            className="block w-full px-3 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-poodle-cream"
+            className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
           >
             {done ? "Mark not done" : "Mark done"}
           </button>
@@ -204,7 +203,7 @@ function DayCell({
               setEditing(true);
               setMenuOpen(false);
             }}
-            className="block w-full px-3 py-1.5 text-[11px] font-semibold text-foreground/80 hover:bg-poodle-cream"
+            className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
           >
             {done ? "Edit details" : "Log details"}
           </button>
@@ -215,12 +214,12 @@ function DayCell({
 
   const statusChip =
     status === "missed" ? (
-      <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/50">
-        <span className="h-1.5 w-1.5 rounded-full ring-1 ring-foreground/30" />
+        <span className="inline-flex items-center gap-1 rounded-full border-2 border-outline bg-surface px-1.5 py-0.5 text-meta font-bold text-ink-soft">
+        <span className="h-1.5 w-1.5 rounded-full border border-outline" />
         Missed
       </span>
     ) : done ? (
-      <span className="inline-flex items-center gap-1 rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold text-white">
+      <span className="inline-flex items-center gap-1 rounded-full border-2 border-outline bg-ink px-1.5 py-0.5 text-meta font-bold text-background">
         <CheckIcon size={9} />
         Done
       </span>
@@ -228,12 +227,12 @@ function DayCell({
 
   return (
     <div
-      className={`relative flex gap-3 rounded-2xl p-2.5 text-xs ring-1 transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
+      className={`relative flex gap-3 rounded-sm border-3 p-2.5 text-body transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
         STATUS_STYLES[status]
-      } ${isToday ? "outline outline-2 outline-offset-2 outline-headband" : ""}`}
+      } ${isToday ? "rotate-[-1deg] outline outline-2 outline-offset-2 outline-primary" : ""}`}
     >
       {isToday && (
-        <span className="absolute -top-2 right-2 hidden rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white md:inline-block">
+        <span className="absolute -top-2 right-2 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
           Today
         </span>
       )}
@@ -249,8 +248,8 @@ function DayCell({
             controls take the free space on the right. */}
         <div className="flex items-center gap-2">
           <span
-            className={`text-[10px] font-bold uppercase tracking-wide ${
-              isToday ? "text-headband-dark" : "text-foreground/45"
+              className={`text-meta font-bold uppercase tracking-wide ${
+              isToday ? "text-ink" : "text-ink-soft"
             }`}
           >
             <span className="md:hidden">
@@ -261,11 +260,11 @@ function DayCell({
               day: "numeric",
             })}
           </span>
-          <span className="text-[9px] font-medium text-foreground/35 md:ml-auto">
+          <span className="text-meta text-ink-soft md:ml-auto">
             Day {cell.dayNumber + 1}
           </span>
           {isToday && (
-            <span className="rounded-full bg-headband px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white md:hidden">
+            <span className="rounded-full border-2 border-outline bg-ink px-1.5 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:hidden">
               Today
             </span>
           )}
@@ -298,7 +297,7 @@ function DayCell({
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {log?.stravaName && (
               <span
-                className="flex min-w-0 items-center gap-1 text-[10px] text-[#fc4c02]"
+                className="flex min-w-0 items-center gap-1 text-meta text-orange-700"
                 title={log.stravaName}
               >
                 <BoltIcon size={11} />
@@ -309,15 +308,15 @@ function DayCell({
               <button
                 onClick={onOpen}
                 title="See splits, route, and heart rate"
-                className="-mx-1 flex flex-wrap items-center gap-x-1.5 rounded-lg px-1 py-0.5 text-left transition hover:bg-white/70"
+                className="-mx-1 flex flex-wrap items-center gap-x-1.5 rounded-sm px-1 py-0.5 text-left transition hover:bg-surface"
               >
-                <span className="text-[10px] tabular-nums text-foreground/60">
+                <span className="text-meta tabular-nums text-ink-soft">
                   {log?.miles ? `${log.miles} mi` : ""}
                   {log?.miles && seconds ? " · " : ""}
                   {seconds ? formatDurationShort(seconds) : ""}
                 </span>
                 {pace && (
-                  <span className="text-[10px] font-semibold tabular-nums text-headband-dark underline decoration-headband/30 underline-offset-2">
+                    <span className="text-meta font-bold tabular-nums text-primary underline underline-offset-2">
                     {formatPacePerMile(pace)}
                   </span>
                 )}
@@ -338,7 +337,7 @@ function DayCell({
                 aria-label={f.label}
                 aria-pressed={log?.feel === f.value}
                 onClick={() => onFeel(f.value)}
-                className={`rounded-full p-0.5 transition ${
+              className={`focus-pouf rounded-full p-0.5 transition ${
                   log?.feel === f.value
                     ? "bg-headband-light ring-1 ring-headband"
                     : "opacity-40 hover:opacity-100"
@@ -356,7 +355,7 @@ function DayCell({
       {editing && (
         <form
           ref={formRef}
-          className="absolute left-0 top-full z-20 mt-1 flex w-48 flex-col gap-1 rounded-xl bg-white p-2 ring-1 ring-poodle-fur pouf-shadow"
+          className="absolute left-0 top-full z-20 mt-1 flex w-48 flex-col gap-1 rounded-sm border-2 border-outline bg-surface p-2 shadow-card"
           onSubmit={(e) => {
             e.preventDefault();
             onLog(
@@ -369,14 +368,14 @@ function DayCell({
           }}
         >
           <div className="flex items-center justify-between gap-2 pb-0.5">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-foreground/45">
+            <span className="text-meta font-bold uppercase tracking-wide text-ink-soft">
               Log this workout
             </span>
             <button
               type="button"
               onClick={closeEditor}
               aria-label="Close without saving"
-              className="rounded-full px-1.5 text-sm leading-none text-foreground/40 transition hover:bg-poodle-cream hover:text-foreground/70"
+              className="focus-pouf rounded-full px-1.5 text-sm leading-none text-ink-soft transition hover:bg-lilac hover:text-ink"
             >
               &#215;
             </button>
@@ -389,18 +388,18 @@ function DayCell({
               placeholder="Running miles"
               value={miles}
               onChange={(e) => setMiles(e.target.value)}
-              className="rounded-lg border border-poodle-fur px-2 py-1 text-[11px] tabular-nums focus:outline-none focus:ring-2 focus:ring-headband"
+              className="focus-pouf rounded-sm border-2 border-outline px-2 py-1 text-meta tabular-nums"
             />
           )}
           <DurationInput value={time} onChange={setTime} />
-          <span className="text-[9px] leading-tight text-foreground/45">
+          <span className="text-meta leading-tight text-ink-soft">
             {workoutTracksRunningMiles(workout)
               ? "mm:ss or h:mm:ss, used to compute pace"
               : "mm:ss or h:mm:ss"}
           </span>
           <button
             type="submit"
-            className="rounded-lg bg-headband px-2 py-1 text-[11px] font-semibold text-white"
+            className="hard-button focus-pouf rounded-sm bg-primary px-2 py-1 text-meta font-bold text-white"
           >
             Save
           </button>
@@ -437,7 +436,7 @@ function WeekdayHeader() {
       {WEEKDAY_NAMES.map((d) => (
         <div
           key={d}
-          className="text-center text-xs font-bold uppercase tracking-wide text-foreground/50"
+          className="text-center text-meta font-bold uppercase tracking-wide text-ink-soft"
         >
           {d}
         </div>
@@ -568,7 +567,7 @@ export default function CalendarGrid({
     const undated = buildUndatedRows(program);
     return (
       <div className="mt-6 space-y-4">
-        <p className="rounded-xl bg-headband-light px-4 py-2 text-xs text-headband-dark">
+        <p className="rounded-sm border-2 border-outline bg-highlight px-4 py-2 text-meta font-bold text-ink">
           Set a race date on the Goals page to see real dates and day numbers on
           the calendar.
         </p>
@@ -576,7 +575,7 @@ export default function CalendarGrid({
         <div className="space-y-3">
           {undated.map((week) => (
             <div key={week.week}>
-              <div className="mb-1 text-xs font-extrabold text-headband-dark">
+              <div className="mb-1 type-overline text-primary-dark">
                 Week {week.week}
               </div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
@@ -584,16 +583,16 @@ export default function CalendarGrid({
                   c ? (
                     <div
                       key={c.key}
-                      className={`min-h-[72px] rounded-2xl p-2 text-xs ring-1 ring-poodle-fur ${
+                      className={`min-h-[72px] rounded-sm border-3 border-outline p-2 text-body ${
                         c.workout.type === "rest"
-                          ? "bg-poodle-cream/70"
+                          ? "bg-lilac"
                           : "bg-white"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span
                           className={`font-semibold leading-tight ${
-                            c.workout.type === "rest" ? "text-foreground/50" : ""
+                            c.workout.type === "rest" ? "text-ink-soft" : "font-display uppercase"
                           }`}
                         >
                           {c.workout.label}
@@ -620,31 +619,21 @@ export default function CalendarGrid({
   return (
     <div className="mt-6">
       {/* Sticky so the way back out of a long plan is always on screen. */}
-      <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-background/85 px-1 py-2 backdrop-blur">
-        <div className="inline-flex rounded-full bg-poodle-cream p-1 ring-1 ring-poodle-fur">
-          {(["week", "program"] as ViewMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => {
-                setMode(m);
-                if (m === "week") setWeekIndex(currentRowIndex(rows));
-              }}
-              aria-pressed={mode === m}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-                mode === m
-                  ? "bg-headband text-white"
-                  : "text-foreground/60 hover:text-headband-dark"
-              }`}
-            >
-              {m === "week" ? "This week" : "Full program"}
-            </button>
-          ))}
-        </div>
+      <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-1 py-2 backdrop-blur">
+        <SegmentedToggle
+          options={["week", "program"] as const}
+          value={mode}
+          onChange={(m) => {
+            setMode(m);
+            if (m === "week") setWeekIndex(currentRowIndex(rows));
+          }}
+          getLabel={(m) => (m === "week" ? "This week" : "Full program")}
+        />
 
         {mode === "program" && rows.length > 0 && (
           <button
             onClick={() => setAllRows(openCount <= rows.length / 2)}
-            className="rounded-full px-3 py-1.5 text-[11px] font-bold text-headband-dark ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+            className="focus-pouf rounded-full border-2 border-outline px-3 py-1.5 text-meta font-bold text-primary-dark transition hover:bg-lilac"
           >
             {openCount > rows.length / 2 ? "Collapse all weeks" : "Expand all weeks"}
           </button>
@@ -655,16 +644,16 @@ export default function CalendarGrid({
             <button
               onClick={() => setWeekIndex((i) => Math.max(0, i - 1))}
               disabled={safeIndex === 0}
-              className="rounded-full px-2 py-1 text-sm text-foreground/60 ring-1 ring-poodle-fur transition hover:bg-poodle-cream disabled:opacity-30"
+              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac disabled:opacity-30"
               aria-label="Previous week"
             >
               ◂
             </button>
             <div className="min-w-[9rem] text-center">
-              <div className="text-sm font-extrabold text-headband-dark">
+              <div className="font-display text-title text-primary-dark">
                 {formatRowLabel(row)}
               </div>
-              <div className="text-[10px] font-medium text-foreground/50">
+              <div className="text-meta text-ink-soft">
                 {row.weeks.length > 0
                   ? `Program wk ${row.weeks.join(" & ")}`
                   : "Off-plan week"}
@@ -675,7 +664,7 @@ export default function CalendarGrid({
                 setWeekIndex((i) => Math.min(rows.length - 1, i + 1))
               }
               disabled={safeIndex >= rows.length - 1}
-              className="rounded-full px-2 py-1 text-sm text-foreground/60 ring-1 ring-poodle-fur transition hover:bg-poodle-cream disabled:opacity-30"
+              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac disabled:opacity-30"
               aria-label="Next week"
             >
               ▸
@@ -683,7 +672,7 @@ export default function CalendarGrid({
             {safeIndex !== currentRowIndex(rows) && (
               <button
                 onClick={() => setWeekIndex(currentRowIndex(rows))}
-                className="rounded-full px-3 py-1 text-[11px] font-semibold text-headband-dark ring-1 ring-poodle-fur hover:bg-poodle-cream"
+                className="focus-pouf rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-primary-dark hover:bg-lilac"
               >
                 Today
               </button>
@@ -728,12 +717,12 @@ export default function CalendarGrid({
                   <button
                     onClick={() => toggleRow(idx, isCurrent)}
                     aria-expanded={open}
-                    className={`flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs transition hover:bg-poodle-cream ${
-                      open ? "" : "bg-poodle-cream/50"
+                    className={`focus-pouf flex w-full items-center gap-2 rounded-sm border-2 border-outline px-2 py-1.5 text-left text-body transition hover:bg-lilac ${
+                        open ? "bg-surface" : "bg-lilac"
                     }`}
                   >
                     <span
-                      className={`text-[10px] text-foreground/40 transition-transform ${
+                      className={`text-meta text-ink-soft transition-transform ${
                         open ? "rotate-90" : ""
                       }`}
                       aria-hidden
@@ -742,13 +731,13 @@ export default function CalendarGrid({
                     </span>
                     <span
                       className={`font-extrabold ${
-                        isCurrent ? "text-headband" : "text-headband-dark"
+                        isCurrent ? "text-primary" : "text-primary-dark"
                       }`}
                     >
                       {formatRowLabel(r)}
                     </span>
                     {r.weeks.length > 0 && (
-                      <span className="text-foreground/45">
+                      <span className="text-ink-soft">
                         wk {r.weeks.join(" & ")}
                       </span>
                     )}
@@ -756,8 +745,8 @@ export default function CalendarGrid({
                       <span
                         className={
                           rowInPast && s.done < s.total
-                            ? "text-amber-600"
-                            : "text-foreground/50"
+                            ? "text-accent"
+                            : "text-ink-soft"
                         }
                       >
                         {s.done}/{s.total} done
@@ -768,7 +757,7 @@ export default function CalendarGrid({
                       <CheckBadgeIcon size={13} title="Every workout done" />
                     )}
                     {isCurrent && (
-                      <span className="rounded-full bg-headband px-2 py-0.5 text-[9px] font-bold text-white">
+                      <span className="rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold text-highlight">
                         This week
                       </span>
                     )}

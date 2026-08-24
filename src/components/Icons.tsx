@@ -7,7 +7,7 @@
  */
 
 const FUR = "#fdfcf9";
-const FUR_EDGE = "#d9d2c4";
+const FUR_EDGE = "#0f1330";
 const BLUE = "#2f6fed";
 const BLUE_DEEP = "#1d4ed8";
 const INK = "#3a3630";

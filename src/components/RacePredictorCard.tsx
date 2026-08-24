@@ -19,15 +19,15 @@ export default function RacePredictorCard({
   const prediction = useMemo(() => predictRace(plan, program), [plan, program]);
 
   return (
-    <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-      <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-foreground/60">
+    <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+      <h2 className="type-overline flex items-center gap-1.5 text-ink-soft">
         <FinishFlagIcon size={16} /> Race outlook
       </h2>
       {prediction ? (
         <>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-2">
             <div>
-              <div className="text-3xl font-extrabold tabular-nums text-headband-dark">
+              <div className="font-display text-display tabular-nums text-primary">
                 {formatDuration(prediction.seconds)}
               </div>
               <div className="text-[11px] font-medium text-foreground/60">
@@ -35,7 +35,7 @@ export default function RacePredictorCard({
               </div>
             </div>
             <div>
-              <div className="text-xl font-extrabold tabular-nums text-headband-dark">
+              <div className="font-display text-title tabular-nums text-primary">
                 {formatPacePerMile(prediction.pace)}
               </div>
               <div className="text-[11px] font-medium text-foreground/60">
@@ -44,7 +44,7 @@ export default function RacePredictorCard({
             </div>
             {prediction.daysToRace !== undefined && (
               <div>
-                <div className="text-xl font-extrabold tabular-nums text-headband-dark">
+                <div className="font-display text-title tabular-nums text-primary">
                   {prediction.daysToRace}
                 </div>
                 <div className="text-[11px] font-medium text-foreground/60">
@@ -53,7 +53,7 @@ export default function RacePredictorCard({
               </div>
             )}
           </div>
-          <p className="mt-3 text-[11px] text-foreground/50">
+          <p className="mt-3 text-meta text-ink-soft">
             An estimate (Riegel formula) from your best recent run:{" "}
             {prediction.basis.miles} mi in{" "}
             {formatDuration(prediction.basis.seconds)} on{" "}
@@ -62,7 +62,7 @@ export default function RacePredictorCard({
           </p>
         </>
       ) : (
-        <p className="mt-2 text-sm text-foreground/60">
+        <p className="mt-2 type-body text-ink-muted">
           Log a timed run of 3+ miles and the poodle will predict your race
           finish time.
         </p>

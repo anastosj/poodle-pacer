@@ -16,21 +16,21 @@ export default function PoodleSleeping({
       aria-label="Sleeping poodle, rest day"
     >
       {/* ears */}
-      <circle cx="27" cy="66" r="15" fill="#f5f2ec" stroke="#d9d2c4" strokeWidth="2" />
-      <circle cx="93" cy="66" r="15" fill="#f5f2ec" stroke="#d9d2c4" strokeWidth="2" />
-      <circle cx="26" cy="79" r="12" fill="#f5f2ec" stroke="#d9d2c4" strokeWidth="2" />
-      <circle cx="94" cy="79" r="12" fill="#f5f2ec" stroke="#d9d2c4" strokeWidth="2" />
+      <circle cx="27" cy="66" r="15" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
+      <circle cx="93" cy="66" r="15" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
+      <circle cx="26" cy="79" r="12" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
+      <circle cx="94" cy="79" r="12" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
       {/* top pouf */}
-      <circle cx="45" cy="40" r="13" fill="#fdfcf9" stroke="#d9d2c4" strokeWidth="2" />
-      <circle cx="60" cy="34" r="15" fill="#fdfcf9" stroke="#d9d2c4" strokeWidth="2" />
-      <circle cx="75" cy="40" r="13" fill="#fdfcf9" stroke="#d9d2c4" strokeWidth="2" />
+      <circle cx="45" cy="40" r="13" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
+      <circle cx="60" cy="34" r="15" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
+      <circle cx="75" cy="40" r="13" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
       {/* face */}
-      <ellipse cx="60" cy="76" rx="29" ry="27" fill="#fdfcf9" stroke="#d9d2c4" strokeWidth="2" />
+      <ellipse cx="60" cy="76" rx="29" ry="27" fill="#ffffff" stroke="#0f1330" strokeWidth="2" />
       {/* headband, slipped low like a sleep mask */}
       <path
         d="M 31 58 Q 60 47 89 58 L 87 68 Q 60 57 33 68 Z"
         fill="#2f6fed"
-        stroke="#1d4ed8"
+        stroke="#0f1330"
         strokeWidth="2"
         strokeLinejoin="round"
       />
@@ -50,7 +50,7 @@ export default function PoodleSleeping({
         strokeLinecap="round"
       />
       {/* muzzle */}
-      <ellipse cx="60" cy="88" rx="12" ry="9" fill="#fff" stroke="#d9d2c4" strokeWidth="1.5" />
+      <ellipse cx="60" cy="88" rx="12" ry="9" fill="#fff" stroke="#0f1330" strokeWidth="1.5" />
       <ellipse cx="60" cy="85" rx="4" ry="3" fill="#3a3630" />
       <path
         d="M 60 88 Q 60 93 56 94"

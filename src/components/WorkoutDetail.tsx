@@ -14,11 +14,11 @@ import { RunLog, logSeconds } from "@/lib/store";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-poodle-cream px-3 py-2">
-      <div className="text-sm font-extrabold tabular-nums text-headband-dark">
+    <div className="rounded-sm border-2 border-outline bg-lilac px-3 py-2">
+      <div className="font-display text-title tabular-nums text-primary-dark">
         {value}
       </div>
-      <div className="text-[10px] font-medium text-foreground/55">{label}</div>
+      <div className="text-meta font-medium text-ink-soft">{label}</div>
     </div>
   );
 }
@@ -32,9 +32,9 @@ function Splits({ detail }: { detail: ActivityDetail }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[19rem] border-separate border-spacing-y-1 text-xs">
+      <table className="w-full min-w-[19rem] border-separate border-spacing-y-1 text-body">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-wide text-foreground/45">
+          <tr className="text-left text-meta uppercase tracking-wide text-ink-soft">
             <th className="pl-1 font-bold">Mile</th>
             <th className="font-bold">Pace</th>
             <th className="font-bold">vs avg</th>
@@ -50,11 +50,11 @@ function Splits({ detail }: { detail: ActivityDetail }) {
             // Longer bar = slower mile, so the shape reads like the effort felt.
             const width = ((s.pace - fastest) / span) * 100;
             return (
-              <tr key={s.mile} className="bg-poodle-cream/60">
-                <td className="rounded-l-lg py-1.5 pl-2 font-bold tabular-nums">
+              <tr key={s.mile} className="bg-lilac">
+                <td className="py-1.5 pl-2 font-bold tabular-nums">
                   {s.mile}
                   {s.miles < 0.95 && (
-                    <span className="ml-1 font-normal text-foreground/40">
+                    <span className="ml-1 font-normal text-ink-soft">
                       ({s.miles})
                     </span>
                   )}
@@ -66,27 +66,27 @@ function Splits({ detail }: { detail: ActivityDetail }) {
                   <div className="flex items-center gap-1.5">
                     <span
                       className={`w-10 shrink-0 tabular-nums ${
-                        delta < 0 ? "text-emerald-600" : "text-foreground/55"
+                        delta < 0 ? "text-primary-dark" : "text-ink-soft"
                       }`}
                     >
                       {delta === 0
                         ? "even"
                         : `${delta < 0 ? "-" : "+"}${formatPace(Math.abs(delta))}`}
                     </span>
-                    <span className="h-1.5 w-14 overflow-hidden rounded-full bg-poodle-fur/50">
+                    <span className="h-1.5 w-14 overflow-hidden border border-outline bg-ink-soft">
                       <span
-                        className="block h-full rounded-full bg-headband"
+                        className="block h-full bg-primary"
                         style={{ width: `${Math.max(4, width)}%` }}
                       />
                     </span>
                   </div>
                 </td>
-                <td className="py-1.5 tabular-nums text-foreground/60">
+                <td className="py-1.5 tabular-nums text-ink-soft">
                   {s.elevationChange > 0 ? "+" : ""}
                   {s.elevationChange} ft
                 </td>
                 {detail.splits.some((x) => x.heartRate) && (
-                  <td className="rounded-r-lg py-1.5 pr-2 tabular-nums text-foreground/60">
+                  <td className="py-1.5 pr-2 tabular-nums text-ink-soft">
                     {s.heartRate ?? "–"}
                   </td>
                 )}
@@ -183,21 +183,21 @@ export default function WorkoutDetail({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow sm:rounded-pouf"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-sm border-3 border-outline bg-surface p-5 shadow-hero sm:rounded-sm"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-extrabold tracking-tight">
+            <h2 className="type-title truncate">
               {log.stravaName ?? label}
             </h2>
-            <p className="text-xs text-foreground/55">
+            <p className="text-meta text-ink-soft">
               {dateLabel} · {label}
             </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-full px-2.5 py-1 text-sm text-foreground/50 ring-1 ring-poodle-fur transition hover:bg-poodle-cream"
+            className="focus-pouf shrink-0 rounded-full border-2 border-outline px-2.5 py-1 text-sm text-ink-soft transition hover:bg-lilac"
           >
             ✕
           </button>
@@ -224,7 +224,7 @@ export default function WorkoutDetail({
         </div>
 
         {log.feel && (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-headband-light px-3 py-1 text-xs font-semibold text-headband-dark">
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1 text-meta font-bold text-ink">
             <CheckIcon size={11} />
             Felt{" "}
             {log.feel === "good" ? "good" : log.feel === "medium" ? "okay" : "rough"}
@@ -232,7 +232,7 @@ export default function WorkoutDetail({
         )}
 
         {!id && !sample && (
-          <p className="mt-4 rounded-xl bg-poodle-cream px-4 py-3 text-xs text-foreground/60">
+          <p className="mt-4 rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
             This one was logged by hand, so there is no route or mile breakdown.
             Runs imported from Strava show both.
           </p>
@@ -243,7 +243,7 @@ export default function WorkoutDetail({
         )}
 
         {error && (
-          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-200">
+          <p className="mt-4 rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink">
             {error}
           </p>
         )}
@@ -259,7 +259,7 @@ export default function WorkoutDetail({
                 tiles={realMaps}
               />
             ) : (
-              <p className="rounded-xl bg-poodle-cream px-4 py-3 text-xs text-foreground/60">
+              <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
                 No route recorded, so this was probably a treadmill run.
               </p>
             )}

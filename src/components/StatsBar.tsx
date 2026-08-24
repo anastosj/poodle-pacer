@@ -9,6 +9,7 @@ import {
   effectiveStartDate,
   logKey,
 } from "@/lib/store";
+import StatTile from "@/components/ui/StatTile";
 
 /** Program week covering today, or null before training starts / after the race. */
 function currentWeek(plan: Plan, program: Program): number | null {
@@ -94,16 +95,14 @@ export default function StatsBar({
 
   return (
     <div className="mt-4 grid grid-cols-3 gap-3">
-      {stats.map((s) => (
-        <div
+      {stats.map((s, index) => (
+        <StatTile
           key={s.label}
-          className="rounded-pouf bg-poodle-white p-4 text-center ring-1 ring-poodle-fur pouf-shadow pouf-lift"
-        >
-          <div className="text-lg font-extrabold text-headband-dark">
-            {s.value}
-          </div>
-          <div className="text-xs font-medium text-foreground/60">{s.label}</div>
-        </div>
+          value={s.value}
+          label={s.label}
+          tone={index === 1 ? "cyan" : index === 2 ? "lilac" : "default"}
+          className="text-center"
+        />
       ))}
     </div>
   );

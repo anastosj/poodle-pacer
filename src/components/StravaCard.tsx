@@ -129,15 +129,15 @@ export default function StravaCard({
   }, []);
 
   return (
-    <section className="rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
-      <h2 className="text-sm font-bold uppercase tracking-wide text-foreground/60">
+    <section className="rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+      <h2 className="type-overline text-ink-soft">
         Strava
       </h2>
       {!status ? (
-        <p className="mt-2 text-sm text-foreground/60">Checking…</p>
+        <p className="mt-2 type-body text-ink-muted">Checking…</p>
       ) : (
         <div className="mt-2 space-y-3">
-          <p className="text-sm">
+          <p className="type-body">
             Connected{status.athleteName ? ` as ${status.athleteName}` : ""}
           </p>
 
@@ -146,26 +146,26 @@ export default function StravaCard({
               <button
                 onClick={sync}
                 disabled={syncing}
-                className="rounded-full bg-headband px-4 py-2 text-sm font-semibold text-white transition hover:bg-headband-dark disabled:opacity-60"
+                className="hard-button focus-pouf rounded-sm bg-primary px-4 py-2 text-sm font-bold uppercase text-white disabled:opacity-60"
               >
                 {syncing ? "Fetching runs…" : "Sync runs"}
               </button>
               <button
                 onClick={disconnect}
-                className="rounded-full px-4 py-2 text-sm font-medium text-foreground/60 ring-1 ring-poodle-fur hover:bg-poodle-cream"
+                className="focus-pouf rounded-full border-2 border-outline px-4 py-2 text-sm font-bold text-ink-muted hover:bg-lilac"
               >
                 Disconnect
               </button>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-foreground/70">
+              <p className="type-body text-ink-muted">
                 You signed in, but didn&apos;t grant permission to read your
                 activities, so runs can&apos;t be imported yet.
               </p>
               <a
                 href="/api/auth/login?force=1"
-                className="inline-block rounded-full bg-[#fc4c02] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                className="inline-block rounded-sm border-3 border-outline bg-[#fc4c02] px-4 py-2 text-sm font-bold uppercase text-white transition hover:opacity-90"
               >
                 Grant activity access
               </a>
@@ -174,7 +174,7 @@ export default function StravaCard({
         </div>
       )}
       {syncMessage && (
-        <p className="mt-2 text-xs font-medium text-headband-dark">
+        <p className="mt-2 text-meta font-bold text-primary-dark">
           {syncMessage}
         </p>
       )}
