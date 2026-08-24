@@ -28,7 +28,10 @@ export function GET(request: NextRequest) {
   );
   authorizeUrl.searchParams.set("scope", LOGIN_SCOPE);
   // Random nonce bound to this browser, verified on the way back.
-  authorizeUrl.searchParams.set("state", issueOAuthState());
+  authorizeUrl.searchParams.set(
+    "state",
+    issueOAuthState(request.nextUrl.searchParams.get("next") ?? undefined)
+  );
 
   return NextResponse.redirect(authorizeUrl);
 }

@@ -34,7 +34,7 @@ function initials(name: string | null): string {
 
 export default function NavBar() {
   const pathname = usePathname();
-  const { user } = useApp();
+  const { user, raceCount } = useApp();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +64,9 @@ export default function NavBar() {
           </span>
         </Link>
         <div className="hidden gap-1 sm:flex">
-          {LINKS.map(({ href, label, Icon }) => (
+          {LINKS.filter(
+            ({ href }) => href !== "/group" || raceCount > 0
+          ).map(({ href, label, Icon }) => (
             <Link
               key={href}
               href={href}
@@ -74,7 +76,10 @@ export default function NavBar() {
                   : "text-foreground/70 hover:bg-poodle-cream"
               }`}
             >
-              <Icon size={17} className={pathname === href ? "opacity-90" : ""} />
+              <Icon
+                size={17}
+                className={pathname === href ? "opacity-90" : ""}
+              />
               {label}
             </Link>
           ))}

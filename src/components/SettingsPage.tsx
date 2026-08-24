@@ -4,6 +4,7 @@ import AlertsCard from "@/components/AlertsCard";
 import StravaCard from "@/components/StravaCard";
 import { PoodleFaceIcon } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const { user, state, update, plan, updatePlan, program } = useApp();
@@ -49,6 +50,17 @@ export default function SettingsPage() {
       </section>
 
       <AlertsCard state={state} update={update} plan={plan} program={program} />
+
+      <Link
+        href="/group"
+        className="mt-4 block rounded-pouf bg-poodle-white p-4 text-sm font-bold ring-1 ring-poodle-fur pouf-shadow"
+      >
+        Train with others{" "}
+        <span className="float-right text-headband-dark">→</span>
+        <span className="mt-1 block text-xs font-normal text-foreground/55">
+          Start a pack or join with an invite code.
+        </span>
+      </Link>
 
       <div className="mt-4">
         <StravaCard plan={plan} updatePlan={updatePlan} program={program} />

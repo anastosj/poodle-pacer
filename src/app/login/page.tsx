@@ -21,7 +21,7 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; next?: string };
 }) {
   // Only bounce to the app if the session resolves to a real user. Checking the
   // cookie alone would loop forever against requireUser() when the row is gone
@@ -57,7 +57,11 @@ export default async function LoginPage({
 
         {configured ? (
           <a
-            href="/api/auth/login"
+            href={`/api/auth/login${
+              searchParams.next
+                ? `?next=${encodeURIComponent(searchParams.next)}`
+                : ""
+            }`}
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#fc4c02] px-6 py-3 text-base font-bold text-white transition hover:opacity-90"
           >
             Sign in with Strava
