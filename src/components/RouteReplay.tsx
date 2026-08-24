@@ -23,10 +23,8 @@ const METERS_PER_MILE = 1609.344;
 const PAWS_X = 28;
 const PAWS_Y = 40;
 
-/** Whole-run replays: real time, brisk, and "the entire run in 20 seconds". */
+/** Every replay covers the whole run in about this long, whatever its duration. */
 const SPRINT_SECONDS = 20;
-
-type SpeedName = "trot" | "run" | "sprint";
 
 interface Frame {
   x: number;
@@ -103,7 +101,6 @@ export default function RouteReplay({
 }) {
   const [streams, setStreams] = useState<RouteStreams | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
-  const [speed, setSpeed] = useState<SpeedName>("sprint");
   const [playing, setPlaying] = useState(true);
   const [elapsed, setElapsed] = useState(0);
 
@@ -149,12 +146,9 @@ export default function RouteReplay({
     return { pixels, cumulative, path, length: cumulative[cumulative.length - 1] };
   }, [points, view]);
 
-  const multiplier =
-    speed === "trot"
-      ? 1
-      : speed === "run"
-        ? 8
-        : Math.max(1, duration / SPRINT_SECONDS);
+  // A four-hour marathon and a twenty-minute shakeout both replay in about
+  // SPRINT_SECONDS, so the whole shape of the route is always worth watching.
+  const multiplier = Math.max(1, duration / SPRINT_SECONDS);
 
   // Autoplay is a courtesy, not a requirement; readers who asked for less
   // motion get a finished route and a play button.
@@ -224,6 +218,7 @@ export default function RouteReplay({
   if (!geometry || !view || !frame) return null;
 
   const finished = elapsed >= duration;
+  const playedPct = duration > 0 ? (elapsed / duration) * 100 : 0;
   const mapSrc =
     `/api/map?center=${view.center.lng.toFixed(6)},${view.center.lat.toFixed(6)}` +
     `&zoom=${view.zoom.toFixed(3)}&w=${MAP_W}&h=${MAP_H}&path=0`;
@@ -333,35 +328,16 @@ export default function RouteReplay({
           {finished ? "Replay" : playing ? "Pause" : "Play"}
         </button>
 
-        <div className="flex overflow-hidden rounded-full ring-1 ring-poodle-fur">
-          {(
-            [
-              ["trot", "Real time"],
-              ["run", "8x"],
-              ["sprint", "Whole run"],
-            ] as const
-          ).map(([name, label]) => (
-            <button
-              key={name}
-              onClick={() => setSpeed(name)}
-              aria-pressed={speed === name}
-              className={`px-3 py-1.5 text-xs font-semibold transition ${
-                speed === name
-                  ? "bg-headband-light text-headband-dark"
-                  : "text-foreground/55 hover:bg-poodle-cream"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         <div className="ml-auto text-xs font-semibold tabular-nums text-foreground/60">
           {frame.miles.toFixed(2)} mi · {formatDuration(Math.round(elapsed))}
           {frame.pace > 0 && ` · ${formatPace(Math.round(frame.pace))}/mi`}
         </div>
       </div>
 
+      {/* The track carries the progress itself: filled behind the handle, pale
+          ahead of it, so how far through the run you are reads at a glance
+          without watching the poodle. `appearance-none` drops the browser's own
+          fill, so the gradient and the handle are both drawn here. */}
       <input
         type="range"
         min={0}
@@ -370,7 +346,17 @@ export default function RouteReplay({
         value={elapsed}
         onChange={(e) => setElapsed(Number(e.target.value))}
         aria-label="Scrub through the run"
-        className="mt-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-poodle-fur/60 accent-headband"
+        style={{
+          background: `linear-gradient(to right, var(--primary) ${playedPct}%, var(--primary-soft) ${playedPct}%)`,
+        }}
+        className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full
+          [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5
+          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full
+          [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-outline
+          [&::-webkit-slider-thumb]:bg-surface
+          [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5
+          [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2
+          [&::-moz-range-thumb]:border-outline [&::-moz-range-thumb]:bg-surface"
       />
 
       <p className="mt-1.5 text-[10px] text-foreground/45">

@@ -240,7 +240,9 @@ function DayCell({
       } ${isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""}`}
     >
       {isToday && (
-        <span className="absolute -top-3 right-2 z-10 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
+        // Sits high enough to clear the day number, which is right aligned to
+        // the same corner.
+        <span className="absolute -top-5 right-2 z-10 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
           Today
         </span>
       )}
@@ -268,11 +270,9 @@ function DayCell({
               day: "numeric",
             })}
           </span>
-          <span
-            className={`shrink-0 whitespace-nowrap text-meta text-ink-soft md:ml-auto ${
-              isToday ? "md:pr-10" : ""
-            }`}
-          >
+          {/* The Today badge floats above the card's top edge, so nothing in
+              here has to reserve room for it. */}
+          <span className="shrink-0 whitespace-nowrap text-meta text-ink-soft md:ml-auto">
             Day {cell.dayNumber + 1}
           </span>
           {isToday && (
