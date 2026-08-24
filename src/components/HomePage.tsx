@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import CalendarGrid from "@/components/CalendarGrid";
+import DurationInput from "@/components/DurationInput";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
@@ -10,12 +11,16 @@ import PoodleMascot from "@/components/PoodleMascot";
 import { StarIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { fromISO } from "@/lib/dates";
+import { computeInsights, consistencyOf } from "@/lib/insights";
+import { formatDuration, parseDuration } from "@/lib/pace";
 import { Workout } from "@/lib/programs";
 import {
   beginWeekOf,
   daysUntilStart,
   effectiveStartDate,
   logKey,
+  makePlan,
+  raceDateFromStart,
 } from "@/lib/store";
 
 const CHEERS = [
@@ -64,16 +69,45 @@ function findNextWorkout(
 }
 
 export default function HomePage() {
-  const { state, loaded, plan, program, updatePlan } = useApp();
+  const { state, loaded, plan, program, update, updatePlan } = useApp();
   // Start on a fixed cheer so server and client agree, then shuffle after mount.
   const [cheer, setCheer] = useState(CHEERS[0]);
+  const [raceMiles, setRaceMiles] = useState("");
+  const [raceTime, setRaceTime] = useState("");
+  const [raceNote, setRaceNote] = useState("");
+  const [raceResultMessage, setRaceResultMessage] = useState("");
   useEffect(() => {
     setCheer(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
   }, []);
+  useEffect(() => {
+    setRaceMiles(plan.raceResult?.miles?.toString() ?? "");
+    setRaceTime(
+      plan.raceResult?.seconds === undefined
+        ? ""
+        : formatDuration(plan.raceResult.seconds)
+    );
+    setRaceNote(plan.raceResult?.note ?? "");
+  }, [
+    plan.id,
+    plan.raceResult?.miles,
+    plan.raceResult?.seconds,
+    plan.raceResult?.note,
+  ]);
 
   const countdown = daysUntilStart(plan);
   const effectiveStart = effectiveStartDate(plan);
   const startsOn = effectiveStart ? fromISO(effectiveStart) : null;
+  const raceDate = plan.startDate
+    ? fromISO(raceDateFromStart(plan.startDate, program.weeks))
+    : null;
+  const today = fromISO(new Date().toISOString().slice(0, 10));
+  const isRaceDay = Boolean(raceDate && raceDate.getTime() === today.getTime());
+  const isComplete = Boolean(raceDate && raceDate < today);
+  const recap = isComplete ? computeInsights(plan, program, "plan") : null;
+  const raceWorkout = program.schedule
+    .flatMap((week) => week.days)
+    .find((workout) => workout.type === "race");
+  const raceLabel = raceWorkout?.label ?? program.name;
 
   const next = useMemo(
     () =>
@@ -104,7 +138,10 @@ export default function HomePage() {
             {!plan.startDate && (
               <>
                 {" · "}
-                <Link href="/goals" className="font-semibold text-headband-dark underline">
+                <Link
+                  href="/goals"
+                  className="font-semibold text-headband-dark underline"
+                >
                   set your race date
                 </Link>
               </>
@@ -185,6 +222,163 @@ export default function HomePage() {
           >
             Mark done
           </button>
+        </section>
+      )}
+
+      {isRaceDay && (
+        <section className="mt-4 flex flex-wrap items-center gap-4 rounded-pouf bg-headband p-5 text-white pouf-shadow">
+          <PoodleMascot size={64} className="wag" />
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-white/70">
+              Race day
+            </div>
+            <div className="mt-1 text-xl font-extrabold">{raceLabel}</div>
+            <p className="text-sm text-white/80">
+              Your final scheduled day is here. Have a brilliant run.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {isComplete && recap && (
+        <section className="mt-4 rounded-pouf bg-poodle-white p-5 ring-1 ring-poodle-fur pouf-shadow">
+          <div className="flex items-center gap-3">
+            <PoodleMascot size={56} />
+            <div>
+              <h2 className="text-lg font-extrabold">Plan complete</h2>
+              <p className="text-sm text-foreground/60">
+                A recap of this training block.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl bg-poodle-cream p-3 text-center">
+              <b className="block text-lg text-headband-dark">
+                {recap.current.miles}
+              </b>
+              <span className="text-xs text-foreground/55">total miles</span>
+            </div>
+            <div className="rounded-xl bg-poodle-cream p-3 text-center">
+              <b className="block text-lg text-headband-dark">
+                {recap.current.completed}/{recap.current.scheduled}
+              </b>
+              <span className="text-xs text-foreground/55">workouts</span>
+            </div>
+            <div className="rounded-xl bg-poodle-cream p-3 text-center">
+              <b className="block text-lg text-headband-dark">
+                {Math.round(consistencyOf(recap.current) * 100)}%
+              </b>
+              <span className="text-xs text-foreground/55">consistency</span>
+            </div>
+            <div className="rounded-xl bg-poodle-cream p-3 text-center">
+              <b className="block text-lg text-headband-dark">
+                {recap.current.longestRun}
+              </b>
+              <span className="text-xs text-foreground/55">longest run</span>
+            </div>
+          </div>
+          <form
+            className="mt-4 rounded-xl bg-poodle-cream p-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const miles = Number(raceMiles);
+              const seconds = parseDuration(raceTime);
+              if (!Number.isFinite(miles) || miles <= 0) {
+                setRaceResultMessage("Enter a race distance.");
+                return;
+              }
+              if (seconds === undefined || seconds <= 0) {
+                setRaceResultMessage("Enter a finish time.");
+                return;
+              }
+              updatePlan((p) => ({
+                ...p,
+                raceResult: {
+                  miles,
+                  seconds,
+                  ...(raceNote.trim() ? { note: raceNote.trim() } : {}),
+                },
+              }));
+              setRaceResultMessage("Race result saved.");
+            }}
+          >
+            <h3 className="text-sm font-bold">Race result</h3>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <label className="text-xs font-semibold">
+                Distance (miles)
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={raceMiles}
+                  onChange={(event) => setRaceMiles(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-poodle-fur bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+              <label className="text-xs font-semibold">
+                Finish time
+                <DurationInput
+                  value={raceTime}
+                  onChange={setRaceTime}
+                  className="mt-1 w-full text-sm"
+                  placeholder="hh:mm:ss"
+                />
+              </label>
+              <label className="text-xs font-semibold">
+                Note (optional)
+                <input
+                  type="text"
+                  value={raceNote}
+                  onChange={(event) => setRaceNote(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-poodle-fur bg-white px-2 py-1.5 text-sm"
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="submit"
+                className="rounded-full bg-headband px-4 py-2 text-sm font-bold text-white"
+              >
+                {plan.raceResult ? "Update race result" : "Log race result"}
+              </button>
+              {raceResultMessage && (
+                <span className="text-xs text-foreground/60">
+                  {raceResultMessage}
+                </span>
+              )}
+            </div>
+          </form>
+          {plan.raceResult && (
+            <div className="mt-3 rounded-xl bg-headband-light px-4 py-3 text-sm text-headband-dark">
+              <div className="font-bold">
+                {plan.raceResult.miles ?? "—"} miles
+                {plan.raceResult.seconds !== undefined &&
+                  ` · ${formatDuration(plan.raceResult.seconds)}`}
+              </div>
+              {plan.raceResult.note && (
+                <p className="mt-1 text-xs">{plan.raceResult.note}</p>
+              )}
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const nextPlan = makePlan("My Next Half Marathon");
+                update((prev) => ({
+                  ...prev,
+                  plans: [...prev.plans, nextPlan],
+                  activePlanId: nextPlan.id,
+                }));
+                window.setTimeout(() => {
+                  window.location.href = "/goals";
+                }, 700);
+              }}
+              className="rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-poodle-fur"
+            >
+              Start next plan
+            </button>
+          </div>
         </section>
       )}
 

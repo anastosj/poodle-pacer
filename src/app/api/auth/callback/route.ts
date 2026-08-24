@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveStravaTokens, upsertStravaUser } from "@/lib/db";
-import { consumeOAuthState, setSession } from "@/lib/session";
+import { consumeOAuthReturn, consumeOAuthState, setSession } from "@/lib/session";
 import { athleteName, exchangeCode } from "@/lib/strava";
 
 export const runtime = "nodejs";
@@ -39,5 +39,5 @@ export async function GET(request: NextRequest) {
   });
 
   setSession(user.id);
-  return NextResponse.redirect(new URL("/", request.url));
+  return NextResponse.redirect(new URL(consumeOAuthReturn(), request.url));
 }

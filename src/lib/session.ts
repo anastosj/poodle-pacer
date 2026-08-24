@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "pp_session";
 const OAUTH_STATE_COOKIE = "pp_oauth_state";
+const OAUTH_RETURN_COOKIE = "pp_oauth_return";
 const SESSION_DAYS = 180;
 
 export interface SessionPayload {
@@ -93,7 +94,7 @@ export function currentUserId(): string | null {
  * A random nonce tying an OAuth redirect to this browser. Without it, an
  * attacker could feed us their own `code` and link their Strava to your session.
  */
-export function issueOAuthState(): string {
+export function issueOAuthState(returnTo?: string): string {
   const state = randomBytes(32).toString("base64url");
   cookies().set(OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
@@ -102,6 +103,15 @@ export function issueOAuthState(): string {
     path: "/",
     maxAge: 600, // 10 minutes to complete the round trip
   });
+  if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) {
+    cookies().set(OAUTH_RETURN_COOKIE, returnTo.slice(0, 200), {
+      httpOnly: true,
+      secure: isProd(),
+      sameSite: "lax",
+      path: "/",
+      maxAge: 600,
+    });
+  }
   return state;
 }
 
@@ -112,6 +122,14 @@ export function consumeOAuthState(received: string | null): boolean {
   const a = Buffer.from(stored);
   const b = Buffer.from(received);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function consumeOAuthReturn(): string {
+  const value = cookies().get(OAUTH_RETURN_COOKIE)?.value;
+  cookies().delete(OAUTH_RETURN_COOKIE);
+  return value && value.startsWith("/") && !value.startsWith("//")
+    ? value
+    : "/";
 }
 
 export { SESSION_COOKIE };

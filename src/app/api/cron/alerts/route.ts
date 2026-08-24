@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { DEFAULT_TIMEZONE, dueAlert, localNow } from "@/lib/alerts";
 import { verifyGitHubCronToken } from "@/lib/githubOidc";
-import { claimSmsSend, listUsersWithState } from "@/lib/db";
+import { claimSmsSend, listUsersForAlerts } from "@/lib/db";
 import { programs } from "@/lib/programs";
 import { sendSms, smsConfigured } from "@/lib/sms";
 import { activePlan, normalizeState } from "@/lib/store";
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "sms_not_configured" }, { status: 503 });
   }
 
-  const rows = await listUsersWithState();
+  const rows = await listUsersForAlerts();
   const sent: { user: string; key: string; ok: boolean }[] = [];
 
   for (const { user, state: raw } of rows) {

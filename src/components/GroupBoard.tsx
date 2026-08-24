@@ -88,7 +88,9 @@ function RunnerCard({
             {place && <RosetteIcon place={place} size={17} title={`#${place}`} />}
           </div>
           <div className="truncate text-xs text-foreground/55">
-            {summary.started ? (
+            {summary.followingAlong ? (
+              "Following along · stats private"
+            ) : summary.started ? (
               <>
                 {summary.raceName}
                 {summary.currentWeek
@@ -112,7 +114,11 @@ function RunnerCard({
         )}
       </div>
 
-      {summary.started ? (
+      {summary.followingAlong ? (
+        <p className="mt-3 rounded-xl bg-poodle-cream px-3 py-2 text-xs text-foreground/60">
+          Following along with the pack without sharing training stats.
+        </p>
+      ) : summary.started ? (
         <>
           <div className="mt-3">
             <ConsistencyBar value={summary.consistency} />

@@ -9,6 +9,7 @@ import {
   PawIcon,
   SettingsIcon,
 } from "@/components/Icons";
+import { useApp } from "@/components/AppContext";
 
 const LINKS = [
   { href: "/", label: "Home", Icon: HomeIcon },
@@ -20,11 +21,14 @@ const LINKS = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { raceCount } = useApp();
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-poodle-fur bg-poodle-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
       <div className="flex">
-        {LINKS.map(({ href, label, Icon }) => {
+        {LINKS.filter(
+          ({ href }) => href !== "/group" || raceCount > 0
+        ).map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (
             <Link

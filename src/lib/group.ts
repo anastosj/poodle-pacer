@@ -1,8 +1,8 @@
-import { UserRecord, listUsersWithState } from "@/lib/db";
+import { listRaceMembersWithState, UserRecord } from "@/lib/db";
 import { fromISO, startOfToday } from "@/lib/dates";
 import { computeInsights, consistencyOf } from "@/lib/insights";
 import { Program, programs } from "@/lib/programs";
-import { Plan, RunnerState, activePlan, normalizeState } from "@/lib/store";
+import { Plan, RunnerState, normalizeState } from "@/lib/store";
 
 export interface RunnerSummary {
   userId: string;
@@ -29,6 +29,7 @@ export interface RunnerSummary {
   weekCompleted: number;
   weekScheduled: number;
   started: boolean;
+  followingAlong: boolean;
 }
 
 function programFor(plan: Plan): Program {
@@ -56,12 +57,14 @@ function placeholder(user: UserRecord): RunnerSummary {
     weekCompleted: 0,
     weekScheduled: 0,
     started: false,
+    followingAlong: false,
   };
 }
 
-function summarize(user: UserRecord, raw: unknown): RunnerSummary {
+function summarize(user: UserRecord, raw: unknown, planId: string): RunnerSummary {
   const state: RunnerState = normalizeState(raw);
-  const plan = activePlan(state);
+  const plan = state.plans.find((p) => p.id === planId);
+  if (!plan) return placeholder(user);
   const program = programFor(plan);
 
   const base: RunnerSummary = {
@@ -84,6 +87,7 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
     weekCompleted: 0,
     weekScheduled: 0,
     started: Boolean(plan.startDate),
+    followingAlong: false,
   };
 
   if (!plan.startDate) return base;
@@ -126,16 +130,20 @@ function summarize(user: UserRecord, raw: unknown): RunnerSummary {
 }
 
 /**
- * Everyone's progress, most consistent first. A friendlier ranking than raw
- * mileage, since plans differ in length and people start at different times.
- * Runners who haven't set a race date sort last.
+ * A race's progress, most consistent first. Returns null for non-members so
+ * callers can use the same not-found response for missing and private races.
  */
-export async function groupSummaries(): Promise<RunnerSummary[]> {
-  const rows = await listUsersWithState();
+export async function raceLeaderboard(
+  raceId: string,
+  requesterUserId: string
+): Promise<RunnerSummary[] | null> {
+  const rows = await listRaceMembersWithState(raceId, requesterUserId);
+  if (!rows) return null;
   return rows
-    .map(({ user, state }) => {
+    .map(({ user, state, planId, shareStats }) => {
+      if (!shareStats) return { ...placeholder(user), followingAlong: true };
       try {
-        return summarize(user, state);
+        return summarize(user, state, planId);
       } catch (error) {
         console.error("Failed to summarize group runner", user.id, error);
         return placeholder(user);

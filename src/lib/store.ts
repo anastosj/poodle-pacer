@@ -69,6 +69,7 @@ export interface Plan {
    */
   beginWeek?: number;
   logs: Record<string, RunLog>; // key: `${week}-${dayIndex}`
+  raceResult?: { miles?: number; seconds?: number; note?: string };
 }
 
 export interface AlertSettings {
@@ -264,6 +265,18 @@ function sanitizePlan(value: unknown): Plan | undefined {
   }
 
   if (isISODate(value.startDate)) plan.startDate = value.startDate;
+  if (isRecord(value.raceResult)) {
+    const miles = finiteNumber(value.raceResult.miles);
+    const seconds = finiteNumber(value.raceResult.seconds);
+    const note = boundedString(value.raceResult.note, MAX_NOTE_LENGTH);
+    if (miles !== undefined || seconds !== undefined || note !== undefined) {
+      plan.raceResult = {
+        ...(miles === undefined ? {} : { miles }),
+        ...(seconds === undefined ? {} : { seconds }),
+        ...(note === undefined ? {} : { note }),
+      };
+    }
+  }
   return plan;
 }
 

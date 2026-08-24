@@ -30,6 +30,7 @@ export interface SessionUser {
 
 interface AppContextValue {
   user: SessionUser;
+  raceCount: number;
   /** False until the server copy has been fetched (or failed). */
   loaded: boolean;
   state: RunnerState;
@@ -43,9 +44,11 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({
   user,
+  raceCount,
   children,
 }: {
   user: SessionUser;
+  raceCount: number;
   children: ReactNode;
 }) {
   // Must match what the server renders. localStorage is read after mount,
@@ -122,8 +125,8 @@ export function AppProvider({
   );
 
   const value = useMemo(
-    () => ({ user, loaded, state, update, plan, updatePlan, program }),
-    [user, loaded, state, update, plan, updatePlan, program]
+    () => ({ user, raceCount, loaded, state, update, plan, updatePlan, program }),
+    [user, raceCount, loaded, state, update, plan, updatePlan, program]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
