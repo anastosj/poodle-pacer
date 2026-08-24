@@ -9,61 +9,8 @@ import {
   formatPacePerMile,
   paceSecondsPerMile,
 } from "@/lib/pace";
-import { decodePolyline, polylineEndpoints, polylineToPath } from "@/lib/polyline";
+import RouteReplay from "@/components/RouteReplay";
 import { RunLog, logSeconds } from "@/lib/store";
-
-const MAP_W = 320;
-const MAP_H = 200;
-
-/** The real thing: route drawn on streets, proxied so the token stays server side. */
-function RouteMap({ polyline }: { polyline: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <RouteShape polyline={polyline} />;
-  return (
-    <div className="overflow-hidden rounded-2xl ring-1 ring-poodle-fur">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/map?polyline=${encodeURIComponent(polyline)}&w=640&h=380`}
-        alt="Map of the route run"
-        className="h-auto w-full"
-        onError={() => setFailed(true)}
-      />
-    </div>
-  );
-}
-
-function RouteShape({ polyline }: { polyline: string }) {
-  const points = decodePolyline(polyline);
-  const path = polylineToPath(points, MAP_W, MAP_H);
-  const ends = polylineEndpoints(points, MAP_W, MAP_H);
-  if (!path || !ends) return null;
-
-  return (
-    <div className="rounded-2xl bg-poodle-cream p-2 ring-1 ring-poodle-fur">
-      <svg
-        viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-        className="h-auto w-full"
-        role="img"
-        aria-label="Shape of the route run"
-      >
-        <path
-          d={path}
-          fill="none"
-          stroke="#2f6fed"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity="0.9"
-        />
-        <circle cx={ends.start[0]} cy={ends.start[1]} r="5" fill="#fff" stroke="#1d4ed8" strokeWidth="2.5" />
-        <circle cx={ends.end[0]} cy={ends.end[1]} r="5" fill="#1d4ed8" stroke="#fff" strokeWidth="2" />
-      </svg>
-      <p className="px-1 pb-0.5 pt-1 text-[10px] text-foreground/45">
-        Route shape. Hollow marker is the start.
-      </p>
-    </div>
-  );
-}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -304,11 +251,13 @@ export default function WorkoutDetail({
         {detail && (
           <div className="mt-4 space-y-4">
             {detail.polyline ? (
-              realMaps ? (
-                <RouteMap polyline={detail.polyline} />
-              ) : (
-                <RouteShape polyline={detail.polyline} />
-              )
+              <RouteReplay
+                polyline={detail.polyline}
+                activityId={detail.id > 0 ? detail.id : undefined}
+                miles={detail.miles}
+                seconds={detail.seconds}
+                tiles={realMaps}
+              />
             ) : (
               <p className="rounded-xl bg-poodle-cream px-4 py-3 text-xs text-foreground/60">
                 No route recorded, so this was probably a treadmill run.
