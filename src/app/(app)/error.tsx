@@ -1,8 +1,12 @@
 "use client";
 
 import { PoodleFaceIcon } from "@/components/Icons";
+import { useRouter } from "next/navigation";
+import { startTransition } from "react";
 
 export default function Error({ reset }: { reset: () => void }) {
+  const router = useRouter();
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-12">
@@ -16,7 +20,12 @@ export default function Error({ reset }: { reset: () => void }) {
           </p>
           <button
             type="button"
-            onClick={() => reset()}
+            onClick={() => {
+              startTransition(() => {
+                reset();
+                router.refresh();
+              });
+            }}
             className="mt-5 rounded-full bg-headband px-4 py-2.5 text-sm font-bold text-white transition hover:bg-headband-dark"
           >
             Try again
