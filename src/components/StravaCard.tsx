@@ -39,7 +39,7 @@ export default function StravaCard() {
     const parts: string[] = [];
     if (result.added > 0) {
       parts.push(
-        `${result.added} new run${result.added === 1 ? "" : "s"} in your log`
+        `${result.added} new activit${result.added === 1 ? "y" : "ies"} in your log`
       );
     }
     if (result.matched > 0) {
@@ -50,7 +50,7 @@ export default function StravaCard() {
     setSyncMessage(
       parts.length > 0
         ? `Synced: ${parts.join(", ")}.`
-        : "You're up to date - no new runs on Strava."
+        : "You're up to date - nothing new on Strava."
     );
   }, [syncStrava]);
 
@@ -82,9 +82,9 @@ export default function StravaCard() {
           {status.canSync ? (
             <div className="space-y-2">
               <p className="type-body text-ink-muted">
-                Runs sync automatically each time you open the app and land on
-                your calendar, whether or not they&apos;re part of a training
-                plan.
+                Every activity syncs automatically each time you open the app
+                and lands on your calendar, whether or not it&apos;s part of a
+                training plan. Only runs count towards mileage and pace.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button

@@ -1,4 +1,5 @@
-import { Program, workoutTracksRunningMiles } from "@/lib/programs";
+import { ActivityKind, activityKind } from "@/lib/activities";
+import { Program, Workout, workoutTracksRunningMiles } from "@/lib/programs";
 import {
   RunnerState,
   SyncedRun,
@@ -14,6 +15,7 @@ export interface FetchedRun {
   miles: number;
   seconds: number;
   startDate: string; // ISO datetime, local to the athlete
+  sportType?: string;
   avgHeartRate?: number;
   maxHeartRate?: number;
   elevationGain?: number;
@@ -33,6 +35,7 @@ function toSyncedRun(run: FetchedRun): SyncedRun {
     stravaActivityId: run.id,
     date: run.startDate.slice(0, 10),
     name: run.name,
+    sportType: run.sportType,
     miles: run.miles,
     seconds: run.seconds,
     avgHeartRate: run.avgHeartRate,
@@ -54,9 +57,25 @@ function weekAndDayFor(
 }
 
 /**
- * Fold fetched Strava runs into the runner's state: every run lands in the
- * date-keyed run log, and runs that fall on a running slot of the active plan
- * also fill that slot, exactly as the old manual sync did.
+ * Which plan slots a given sport can complete. Running fills the running
+ * slots as it always has; other sports fill the cross-training slot they
+ * match, and anything counts as the "cross" half of a run-or-cross day.
+ */
+export function workoutAcceptsActivity(
+  workout: Workout,
+  kind: ActivityKind
+): boolean {
+  if (kind === "run") return workoutTracksRunningMiles(workout);
+  if (workout.type === "cross" || workout.type === "run-or-cross") return true;
+  if (kind === "ride") return workout.type === "bike";
+  if (kind === "swim") return workout.type === "swim";
+  return false;
+}
+
+/**
+ * Fold fetched Strava activities into the runner's state: every activity lands
+ * in the date-keyed log whatever the sport, and one that falls on a slot of the
+ * active plan it can complete also fills that slot.
  */
 export function applySyncedRuns(
   state: RunnerState,
@@ -80,22 +99,28 @@ export function applySyncedRuns(
       const workout = program.schedule.find(
         (programWeek) => programWeek.week === slot.week
       )?.days[slot.dayIndex];
-      if (!workout || !workoutTracksRunningMiles(workout)) continue;
+      if (!workout) continue;
+      const kind = activityKind(run.sportType);
+      if (!workoutAcceptsActivity(workout, kind)) continue;
       const key = logKey(slot.week, slot.dayIndex);
       const existing = logs[key];
       if (existing?.stravaActivityId === run.id) continue;
+      const isRun = kind === "run";
       logs[key] = {
         ...existing,
         completed: true,
-        miles: run.miles,
+        // Distance, cadence, and elevation are only written for runs: a
+        // run-shaped slot credits `miles` straight to running mileage, and
+        // bike cadence (rpm) is not comparable to running cadence.
+        miles: isRun ? run.miles : 0,
         seconds: run.seconds,
         minutes: undefined, // superseded by `seconds`
         stravaActivityId: run.id,
         stravaName: run.name,
         avgHeartRate: run.avgHeartRate,
         maxHeartRate: run.maxHeartRate,
-        elevationGain: run.elevationGain,
-        cadence: run.cadence,
+        elevationGain: isRun ? run.elevationGain : undefined,
+        cadence: isRun ? run.cadence : undefined,
       };
       matched += 1;
     }

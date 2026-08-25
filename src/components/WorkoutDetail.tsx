@@ -4,9 +4,14 @@ import { useEffect, useState } from "react";
 import type { ActivityDetail } from "@/app/api/strava/activity/[id]/route";
 import { BoltIcon, CheckIcon } from "@/components/Icons";
 import {
+  ActivityKind,
+  formatSpeed,
+  speedLabel,
+  tracksDistance,
+} from "@/lib/activities";
+import {
   formatDuration,
   formatPace,
-  formatPacePerMile,
   paceSecondsPerMile,
 } from "@/lib/pace";
 import RouteReplay from "@/components/RouteReplay";
@@ -23,9 +28,38 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Per-mile splits, with each mile compared against the run's average. */
-function Splits({ detail }: { detail: ActivityDetail }) {
+/**
+ * How this mile compares with the average, in the unit the column shows: a
+ * time gap for pace-based sports, an mph gap for riding.
+ */
+function formatDelta(
+  pace: number,
+  avg: number | undefined,
+  kind: ActivityKind
+): string {
+  if (!avg) return "even";
+  if (kind === "ride") {
+    const mphDelta = 3600 / pace - 3600 / avg;
+    if (Math.abs(mphDelta) < 0.05) return "even";
+    return `${mphDelta > 0 ? "+" : "-"}${Math.abs(mphDelta).toFixed(1)}`;
+  }
+  const delta = pace - avg;
+  if (delta === 0) return "even";
+  return `${delta < 0 ? "-" : "+"}${formatPace(Math.abs(delta))}`;
+}
+
+/** Per-mile splits, with each mile compared against the activity's average. */
+function Splits({
+  detail,
+  kind,
+}: {
+  detail: ActivityDetail;
+  kind: ActivityKind;
+}) {
   const avg = paceSecondsPerMile(detail.seconds, detail.miles);
+  // Cyclists read mph, so a split's speed is shown the way the sport does.
+  const asSpeed = (secondsPerMile: number) =>
+    formatSpeed(kind, 1, secondsPerMile) ?? formatPace(secondsPerMile);
   const fastest = Math.min(...detail.splits.map((s) => s.pace));
   const slowest = Math.max(...detail.splits.map((s) => s.pace));
   const span = Math.max(slowest - fastest, 1);
@@ -36,7 +70,7 @@ function Splits({ detail }: { detail: ActivityDetail }) {
         <thead>
           <tr className="text-left text-meta uppercase tracking-wide text-ink-soft">
             <th className="pl-1 font-bold">Mile</th>
-            <th className="font-bold">Pace</th>
+            <th className="font-bold">{kind === "ride" ? "Speed" : "Pace"}</th>
             <th className="font-bold">vs avg</th>
             <th className="font-bold">Elev</th>
             {detail.splits.some((s) => s.heartRate) && (
@@ -47,6 +81,9 @@ function Splits({ detail }: { detail: ActivityDetail }) {
         <tbody>
           {detail.splits.map((s) => {
             const delta = avg ? s.pace - avg : 0;
+            // A smaller seconds-per-mile is always the quicker mile, whichever
+            // unit it is displayed in.
+            const faster = delta < 0;
             // Longer bar = slower mile, so the shape reads like the effort felt.
             const width = ((s.pace - fastest) / span) * 100;
             return (
@@ -60,18 +97,16 @@ function Splits({ detail }: { detail: ActivityDetail }) {
                   )}
                 </td>
                 <td className="py-1.5 font-semibold tabular-nums">
-                  {formatPace(s.pace)}
+                  {asSpeed(s.pace)}
                 </td>
                 <td className="py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span
-                      className={`w-10 shrink-0 tabular-nums ${
-                        delta < 0 ? "text-primary-dark" : "text-ink-soft"
+                      className={`w-14 shrink-0 tabular-nums ${
+                        faster ? "text-primary-dark" : "text-ink-soft"
                       }`}
                     >
-                      {delta === 0
-                        ? "even"
-                        : `${delta < 0 ? "-" : "+"}${formatPace(Math.abs(delta))}`}
+                      {formatDelta(s.pace, avg, kind)}
                     </span>
                     <span className="h-1.5 w-14 overflow-hidden border border-outline bg-ink-soft">
                       <span
@@ -104,11 +139,14 @@ export default function WorkoutDetail({
   label,
   dateLabel,
   onClose,
+  kind = "run",
 }: {
   log: RunLog;
   label: string;
   dateLabel: string;
   onClose: () => void;
+  /** Which sport this was, so the replay and its metrics match it. */
+  kind?: ActivityKind;
 }) {
   const [fetched, setFetched] = useState<ActivityDetail | null>(null);
   const [realMaps, setRealMaps] = useState(false);
@@ -150,7 +188,6 @@ export default function WorkoutDetail({
   }, [id, sample]);
 
   const seconds = logSeconds(log);
-  const pace = paceSecondsPerMile(seconds, log.miles);
 
   // Seeded demo runs carry their own splits and route, since a demo account has
   // no Strava connection to fetch from.
@@ -204,9 +241,14 @@ export default function WorkoutDetail({
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Stat label="Distance" value={log.miles ? `${log.miles} mi` : "–"} />
+          {tracksDistance(kind) && (
+            <Stat label="Distance" value={log.miles ? `${log.miles} mi` : "–"} />
+          )}
           <Stat label="Time" value={seconds ? formatDuration(seconds) : "–"} />
-          <Stat label="Avg pace" value={formatPacePerMile(pace)} />
+          <Stat
+            label={speedLabel(kind)}
+            value={formatSpeed(kind, log.miles, seconds) ?? "–"}
+          />
           <Stat
             label="Elevation"
             value={log.elevationGain ? `${log.elevationGain} ft` : "–"}
@@ -257,6 +299,7 @@ export default function WorkoutDetail({
                 miles={detail.miles}
                 seconds={detail.seconds}
                 tiles={realMaps}
+                kind={kind}
               />
             ) : (
               <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
@@ -269,7 +312,7 @@ export default function WorkoutDetail({
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/55">
                   Mile splits
                 </h3>
-                <Splits detail={detail} />
+                <Splits detail={detail} kind={kind} />
               </div>
             ) : (
               <p className="text-xs text-foreground/50">

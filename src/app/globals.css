@@ -24,6 +24,13 @@
   --success: #7ee8ff;
   --danger: #e0d6ff;
   --danger-ink: #0f1330;
+  /* How a run felt. The three poodle faces differ only by expression, which is
+     unreadable at the size they sit in a card, so colour carries the meaning
+     and the face confirms it. Pitched pale enough to take the near-black
+     outline everything else in the palette wears. */
+  --mood-good: #8ce8b4;
+  --mood-okay: #ffd884;
+  --mood-rough: #ffa8b4;
   --headband: #4b2fd6;
   --headband-dark: #3821aa;
   --headband-light: #cfc2ff;
@@ -142,6 +149,39 @@ body {
     }
   }
 
+  /* Wheels and cranks turn together, so one keyframe drives both. */
+  .poodle-wheel,
+  .poodle-crank {
+    animation: poodle-spin 0.5s linear infinite;
+  }
+  @keyframes poodle-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Legs swing about the hip, matching one turn of the crank. The offside leg
+     runs half a cycle behind, so the two alternate like real pedalling. */
+  .poodle-pedal,
+  .poodle-pedal-off {
+    animation: poodle-pedal 0.5s ease-in-out infinite;
+  }
+  .poodle-pedal-off {
+    animation-delay: -0.25s;
+  }
+  @keyframes poodle-pedal {
+    0%,
+    100% {
+      transform: rotate(-14deg);
+    }
+    50% {
+      transform: rotate(14deg);
+    }
+  }
+
   .poodle-tongue {
     animation: poodle-tongue 0.72s ease-in-out infinite;
   }
@@ -226,7 +266,11 @@ body {
   .poodle-bob,
   .poodle-tail,
   .poodle-ear,
-  .poodle-tongue {
+  .poodle-tongue,
+  .poodle-wheel,
+  .poodle-crank,
+  .poodle-pedal,
+  .poodle-pedal-off {
     animation: none;
   }
   .pouf-lift:hover {

@@ -1,5 +1,6 @@
 "use client";
 
+import { countsAsRunning } from "@/lib/activities";
 import { fromISO, startOfToday } from "@/lib/dates";
 import { Program } from "@/lib/programs";
 import {
@@ -68,44 +69,70 @@ export default function StatsBar({
 
   const weeksTraining = program.weeks - begin + 1;
 
-  // Home shows only the three orienting numbers. Totals and mileage live on
-  // the Progress page, so nothing is stated twice across the two screens.
-  const stats: { label: string; value: string }[] = [
-    {
-      label: "Current week",
-      value: week
-        ? `Week ${week} of ${program.weeks}`
-        : countdown > 0
-          ? `Starts in ${countdown}d`
-          : effectiveStartDate(plan)
-            ? "Program complete"
-            : "Set a race date",
-    },
-    {
-      label: "Days to race",
-      value: daysToRace !== null ? `${daysToRace}` : "not set",
-    },
+  // The log holds every sport, so only call them runs when they all are.
+  const allRunning = runs.every((r) => countsAsRunning(r.sportType));
+
+  const logged =
     begin > 1
       ? { label: "Weeks you train", value: `${weeksTraining} of ${program.weeks}` }
       : streak > 0
         ? { label: "Workout streak", value: `${streak}` }
         : runs.length > 0
           ? {
-              label: "Runs logged",
+              label: allRunning ? "Runs logged" : "Activities logged",
               value: `${runs.length}`,
             }
-          : { label: "Workout streak", value: "none yet" },
-  ];
+          : { label: "Workout streak", value: "none yet" };
+
+  // Home shows only the three orienting numbers. Totals and mileage live on
+  // the Progress page, so nothing is stated twice across the two screens.
+  //
+  // Without a race date there is no current week and no countdown, so those two
+  // tiles could only say "not set". An empty number is worse than no tile, so
+  // they are dropped until there is a plan to measure against.
+  const stats: { label: string; value: string }[] = plan.startDate
+    ? [
+        {
+          label: "Current week",
+          value: week
+            ? `Week ${week} of ${program.weeks}`
+            : countdown > 0
+              ? `Starts in ${countdown}d`
+              : effectiveStartDate(plan)
+                ? "Program complete"
+                : "Set a race date",
+        },
+        {
+          label: "Days to race",
+          value: daysToRace !== null ? `${daysToRace}` : "not set",
+        },
+        logged,
+      ]
+    : [logged];
+
+  // Nothing planned and nothing logged: the page's own call to action says it
+  // all, so an empty stat bar would just be furniture.
+  if (stats.length === 1 && runs.length === 0 && streak === 0) return null;
+
+  const single = stats.length === 1;
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <div
+      className={`mt-4 grid gap-3 ${
+        single ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3"
+      }`}
+    >
       {stats.map((s, index) => (
         <StatTile
           key={s.label}
           value={s.value}
           label={s.label}
-          tone={index === 1 ? "cyan" : index === 2 ? "lilac" : "default"}
-          className={`text-center ${index === 0 ? "col-span-2 sm:col-span-1" : ""}`}
+          tone={
+            single ? "lilac" : index === 1 ? "cyan" : index === 2 ? "lilac" : "default"
+          }
+          className={`text-center ${
+            !single && index === 0 ? "col-span-2 sm:col-span-1" : ""
+          }`}
         />
       ))}
     </div>

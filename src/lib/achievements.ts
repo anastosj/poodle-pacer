@@ -7,6 +7,7 @@
  * training-plan days where nothing was missed: scheduled workouts done, rest
  * days rested. Today only joins the streak once its workout is logged.
  */
+import { countsAsRunning } from "@/lib/activities";
 import { planCells } from "@/lib/calendar";
 import { startOfToday, toLocalISO } from "@/lib/dates";
 import { Program, programs } from "@/lib/programs";
@@ -62,6 +63,8 @@ function bestEffortSeconds(state: RunnerState, targetMiles: number): number | nu
     }
   }
   for (const run of state.runs ?? []) {
+    // A bike ride covers 10 miles far faster than any run; it is not a PR.
+    if (!countsAsRunning(run.sportType)) continue;
     consider(run.miles, run.seconds);
   }
   return best;

@@ -8,7 +8,7 @@ import OnboardingWizard from "@/components/OnboardingWizard";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
 import PoodleMascot from "@/components/PoodleMascot";
-import { StarIcon } from "@/components/Icons";
+import { StarIcon, TargetIcon } from "@/components/Icons";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import { fromISO } from "@/lib/dates";
 import { computeInsights, consistencyOf } from "@/lib/insights";
@@ -69,7 +69,8 @@ function findNextWorkout(
 }
 
 export default function HomePage() {
-  const { state, loaded, plan, program, update, updatePlan } = useApp();
+  const { state, loaded, plan, program, update, updatePlan, setRunFeel } =
+    useApp();
   // Start on a fixed cheer so server and client agree, then shuffle after mount.
   const [cheer, setCheer] = useState(CHEERS[0]);
   const [raceMiles, setRaceMiles] = useState("");
@@ -133,17 +134,13 @@ export default function HomePage() {
           <h1 className="type-display">
             {plan.name}
           </h1>
-          <p className="type-body text-ink-muted">
-            {program.author}&apos;s {program.name}
-            {!plan.startDate && (
-              <>
-                {" · "}
-                <Link href="/goals" className="font-bold text-primary underline">
-                  set your race date
-                </Link>
-              </>
-            )}
-          </p>
+          {/* Naming a program the runner has not committed to reads as though
+              it were already theirs. Until there is a race date, say nothing. */}
+          {plan.startDate && (
+            <p className="type-body text-ink-muted">
+              {program.author}&apos;s {program.name}
+            </p>
+          )}
         </div>
         <p className="rotate-[1.5deg] rounded-full border-2 border-outline bg-highlight px-4 py-1 text-sm font-bold text-ink shadow-soft">
           {cheer}
@@ -172,7 +169,34 @@ export default function HomePage() {
         </section>
       )}
 
-      {countdown === 0 && next && (
+      {/* With no race date there is no schedule, so there is no "next" workout
+          to name. Point at setting one instead of inventing week 1. */}
+      {!plan.startDate && (
+        <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
+          <div className="flex-1">
+            <div className="type-overline flex items-center gap-1.5 text-lilac">
+              <TargetIcon size={13} />
+              No plan yet
+            </div>
+            <div className="mt-1 font-display text-title uppercase">
+              Pick your race day
+            </div>
+            <div className="type-body text-white/85">
+              Pick a race and a training program, and the poodle lays every
+              workout across your calendar on a real date. Activities you sync
+              keep logging either way.
+            </div>
+          </div>
+          <Link
+            href="/goals"
+            className="hard-button focus-pouf w-full rounded-sm bg-highlight px-5 py-2 text-center text-sm font-bold uppercase text-ink sm:w-auto"
+          >
+            Set race date
+          </Link>
+        </section>
+      )}
+
+      {plan.startDate && countdown === 0 && next && (
         <section className="mt-5 flex flex-wrap items-center gap-4 rounded-sm border-3 border-outline bg-primary p-5 text-white shadow-hero">
           <div className="flex-1">
             <div className="type-overline flex items-center gap-1.5 text-lilac">
@@ -386,6 +410,7 @@ export default function HomePage() {
         program={program}
         updatePlan={updatePlan}
         runs={state.runs ?? []}
+        onRunFeel={setRunFeel}
       />
 
       <p className="mt-6 text-center text-meta text-ink-soft">
