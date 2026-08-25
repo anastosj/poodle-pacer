@@ -379,9 +379,14 @@ export default function HomePage() {
         </section>
       )}
 
-      <StatsBar plan={plan} program={program} />
+      <StatsBar plan={plan} program={program} runs={state.runs ?? []} />
 
-      <CalendarGrid plan={plan} program={program} updatePlan={updatePlan} />
+      <CalendarGrid
+        plan={plan}
+        program={program}
+        updatePlan={updatePlan}
+        runs={state.runs ?? []}
+      />
 
       <p className="mt-6 text-center text-meta text-ink-soft">
         <Link href="/progress" className="font-bold text-primary underline">

@@ -85,11 +85,32 @@ export interface AlertSettings {
   confirmedPhone?: string;
 }
 
+/**
+ * A run pulled from Strava, stored by date rather than by plan slot, so the
+ * calendar keeps a log even with no plan or a plan that hasn't started.
+ */
+export interface SyncedRun {
+  stravaActivityId: number;
+  /** ISO local date the run started. */
+  date: string;
+  name?: string;
+  miles: number;
+  seconds: number;
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  /** Elevation gain in feet. */
+  elevationGain?: number;
+  /** Steps per minute. */
+  cadence?: number;
+}
+
 export interface RunnerState {
   plans: Plan[];
   activePlanId: string;
   alerts: AlertSettings;
   onboarded?: boolean;
+  /** Every synced Strava run, sorted by date ascending. */
+  runs?: SyncedRun[];
 }
 
 export function newPlanId() {
@@ -123,6 +144,7 @@ interface LegacyState {
 const DEFAULT_PROGRAM_ID = "hal-higdon-half-novice-1";
 const MAX_PLANS = 25;
 const MAX_LOGS = 2000;
+const MAX_RUNS = 1000;
 const MAX_SPLITS = 200;
 const MAX_ID_LENGTH = 200;
 const MAX_NAME_LENGTH = 200;
@@ -280,6 +302,48 @@ function sanitizePlan(value: unknown): Plan | undefined {
   return plan;
 }
 
+function sanitizeRun(value: unknown): SyncedRun | undefined {
+  if (!isRecord(value)) return undefined;
+  const stravaActivityId = finiteNumber(value.stravaActivityId);
+  const miles = finiteNumber(value.miles);
+  const seconds = finiteNumber(value.seconds);
+  if (
+    stravaActivityId === undefined ||
+    miles === undefined ||
+    seconds === undefined ||
+    !isISODate(value.date)
+  ) {
+    return undefined;
+  }
+  const run: SyncedRun = { stravaActivityId, date: value.date, miles, seconds };
+  const name = boundedString(value.name, MAX_NAME_LENGTH);
+  if (name !== undefined) run.name = name;
+  for (const field of [
+    "avgHeartRate",
+    "maxHeartRate",
+    "elevationGain",
+    "cadence",
+  ] as const) {
+    const number = finiteNumber(value[field]);
+    if (number !== undefined) run[field] = number;
+  }
+  return run;
+}
+
+function sanitizeRuns(value: unknown): SyncedRun[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<number>();
+  const runs: SyncedRun[] = [];
+  for (const raw of value) {
+    const run = sanitizeRun(raw);
+    if (!run || seen.has(run.stravaActivityId)) continue;
+    seen.add(run.stravaActivityId);
+    runs.push(run);
+    if (runs.length >= MAX_RUNS) break;
+  }
+  return runs.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function sanitizeAlerts(value: unknown): AlertSettings {
   const alerts = isRecord(value) ? value : {};
   const time =
@@ -316,11 +380,13 @@ function sanitizeStateInternal(raw: unknown): RunnerState {
     plans.some((plan) => plan.id === raw.activePlanId)
       ? raw.activePlanId
       : plans[0].id;
+  const runs = sanitizeRuns(raw.runs);
   return {
     plans,
     activePlanId,
     alerts: sanitizeAlerts(raw.alerts),
     ...(typeof raw.onboarded === "boolean" ? { onboarded: raw.onboarded } : {}),
+    ...(runs.length > 0 ? { runs } : {}),
   };
 }
 
@@ -346,6 +412,7 @@ function migrate(raw: LegacyState & Partial<RunnerState>): RunnerState {
             : "",
       alerts: raw.alerts ?? { phone: "", time: "07:00", enabled: false },
       onboarded: raw.onboarded,
+      runs: raw.runs,
     };
   }
   const plan: Plan = {
@@ -416,6 +483,55 @@ export function updateActivePlan(
 
 export function logKey(week: number, dayIndex: number) {
   return `${week}-${dayIndex}`;
+}
+
+/** Merge freshly synced runs into the log, deduped by Strava activity id. */
+export function mergeRuns(
+  existing: SyncedRun[],
+  incoming: SyncedRun[]
+): { runs: SyncedRun[]; added: number } {
+  const byId = new Map(existing.map((r) => [r.stravaActivityId, r]));
+  let added = 0;
+  for (const run of incoming) {
+    if (!byId.has(run.stravaActivityId)) added += 1;
+    byId.set(run.stravaActivityId, run);
+  }
+  const runs = Array.from(byId.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-MAX_RUNS);
+  return { runs, added };
+}
+
+/** Activity ids already attached to a slot in this plan. */
+export function matchedActivityIds(plan: Plan): Set<number> {
+  const ids = new Set<number>();
+  for (const log of Object.values(plan.logs)) {
+    if (log.stravaActivityId !== undefined) ids.add(log.stravaActivityId);
+  }
+  return ids;
+}
+
+/** Synced runs not matched to any slot of this plan, i.e. the free run log. */
+export function unmatchedRuns(state: RunnerState, plan: Plan): SyncedRun[] {
+  const runs = state.runs ?? [];
+  if (runs.length === 0) return [];
+  const matched = matchedActivityIds(plan);
+  return runs.filter((run) => !matched.has(run.stravaActivityId));
+}
+
+/** View a synced run as a log entry, for the shared detail sheet. */
+export function runAsLog(run: SyncedRun): RunLog {
+  return {
+    completed: true,
+    miles: run.miles,
+    seconds: run.seconds,
+    stravaActivityId: run.stravaActivityId,
+    stravaName: run.name,
+    avgHeartRate: run.avgHeartRate,
+    maxHeartRate: run.maxHeartRate,
+    elevationGain: run.elevationGain,
+    cadence: run.cadence,
+  };
 }
 
 /** Race day is the last day (Sunday) of the final week. */

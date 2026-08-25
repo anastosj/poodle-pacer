@@ -1,13 +1,20 @@
 import { CalendarCell, planCells } from "@/lib/calendar";
 import {
   addDays,
+  fromISO,
   startOfCalendarWeek,
   startOfMonth,
   startOfToday,
 } from "@/lib/dates";
 import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { paceSecondsPerMile } from "@/lib/pace";
-import { Plan, RunLog, logSeconds } from "@/lib/store";
+import {
+  Plan,
+  RunLog,
+  SyncedRun,
+  logSeconds,
+  matchedActivityIds,
+} from "@/lib/store";
 
 export type MetricScope = "week" | "month" | "plan";
 
@@ -89,6 +96,7 @@ function loggedMiles(cell: CalendarCell, log: RunLog | undefined): number {
 function summarize(
   cells: CalendarCell[],
   logs: Record<string, RunLog>,
+  runs: SyncedRun[],
   start: Date,
   end: Date
 ): PeriodStats {
@@ -141,6 +149,29 @@ function summarize(
     }
   }
 
+  // Synced runs outside the plan count in every total, just not in the
+  // scheduled/completed pair, which only makes sense for planned workouts.
+  for (const run of runs) {
+    stats.runCount += 1;
+    stats.miles += run.miles;
+    stats.longestRun = Math.max(stats.longestRun, run.miles);
+    stats.seconds += run.seconds;
+    paceSeconds += run.seconds;
+
+    if (run.avgHeartRate) {
+      hrMilesWeighted += run.avgHeartRate * run.miles;
+      hrMiles += run.miles;
+    }
+    if (run.maxHeartRate) {
+      stats.maxHeartRate = Math.max(stats.maxHeartRate ?? 0, run.maxHeartRate);
+    }
+    if (run.elevationGain) stats.elevationGain += run.elevationGain;
+    if (run.cadence) {
+      cadenceSum += run.cadence;
+      cadenceCount += 1;
+    }
+  }
+
   stats.avgPace = paceSecondsPerMile(paceSeconds, stats.miles);
   if (hrMiles > 0) stats.avgHeartRate = Math.round(hrMilesWeighted / hrMiles);
   if (cadenceCount > 0) stats.avgCadence = Math.round(cadenceSum / cadenceCount);
@@ -155,10 +186,17 @@ function within(cells: CalendarCell[], start: Date, end: Date): CalendarCell[] {
   return cells.filter((c) => c.date >= start && c.date <= end);
 }
 
+function runsWithin(runs: SyncedRun[], start: Date, end: Date): SyncedRun[] {
+  return runs.filter((r) => {
+    const date = fromISO(r.date);
+    return date >= start && date <= end;
+  });
+}
+
 /** The window for a scope, anchored on today. */
 function scopeWindow(
   scope: MetricScope,
-  cells: CalendarCell[]
+  dates: Date[]
 ): { start: Date; end: Date } {
   const today = startOfToday();
   if (scope === "week") {
@@ -170,8 +208,8 @@ function scopeWindow(
     return { start, end: addDays(startOfMonth(addDays(start, 32)), -1) };
   }
   return {
-    start: cells[0].date,
-    end: cells[cells.length - 1].date,
+    start: dates[0],
+    end: dates[dates.length - 1],
   };
 }
 
@@ -179,27 +217,50 @@ function buildTrend(
   scope: MetricScope,
   cells: CalendarCell[],
   logs: Record<string, RunLog>,
+  runs: SyncedRun[],
   window: { start: Date; end: Date }
 ): TrendPoint[] {
   const inWindow = within(cells, window.start, window.end);
+  const runsInWindow = runsWithin(runs, window.start, window.end);
 
   if (scope === "week") {
-    // One point per completed run, in order.
-    return inWindow
-      .filter(
-        (c) =>
-          workoutTracksRunningMiles(c.workout) && logs[c.key]?.completed,
-      )
-      .map((cell) => {
-        const log = logs[cell.key];
-        const miles = loggedMiles(cell, log);
+    // One point per completed run, in order, plan or not.
+    return [
+      ...inWindow
+        .filter(
+          (c) =>
+            workoutTracksRunningMiles(c.workout) && logs[c.key]?.completed,
+        )
+        .map((cell) => {
+          const log = logs[cell.key];
+          const miles = loggedMiles(cell, log);
+          return {
+            date: cell.date,
+            point: {
+              label: cell.date.toLocaleDateString(undefined, {
+                weekday: "short",
+              }),
+              miles: Math.round(miles * 10) / 10,
+              pace: paceSecondsPerMile(logSeconds(log), miles),
+              avgHeartRate: log?.avgHeartRate,
+            },
+          };
+        }),
+      ...runsInWindow.map((run) => {
+        const date = fromISO(run.date);
         return {
-          label: cell.date.toLocaleDateString(undefined, { weekday: "short" }),
-          miles: Math.round(miles * 10) / 10,
-          pace: paceSecondsPerMile(logSeconds(log), miles),
-          avgHeartRate: log?.avgHeartRate,
+          date,
+          point: {
+            label: date.toLocaleDateString(undefined, { weekday: "short" }),
+            miles: Math.round(run.miles * 10) / 10,
+            pace: paceSecondsPerMile(run.seconds, run.miles),
+            avgHeartRate: run.avgHeartRate,
+          },
         };
-      });
+      }),
+    ]
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map((entry) => entry.point);
   }
 
   // Weekly buckets across the window.
@@ -211,8 +272,9 @@ function buildTrend(
   ) {
     const weekEnd = addDays(weekStart, 6);
     const bucket = within(inWindow, weekStart, weekEnd);
-    if (bucket.length === 0) continue;
-    const s = summarize(bucket, logs, weekStart, weekEnd);
+    const bucketRuns = runsWithin(runsInWindow, weekStart, weekEnd);
+    if (bucket.length === 0 && bucketRuns.length === 0) continue;
+    const s = summarize(bucket, logs, bucketRuns, weekStart, weekEnd);
     points.push({
       label: weekStart.toLocaleDateString(undefined, {
         month: "numeric",
@@ -229,20 +291,29 @@ function buildTrend(
 export function computeInsights(
   plan: Plan,
   program: Program,
-  scope: MetricScope
+  scope: MetricScope,
+  runs: SyncedRun[] = []
 ): Insights | null {
-  if (!plan.startDate) return null;
-  const cells = planCells(program, plan);
-  if (cells.length === 0) return null;
+  const cells = plan.startDate ? planCells(program, plan) : [];
+  // Runs already matched to a slot are counted through that slot's log.
+  const matched = matchedActivityIds(plan);
+  const extraRuns = runs.filter((r) => !matched.has(r.stravaActivityId));
+  if (cells.length === 0 && extraRuns.length === 0) return null;
   const logs =
     plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
       ? plan.logs
       : {};
 
-  const window = scopeWindow(scope, cells);
+  const dates = [
+    ...cells.map((c) => c.date),
+    ...extraRuns.map((r) => fromISO(r.date)),
+  ].sort((a, b) => a.getTime() - b.getTime());
+
+  const window = scopeWindow(scope, dates);
   const current = summarize(
     within(cells, window.start, window.end),
     logs,
+    runsWithin(extraRuns, window.start, window.end),
     window.start,
     window.end
   );
@@ -254,14 +325,15 @@ export function computeInsights(
     const prevEnd = addDays(window.start, -1);
     const prevStart = addDays(prevEnd, -(span - 1));
     const prevCells = within(cells, prevStart, prevEnd);
-    if (prevCells.length > 0) {
-      previous = summarize(prevCells, logs, prevStart, prevEnd);
+    const prevRuns = runsWithin(extraRuns, prevStart, prevEnd);
+    if (prevCells.length > 0 || prevRuns.length > 0) {
+      previous = summarize(prevCells, logs, prevRuns, prevStart, prevEnd);
     }
   }
 
   return {
     current,
     previous,
-    trend: buildTrend(scope, cells, logs, window),
+    trend: buildTrend(scope, cells, logs, extraRuns, window),
   };
 }

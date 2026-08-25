@@ -7,7 +7,7 @@ import { useApp } from "@/components/AppContext";
 import Link from "next/link";
 
 export default function SettingsPage() {
-  const { user, state, update, plan, updatePlan, program } = useApp();
+  const { user, state, update, plan, program } = useApp();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -64,7 +64,7 @@ export default function SettingsPage() {
       </Link>
 
       <div className="mt-4">
-        <StravaCard plan={plan} updatePlan={updatePlan} program={program} />
+        <StravaCard />
       </div>
 
       <p className="mt-6 flex justify-center gap-4 pb-2 text-meta text-ink-soft">

@@ -21,11 +21,21 @@ import {
   saveState,
   updateActivePlan,
 } from "@/lib/store";
+import { FetchedRun, applySyncedRuns } from "@/lib/sync";
 
 export interface SessionUser {
   id: string;
   name: string | null;
   avatarUrl: string | null;
+}
+
+export interface SyncResult {
+  ok: boolean;
+  error?: "not_connected" | "missing_scope" | "failed";
+  /** Runs newly added to the run log. */
+  added: number;
+  /** Runs matched to a slot of the active plan. */
+  matched: number;
 }
 
 interface AppContextValue {
@@ -38,6 +48,8 @@ interface AppContextValue {
   plan: Plan;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
   program: Program;
+  /** Pull runs from Strava into the run log and the active plan. */
+  syncStrava: () => Promise<SyncResult>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -56,6 +68,8 @@ export function AppProvider({
   const [state, setState] = useState<RunnerState>(defaultState);
   const [loaded, setLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const pushRemote = useCallback((s: RunnerState) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -118,6 +132,38 @@ export function AppProvider({
     [update]
   );
 
+  const syncStrava = useCallback(async (): Promise<SyncResult> => {
+    const none = { added: 0, matched: 0 };
+    let runs: FetchedRun[];
+    try {
+      const res = await fetch("/api/strava/activities");
+      if (res.status === 401) return { ok: false, error: "not_connected", ...none };
+      if (res.status === 403) return { ok: false, error: "missing_scope", ...none };
+      if (!res.ok) return { ok: false, error: "failed", ...none };
+      runs = ((await res.json()) as { runs: FetchedRun[] }).runs;
+    } catch {
+      return { ok: false, error: "failed", ...none };
+    }
+    const current = stateRef.current;
+    const program =
+      programs.find((p) => p.id === activePlan(current).programId) ??
+      programs[0];
+    const outcome = applySyncedRuns(current, program, runs);
+    if (outcome.added > 0 || outcome.matched > 0) {
+      update(() => outcome.state);
+    }
+    return { ok: true, added: outcome.added, matched: outcome.matched };
+  }, [update]);
+
+  // Runs sync themselves whenever the app is opened; the Settings button is
+  // just a way to force one without reloading.
+  const autoSynced = useRef(false);
+  useEffect(() => {
+    if (!loaded || autoSynced.current) return;
+    autoSynced.current = true;
+    syncStrava().catch(() => {});
+  }, [loaded, syncStrava]);
+
   const plan = useMemo(() => activePlan(state), [state]);
   const program = useMemo(
     () => programs.find((p) => p.id === plan.programId) ?? programs[0],
@@ -125,8 +171,18 @@ export function AppProvider({
   );
 
   const value = useMemo(
-    () => ({ user, raceCount, loaded, state, update, plan, updatePlan, program }),
-    [user, raceCount, loaded, state, update, plan, updatePlan, program]
+    () => ({
+      user,
+      raceCount,
+      loaded,
+      state,
+      update,
+      plan,
+      updatePlan,
+      program,
+      syncStrava,
+    }),
+    [user, raceCount, loaded, state, update, plan, updatePlan, program, syncStrava]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
