@@ -34,7 +34,10 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-                className={`focus-pouf flex min-w-0 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase leading-none transition ${
+              // basis-0 with flex-1 gives every tab an equal share, so a wide
+              // label like "Progress" and a short one like "Pack" still centre
+              // on evenly spaced columns instead of clumping to the left.
+              className={`focus-pouf flex min-w-0 flex-1 basis-0 flex-col items-center gap-1 py-2.5 text-meta font-bold uppercase leading-none transition ${
                 active ? "text-white" : "text-white/70"
               }`}
             >

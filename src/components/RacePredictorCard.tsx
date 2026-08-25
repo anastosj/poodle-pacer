@@ -25,29 +25,33 @@ export default function RacePredictorCard({
       </h2>
       {prediction ? (
         <>
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-            <div>
-              <div className="font-display text-display tabular-nums text-primary">
-                {formatDuration(prediction.seconds)}
-              </div>
-              <div className="text-[11px] font-medium text-foreground/60">
-                Predicted {program.raceLabel.toLowerCase()}
-              </div>
+          {/* The predicted time is a wide display number, so it sits on its own
+              line and the two smaller stats share an even row beneath. Left to a
+              flex-wrap the three broke 2-then-1 on a phone, stranding "Days to
+              go" on a ragged second line. */}
+          <div className="mt-3">
+            <div className="font-display text-display tabular-nums text-primary">
+              {formatDuration(prediction.seconds)}
             </div>
-            <div>
-              <div className="font-display text-title tabular-nums text-primary">
+            <div className="text-[11px] font-medium text-foreground/60">
+              Predicted {program.raceLabel.toLowerCase()}
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-sm border-2 border-outline bg-lilac px-3 py-2">
+              <div className="font-display text-title tabular-nums text-primary-dark">
                 {formatPacePerMile(prediction.pace)}
               </div>
-              <div className="text-[11px] font-medium text-foreground/60">
+              <div className="text-[11px] font-medium text-ink-soft">
                 Race pace
               </div>
             </div>
             {prediction.daysToRace !== undefined && (
-              <div>
-                <div className="font-display text-title tabular-nums text-primary">
+              <div className="rounded-sm border-2 border-outline bg-lilac px-3 py-2">
+                <div className="font-display text-title tabular-nums text-primary-dark">
                   {prediction.daysToRace}
                 </div>
-                <div className="text-[11px] font-medium text-foreground/60">
+                <div className="text-[11px] font-medium text-ink-soft">
                   Days to go
                 </div>
               </div>
