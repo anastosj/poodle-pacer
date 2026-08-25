@@ -1,7 +1,7 @@
 "use client";
 
 import { countsAsRunning } from "@/lib/activities";
-import { fromISO, startOfToday } from "@/lib/dates";
+import { addDays, fromISO, startOfToday } from "@/lib/dates";
 import { Program } from "@/lib/programs";
 import {
   Plan,
@@ -69,18 +69,26 @@ export default function StatsBar({
 
   const weeksTraining = program.weeks - begin + 1;
 
+  /*
+   * A lifetime total only ever grows, so it stops meaning anything the moment
+   * you have a few months of history. A rolling 30 days says what training
+   * looks like now. Month-to-date was the other candidate and is worse: on the
+   * 1st it reads 0, which looks broken rather than informative.
+   */
+  const since = addDays(startOfToday(), -29);
+  const recent = runs.filter((r) => fromISO(r.date) >= since);
   // The log holds every sport, so only call them runs when they all are.
-  const allRunning = runs.every((r) => countsAsRunning(r.sportType));
+  const allRunning = recent.every((r) => countsAsRunning(r.sportType));
 
   const logged =
     begin > 1
       ? { label: "Weeks you train", value: `${weeksTraining} of ${program.weeks}` }
       : streak > 0
         ? { label: "Workout streak", value: `${streak}` }
-        : runs.length > 0
+        : recent.length > 0
           ? {
-              label: allRunning ? "Runs logged" : "Activities logged",
-              value: `${runs.length}`,
+              label: allRunning ? "Runs, 30 days" : "Activities, 30 days",
+              value: `${recent.length}`,
             }
           : { label: "Workout streak", value: "none yet" };
 
@@ -112,7 +120,7 @@ export default function StatsBar({
 
   // Nothing planned and nothing logged: the page's own call to action says it
   // all, so an empty stat bar would just be furniture.
-  if (stats.length === 1 && runs.length === 0 && streak === 0) return null;
+  if (stats.length === 1 && recent.length === 0 && streak === 0) return null;
 
   const single = stats.length === 1;
 
