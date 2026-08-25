@@ -56,20 +56,30 @@ function formatDelta(
  * the thing runners look for, and the bars are there to show how far apart the
  * two halves actually were.
  */
-function Halves({ detail }: { detail: ActivityDetail }) {
+function Halves({
+  detail,
+  sport,
+}: {
+  detail: ActivityDetail;
+  sport: ActivityKind;
+}) {
   const halves = compareHalves(detail.splits);
   if (!halves) return null;
   const { firstPace, secondPace, deltaSeconds, kind } = halves;
-  const gap = formatPace(Math.abs(deltaSeconds));
+  // A ride's halves are compared in mph, like everything else about a ride.
+  const perMile = sport !== "ride";
+  const gap = perMile
+    ? `${formatPace(Math.abs(deltaSeconds))}/mi`
+    : `${Math.abs(3600 / firstPace - 3600 / secondPace).toFixed(1)} mph`;
   // Longer bar = slower half, matching the mile splits below.
   const slowest = Math.max(firstPace, secondPace) || 1;
 
   const verdict =
     kind === "negative"
-      ? `Negative split. Second half ${gap}/mi faster.`
+      ? `Negative split. Second half ${gap} faster.`
       : kind === "positive"
-        ? `Positive split. Second half ${gap}/mi slower.`
-        : "Even split. Both halves at the same pace.";
+        ? `Positive split. Second half ${gap} slower.`
+        : `Even split. Both halves at the same ${perMile ? "pace" : "speed"}.`;
 
   return (
     <div
@@ -93,8 +103,8 @@ function Halves({ detail }: { detail: ActivityDetail }) {
                 style={{ width: `${(half.pace / slowest) * 100}%` }}
               />
             </span>
-            <span className="w-14 shrink-0 text-right text-meta font-bold tabular-nums text-ink">
-              {formatPace(half.pace)}
+            <span className="w-16 shrink-0 text-right text-meta font-bold tabular-nums text-ink">
+              {formatSpeed(sport, 1, half.pace) ?? formatPace(half.pace)}
             </span>
           </div>
         ))}
@@ -405,7 +415,7 @@ export default function WorkoutDetail({
               </p>
             )}
 
-            <Halves detail={detail} />
+            <Halves detail={detail} sport={kind} />
 
             {detail.splits.length > 0 ? (
               <div>

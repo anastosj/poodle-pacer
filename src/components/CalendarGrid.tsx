@@ -17,6 +17,7 @@ import {
 import {
   activityKind,
   activityLabel,
+  countsAsRunning,
   formatSpeed,
   tracksDistance,
 } from "@/lib/activities";
@@ -29,7 +30,14 @@ import {
   currentRowIndex,
   formatRowLabel,
 } from "@/lib/calendar";
-import { addDays, fromISO, isSameDay, startOfToday, toLocalISO } from "@/lib/dates";
+import {
+  addDays,
+  fromISO,
+  isSameDay,
+  startOfMonth,
+  startOfToday,
+  toLocalISO,
+} from "@/lib/dates";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import {
   Program,
@@ -54,7 +62,7 @@ import {
 } from "@/lib/store";
 import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
-type ViewMode = "week" | "program";
+type ViewMode = "week" | "program" | "month";
 
 /**
  * Written out rather than built from the value, so Tailwind's scanner sees
@@ -65,6 +73,39 @@ const FEELS: { value: Feel; on: string; hover: string }[] = [
   { value: "medium", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
   { value: "bad", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
 ];
+
+/** The first of another month, relative to this one. */
+function shiftMonth(d: Date, by: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + by, 1);
+}
+
+/** "4 activities · 12.3 mi run" for the month shown, or a nudge when empty. */
+function monthSummary(
+  monthStart: Date,
+  extraByIso: Map<string, SyncedRun[]>
+): string {
+  let count = 0;
+  let miles = 0;
+  extraByIso.forEach((list, iso) => {
+    const d = fromISO(iso);
+    if (
+      d.getFullYear() !== monthStart.getFullYear() ||
+      d.getMonth() !== monthStart.getMonth()
+    ) {
+      return;
+    }
+    for (const run of list) {
+      count += 1;
+      // Only running miles are quoted, matching every other total in the app.
+      if (countsAsRunning(run.sportType)) miles += run.miles;
+    }
+  });
+  if (count === 0) return "Nothing logged";
+  const activities = `${count} ${count === 1 ? "activity" : "activities"}`;
+  return miles > 0
+    ? `${activities} · ${Math.round(miles * 10) / 10} mi run`
+    : activities;
+}
 
 /** Past days read as either done or missed; upcoming days stay neutral. */
 type CellStatus = "rest" | "done" | "missed" | "today" | "upcoming";
@@ -462,7 +503,11 @@ function rowSummary(
   }
   for (let i = 0; i < 7; i++) {
     const iso = toLocalISO(addDays(row.start, i));
-    for (const run of extraByIso.get(iso) ?? []) miles += run.miles;
+    for (const run of extraByIso.get(iso) ?? []) {
+      // Running only, like the plan cells above and every other mileage in the
+      // app: a week whose one activity was a 20 mile ride ran no miles.
+      if (countsAsRunning(run.sportType)) miles += run.miles;
+    }
   }
   return { done, total, miles: Math.round(miles * 10) / 10 };
 }
@@ -611,6 +656,14 @@ export default function CalendarGrid({
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   /**
+   * Which month the month view is showing. Only used when there is no plan:
+   * with nothing scheduled, flipping back through months is the only way to
+   * look over what has actually been done.
+   */
+  const [monthAnchor, setMonthAnchor] = useState(() =>
+    startOfMonth(startOfToday())
+  );
+  /**
    * Per-row open/closed overrides in full-program view. Absent means "use the
    * default", which folds weeks that have already finished so a twelve week
    * plan opens as a readable list rather than a wall of cells.
@@ -656,8 +709,25 @@ export default function CalendarGrid({
   const rowHasPassed = (idx: number) =>
     idx < rows.length && addDays(rows[idx].start, 6) < today;
 
+  /**
+   * Month view is the same expanding week rows as the full-program list, just
+   * scoped to one month. Original indices are carried along so the open/closed
+   * state and "this week" marker keep pointing at the right row.
+   */
+  const listRows = useMemo(() => {
+    const all = rows.map((r, idx) => ({ r, idx }));
+    if (mode !== "month") return all;
+    return all.filter(({ r }) => {
+      const end = addDays(r.start, 6);
+      const hit = (d: Date) =>
+        d.getFullYear() === monthAnchor.getFullYear() &&
+        d.getMonth() === monthAnchor.getMonth();
+      return hit(r.start) || hit(end);
+    });
+  }, [rows, mode, monthAnchor]);
+
   const isRowOpen = (idx: number, isCurrent: boolean) =>
-    openRows[idx] ?? (isCurrent || !rowHasPassed(idx));
+    openRows[idx] ?? (mode === "month" || isCurrent || !rowHasPassed(idx));
 
   const toggleRow = (idx: number, isCurrent: boolean) =>
     setOpenRows((prev) => ({ ...prev, [idx]: !isRowOpen(idx, isCurrent) }));
@@ -812,15 +882,61 @@ export default function CalendarGrid({
       )}
       {/* Sticky so the way back out of a long plan is always on screen. */}
       <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-1 py-2 backdrop-blur">
+        {/* With no race date there is no program to lay out, so the second
+            view is a month of what was actually done rather than a plan. */}
         <SegmentedToggle
-          options={["week", "program"] as const}
-          value={mode}
+          options={
+            plan.startDate
+              ? (["week", "program"] as const)
+              : (["week", "month"] as const)
+          }
+          value={mode === "program" && !plan.startDate ? "week" : mode}
           onChange={(m) => {
             setMode(m);
             if (m === "week") setWeekIndex(currentRowIndex(rows));
+            if (m === "month") setMonthAnchor(startOfMonth(startOfToday()));
           }}
-          getLabel={(m) => (m === "week" ? "This week" : "Full program")}
+          getLabel={(m) =>
+            m === "week"
+              ? plan.startDate
+                ? "This week"
+                : "Week"
+              : m === "month"
+                ? "Month"
+                : "Full program"
+          }
         />
+
+        {mode === "month" && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMonthAnchor((d) => shiftMonth(d, -1))}
+              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac"
+              aria-label="Previous month"
+            >
+              ◂
+            </button>
+            <div className="min-w-[9rem] text-center">
+              <div className="font-display text-title text-primary-dark">
+                {monthAnchor.toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
+              </div>
+              <div className="text-meta text-ink-soft">
+                {monthSummary(monthAnchor, extraByIso)}
+              </div>
+            </div>
+            <button
+              onClick={() => setMonthAnchor((d) => shiftMonth(d, 1))}
+              disabled={monthAnchor >= startOfMonth(startOfToday())}
+              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac disabled:opacity-30"
+              aria-label="Next month"
+            >
+              ▸
+            </button>
+          </div>
+        )}
 
         {mode === "program" && rows.length > 0 && (
           <button
@@ -915,9 +1031,14 @@ export default function CalendarGrid({
           />
         )}
 
-        {mode === "program" && (
+        {(mode === "program" || mode === "month") && (
           <div className="mt-2 space-y-2">
-            {rows.map((r, idx) => {
+            {listRows.length === 0 && (
+              <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
+                Nothing logged this month.
+              </p>
+            )}
+            {listRows.map(({ r, idx }) => {
               const s = rowSummary(r, plan, extraByIso);
               const isCurrent = idx === currentRowIndex(rows);
               const rowInPast = addDays(r.start, 6) < today;
