@@ -1,3 +1,4 @@
+import { countsAsRunning } from "@/lib/activities";
 import { CalendarCell, planCells } from "@/lib/calendar";
 import {
   addDays,
@@ -149,21 +150,25 @@ function summarize(
     }
   }
 
-  // Synced runs outside the plan count in every total, just not in the
+  // Synced activities outside the plan count in every total, just not in the
   // scheduled/completed pair, which only makes sense for planned workouts.
+  // Only running feeds the running numbers: a bike ride's distance and pace
+  // are not comparable, so a ride contributes time on feet and max HR alone.
   for (const run of runs) {
+    stats.seconds += run.seconds;
+    if (run.maxHeartRate) {
+      stats.maxHeartRate = Math.max(stats.maxHeartRate ?? 0, run.maxHeartRate);
+    }
+    if (!countsAsRunning(run.sportType)) continue;
+
     stats.runCount += 1;
     stats.miles += run.miles;
     stats.longestRun = Math.max(stats.longestRun, run.miles);
-    stats.seconds += run.seconds;
     paceSeconds += run.seconds;
 
     if (run.avgHeartRate) {
       hrMilesWeighted += run.avgHeartRate * run.miles;
       hrMiles += run.miles;
-    }
-    if (run.maxHeartRate) {
-      stats.maxHeartRate = Math.max(stats.maxHeartRate ?? 0, run.maxHeartRate);
     }
     if (run.elevationGain) stats.elevationGain += run.elevationGain;
     if (run.cadence) {
@@ -221,7 +226,10 @@ function buildTrend(
   window: { start: Date; end: Date }
 ): TrendPoint[] {
   const inWindow = within(cells, window.start, window.end);
-  const runsInWindow = runsWithin(runs, window.start, window.end);
+  // The trend plots mileage and pace, so only running belongs on it.
+  const runsInWindow = runsWithin(runs, window.start, window.end).filter((r) =>
+    countsAsRunning(r.sportType)
+  );
 
   if (scope === "week") {
     // One point per completed run, in order, plan or not.

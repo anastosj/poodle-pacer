@@ -94,8 +94,15 @@ export interface SyncedRun {
   /** ISO local date the run started. */
   date: string;
   name?: string;
+  /**
+   * Strava's sport type, e.g. "Run", "Ride", "Swim". Absent on records synced
+   * before other sports were supported, which were all runs.
+   */
+  sportType?: string;
   miles: number;
   seconds: number;
+  /** How it felt. Set here so off-plan activities can be rated too. */
+  feel?: Feel;
   avgHeartRate?: number;
   maxHeartRate?: number;
   /** Elevation gain in feet. */
@@ -318,6 +325,11 @@ function sanitizeRun(value: unknown): SyncedRun | undefined {
   const run: SyncedRun = { stravaActivityId, date: value.date, miles, seconds };
   const name = boundedString(value.name, MAX_NAME_LENGTH);
   if (name !== undefined) run.name = name;
+  const sportType = boundedString(value.sportType, MAX_NAME_LENGTH);
+  if (sportType !== undefined) run.sportType = sportType;
+  if (value.feel === "good" || value.feel === "medium" || value.feel === "bad") {
+    run.feel = value.feel;
+  }
   for (const field of [
     "avgHeartRate",
     "maxHeartRate",
@@ -493,8 +505,14 @@ export function mergeRuns(
   const byId = new Map(existing.map((r) => [r.stravaActivityId, r]));
   let added = 0;
   for (const run of incoming) {
-    if (!byId.has(run.stravaActivityId)) added += 1;
-    byId.set(run.stravaActivityId, run);
+    const previous = byId.get(run.stravaActivityId);
+    if (!previous) added += 1;
+    // Strava is the source of truth for the activity itself, but `feel` is the
+    // runner's own note and would be wiped by every resync if it were not kept.
+    byId.set(run.stravaActivityId, {
+      ...run,
+      feel: previous?.feel ?? run.feel,
+    });
   }
   const runs = Array.from(byId.values())
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -525,6 +543,7 @@ export function runAsLog(run: SyncedRun): RunLog {
     completed: true,
     miles: run.miles,
     seconds: run.seconds,
+    feel: run.feel,
     stravaActivityId: run.stravaActivityId,
     stravaName: run.name,
     avgHeartRate: run.avgHeartRate,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { countsAsRunning } from "@/lib/activities";
 import { currentUserId } from "@/lib/session";
 import { getFreshTokens, hasActivityScope } from "@/lib/strava";
 
@@ -15,6 +16,8 @@ export interface StravaRun {
   /** Moving time in seconds, the basis for accurate pace. */
   seconds: number;
   startDate: string; // ISO
+  /** Strava's sport type, e.g. "Run", "Ride", "Swim", "WeightTraining". */
+  sportType: string;
   avgHeartRate?: number;
   maxHeartRate?: number;
   /** Elevation gain in feet. */
@@ -27,6 +30,8 @@ interface StravaActivity {
   id: number;
   name: string;
   type: string;
+  /** Newer, more granular than `type`; absent on older activities. */
+  sport_type?: string;
   distance: number;
   moving_time: number;
   start_date_local: string;
@@ -65,22 +70,30 @@ export async function GET() {
   }
   const activities: StravaActivity[] = await res.json();
 
-  const runs: StravaRun[] = activities
-    .filter((a) => a.type === "Run")
-    .map((a) => ({
+  // Every sport is kept: the calendar shows them all, and only running ones
+  // are counted as running mileage downstream.
+  const runs: StravaRun[] = activities.map((a) => {
+    const sportType = a.sport_type ?? a.type;
+    const isRun = countsAsRunning(sportType);
+    return {
       id: a.id,
       name: a.name,
       miles: round(a.distance / METERS_PER_MILE, 2),
       seconds: a.moving_time,
       startDate: a.start_date_local,
+      sportType,
       avgHeartRate: a.average_heartrate ? round(a.average_heartrate) : undefined,
       maxHeartRate: a.max_heartrate ? round(a.max_heartrate) : undefined,
       elevationGain: a.total_elevation_gain
         ? round(a.total_elevation_gain * FEET_PER_METER)
         : undefined,
       // Strava reports run cadence per leg; double it for steps per minute.
-      cadence: a.average_cadence ? round(a.average_cadence * 2) : undefined,
-    }));
+      // Other sports report cadence in their own units, so leave those alone.
+      cadence: a.average_cadence
+        ? round(a.average_cadence * (isRun ? 2 : 1))
+        : undefined,
+    };
+  });
 
   return NextResponse.json({ runs });
 }

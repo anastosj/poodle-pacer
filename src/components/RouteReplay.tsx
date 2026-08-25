@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePoint, RouteStreams } from "@/app/api/strava/activity/[id]/streams/route";
+import PoodleCyclist from "@/components/PoodleCyclist";
 import PoodleRunner from "@/components/PoodleRunner";
-import { formatDuration, formatPace } from "@/lib/pace";
+import { ActivityKind, formatSpeed } from "@/lib/activities";
+import { formatDuration } from "@/lib/pace";
 import {
   Viewport,
   distanceMeters,
@@ -90,6 +92,7 @@ export default function RouteReplay({
   miles,
   seconds,
   tiles,
+  kind = "run",
 }: {
   polyline: string;
   /** Strava id, when there is one to fetch timing streams from. */
@@ -98,6 +101,8 @@ export default function RouteReplay({
   seconds: number;
   /** Whether a Mapbox token is configured, i.e. whether there are streets. */
   tiles: boolean;
+  /** Which sport, so the poodle rides a bike rather than running a ride. */
+  kind?: ActivityKind;
 }) {
   const [streams, setStreams] = useState<RouteStreams | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
@@ -241,7 +246,7 @@ export default function RouteReplay({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={mapSrc}
-            alt="Map of the route run"
+            alt="Map of the route taken"
             width={MAP_W}
             height={MAP_H}
             className="block h-auto w-full"
@@ -314,7 +319,11 @@ export default function RouteReplay({
             <g
               transform={`scale(${frame.facingLeft ? -1 : 1}, 1) translate(${-PAWS_X}, ${-PAWS_Y})`}
             >
-              <PoodleRunner running={playing && !finished} />
+              {kind === "ride" ? (
+                <PoodleCyclist riding={playing && !finished} />
+              ) : (
+                <PoodleRunner running={playing && !finished} />
+              )}
             </g>
           </g>
         </svg>
@@ -330,7 +339,9 @@ export default function RouteReplay({
 
         <div className="ml-auto text-xs font-semibold tabular-nums text-foreground/60">
           {frame.miles.toFixed(2)} mi · {formatDuration(Math.round(elapsed))}
-          {frame.pace > 0 && ` · ${formatPace(Math.round(frame.pace))}/mi`}
+          {/* Instantaneous speed, phrased for the sport: /mi, mph, or /100yd. */}
+          {frame.pace > 0 &&
+            ` · ${formatSpeed(kind, 1, frame.pace) ?? ""}`}
         </div>
       </div>
 
@@ -361,8 +372,8 @@ export default function RouteReplay({
 
       <p className="mt-1.5 text-[10px] text-foreground/45">
         {streams
-          ? "Replayed at the pace actually run, from Strava's GPS trace."
-          : "Replayed at an even pace: this run has no second-by-second trace."}
+          ? "Replayed at the speed actually recorded, from Strava's GPS trace."
+          : "Replayed at an even speed: this activity has no second-by-second trace."}
       </p>
     </div>
   );

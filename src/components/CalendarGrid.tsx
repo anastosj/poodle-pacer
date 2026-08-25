@@ -17,6 +17,12 @@ import {
   SwimIcon,
 } from "@/components/Icons";
 import {
+  activityKind,
+  activityLabel,
+  formatSpeed,
+  tracksDistance,
+} from "@/lib/activities";
+import {
   CalendarCell,
   CalendarRow,
   WEEKDAY_NAMES,
@@ -468,25 +474,36 @@ function ExtraRunCard({
   date,
   isToday,
   onOpen,
+  onFeel,
 }: {
   run: SyncedRun;
   date: Date;
   isToday: boolean;
   onOpen: () => void;
+  onFeel: (feel: Feel) => void;
 }) {
-  const pace = paceSecondsPerMile(run.seconds, run.miles);
+  const kind = activityKind(run.sportType);
+  // Each sport reads its speed its own way: min/mi, mph, or per 100 yards.
+  const speed = formatSpeed(kind, run.miles, run.seconds);
+  const showDistance = tracksDistance(kind) && run.miles > 0;
+  const SportIcon =
+    kind === "ride" ? BikeIcon : kind === "swim" ? SwimIcon : RunIcon;
   return (
-    <button
-      onClick={onOpen}
-      title="See splits, route, and heart rate"
-      className={`relative flex w-full gap-3 rounded-sm border-3 border-outline bg-surface p-2.5 text-left text-body shadow-card transition hover:bg-lilac md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
+    <div
+      className={`relative flex w-full gap-3 rounded-sm border-3 border-outline bg-surface p-2.5 text-left text-body shadow-card md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
         isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""
       }`}
     >
-      <div className="flex shrink-0 items-start pt-0.5 md:hidden">
-        <RunIcon size={50} />
+      <button
+        onClick={onOpen}
+        title="See splits, route, and heart rate"
+        className="absolute inset-0 z-0 rounded-sm transition hover:bg-lilac/60"
+        aria-label={`${run.name ?? activityLabel(run.sportType)} — see splits, route, and heart rate`}
+      />
+      <div className="pointer-events-none relative z-10 flex shrink-0 items-start pt-0.5 md:hidden">
+        <SportIcon size={50} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2">
           <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-ink-soft">
             <span className="md:hidden">
@@ -499,7 +516,7 @@ function ExtraRunCard({
           </span>
           <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-meta font-bold text-orange-700">
             <BoltIcon size={11} />
-            Run log
+            {kind === "run" ? "Run log" : activityLabel(run.sportType)}
           </span>
         </div>
         <div className="mt-0.5 flex items-start gap-1.5 md:mt-1">
@@ -507,24 +524,48 @@ function ExtraRunCard({
             className="min-w-0 flex-1 truncate font-display text-meta uppercase leading-tight tracking-tight"
             title={run.name}
           >
-            {run.name ?? "Run"}
+            {run.name ?? activityLabel(run.sportType)}
           </span>
           <span className="-mr-0.5 hidden shrink-0 self-start md:block">
-            <RunIcon size={34} />
+            <SportIcon size={34} />
           </span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-meta tabular-nums text-ink-soft">
           <span>
-            {run.miles} mi · {formatDurationShort(run.seconds)}
+            {showDistance && `${run.miles} mi · `}
+            {formatDurationShort(run.seconds)}
           </span>
-          {pace && (
+          {speed && (
             <span className="font-bold text-primary underline underline-offset-2">
-              {formatPacePerMile(pace)}
+              {speed}
             </span>
           )}
         </div>
+
+        {/* Rating sits above the open-card overlay so it stays clickable. */}
+        <div
+          className="pointer-events-auto mt-1 flex items-center gap-0.5"
+          aria-label="How did it feel?"
+        >
+          {FEELS.map((f) => (
+            <button
+              key={f.value}
+              title={f.label}
+              aria-label={f.label}
+              aria-pressed={run.feel === f.value}
+              onClick={() => onFeel(f.value)}
+              className={`focus-pouf rounded-full p-0.5 transition ${
+                run.feel === f.value
+                  ? "bg-headband-light ring-1 ring-headband"
+                  : "opacity-40 hover:opacity-100"
+              }`}
+            >
+              <MoodIcon mood={f.value} size={18} />
+            </button>
+          ))}
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -548,12 +589,15 @@ export default function CalendarGrid({
   program,
   updatePlan,
   runs = [],
+  onRunFeel,
 }: {
   plan: Plan;
   program: Program;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
   /** Every synced run; ones already matched to a plan slot are filtered out. */
   runs?: SyncedRun[];
+  /** Rate a synced activity that has no plan slot to carry the rating. */
+  onRunFeel?: (activityId: number, feel: Feel) => void;
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   /**
@@ -686,6 +730,7 @@ export default function CalendarGrid({
             date={date}
             isToday={isSameDay(date, today)}
             onOpen={() => setDetail({ kind: "run", run })}
+            onFeel={(feel) => onRunFeel?.(run.stravaActivityId, feel)}
           />
         ))}
       </div>
@@ -751,8 +796,8 @@ export default function CalendarGrid({
     <div className="mt-6">
       {!plan.startDate && (
         <p className="mb-2 rounded-sm border-2 border-outline bg-highlight px-4 py-2 text-meta font-bold text-ink">
-          These are your synced runs. Set a race date on the Goals page to lay
-          your training program over this calendar.
+          These are your synced activities. Set a race date on the Goals page to
+          lay your training program over this calendar.
         </p>
       )}
       {/* Sticky so the way back out of a long plan is always on screen. */}
@@ -843,7 +888,12 @@ export default function CalendarGrid({
         {detail?.kind === "run" && (
           <WorkoutDetail
             log={runAsLog(detail.run)}
-            label="Synced run"
+            kind={activityKind(detail.run.sportType)}
+            label={
+              activityKind(detail.run.sportType) === "run"
+                ? "Synced run"
+                : `Synced ${activityLabel(detail.run.sportType).toLowerCase()}`
+            }
             dateLabel={fromISO(detail.run.date).toLocaleDateString(undefined, {
               weekday: "long",
               month: "long",

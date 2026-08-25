@@ -142,6 +142,20 @@ body {
     }
   }
 
+  /* Wheels and cranks turn together, so one keyframe drives both. */
+  .poodle-wheel,
+  .poodle-crank {
+    animation: poodle-spin 0.5s linear infinite;
+  }
+  @keyframes poodle-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .poodle-tongue {
     animation: poodle-tongue 0.72s ease-in-out infinite;
   }
@@ -226,7 +240,9 @@ body {
   .poodle-bob,
   .poodle-tail,
   .poodle-ear,
-  .poodle-tongue {
+  .poodle-tongue,
+  .poodle-wheel,
+  .poodle-crank {
     animation: none;
   }
   .pouf-lift:hover {

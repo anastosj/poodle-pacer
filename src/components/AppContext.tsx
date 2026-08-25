@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Program, programs } from "@/lib/programs";
 import {
+  Feel,
   Plan,
   RunnerState,
   activePlan,
@@ -50,6 +51,8 @@ interface AppContextValue {
   program: Program;
   /** Pull runs from Strava into the run log and the active plan. */
   syncStrava: () => Promise<SyncResult>;
+  /** Rate a synced activity; passing the current feel clears it. */
+  setRunFeel: (activityId: number, feel: Feel) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -132,6 +135,21 @@ export function AppProvider({
     [update]
   );
 
+  /** Rate a synced activity, whether or not it belongs to the plan. */
+  const setRunFeel = useCallback(
+    (activityId: number, feel: Feel) => {
+      update((prev) => ({
+        ...prev,
+        runs: (prev.runs ?? []).map((run) =>
+          run.stravaActivityId === activityId
+            ? { ...run, feel: run.feel === feel ? undefined : feel }
+            : run
+        ),
+      }));
+    },
+    [update]
+  );
+
   const syncStrava = useCallback(async (): Promise<SyncResult> => {
     const none = { added: 0, matched: 0 };
     let runs: FetchedRun[];
@@ -181,8 +199,20 @@ export function AppProvider({
       updatePlan,
       program,
       syncStrava,
+      setRunFeel,
     }),
-    [user, raceCount, loaded, state, update, plan, updatePlan, program, syncStrava]
+    [
+      user,
+      raceCount,
+      loaded,
+      state,
+      update,
+      plan,
+      updatePlan,
+      program,
+      syncStrava,
+      setRunFeel,
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
