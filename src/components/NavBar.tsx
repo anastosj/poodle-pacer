@@ -90,26 +90,32 @@ export default function NavBar() {
             onClick={() => setOpen((o) => !o)}
             aria-haspopup="menu"
             aria-expanded={open}
-            className="focus-pouf flex items-center gap-2 rounded-full border-2 border-white bg-white py-1 pl-1 pr-3 text-sm font-bold text-ink transition hover:bg-highlight"
+            aria-label={user.name ?? "My profile"}
+            // On a phone the header is tight, so it collapses to just the
+            // avatar: a round chip with no name and no padding around it. From
+            // sm up the name and caret return.
+            className="focus-pouf flex items-center gap-2 rounded-full border-2 border-white bg-white p-0 text-sm font-bold text-ink transition hover:bg-highlight sm:py-1 sm:pl-1 sm:pr-3"
           >
             {user.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatarUrl}
                 alt=""
-                className="h-7 w-7 rounded-full border-2 border-outline object-cover"
+                className="h-8 w-8 rounded-full border-2 border-outline object-cover sm:h-7 sm:w-7"
               />
             ) : initials(user.name) ? (
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-outline bg-primary text-xs font-bold text-white">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-outline bg-primary text-xs font-bold text-white sm:h-7 sm:w-7">
                 {initials(user.name)}
               </span>
             ) : (
               <PoodleFaceIcon size={28} />
             )}
-            <span className="max-w-[9rem] truncate">
+            <span className="hidden max-w-[9rem] truncate sm:inline">
               {user.name ?? "My profile"}
             </span>
-            <span className="text-[10px] text-foreground/40">▾</span>
+            <span className="hidden text-[10px] text-foreground/40 sm:inline">
+              ▾
+            </span>
           </button>
 
           {open && (

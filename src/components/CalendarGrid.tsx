@@ -2,16 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import DurationInput from "@/components/DurationInput";
-import PoodleSleeping from "@/components/PoodleSleeping";
 import WorkoutDetail from "@/components/WorkoutDetail";
+import WorkoutIcon from "@/components/WorkoutIcon";
 import {
   BikeIcon,
   BoltIcon,
   CheckBadgeIcon,
   CheckIcon,
   ChevronIcon,
-  IconProps,
-  MedalIcon,
   MoodIcon,
   RunIcon,
   SwimIcon,
@@ -67,24 +65,6 @@ const FEELS: { value: Feel; on: string; hover: string }[] = [
   { value: "medium", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
   { value: "bad", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
 ];
-
-/** Rest days render the sleeping poodle instead, so "rest" is never used here. */
-const TYPE_ICON: Record<Exclude<Workout["type"], "rest">, (p: IconProps) => JSX.Element> = {
-  run: RunIcon,
-  "run-or-cross": BikeIcon,
-  cross: SwimIcon,
-  swim: SwimIcon,
-  bike: BikeIcon,
-  brick: BoltIcon,
-  multi: BoltIcon,
-  race: MedalIcon,
-};
-
-function WorkoutIcon({ type, size = 34 }: { type: Workout["type"]; size?: number }) {
-  if (type === "rest") return <PoodleSleeping size={size + 8} />;
-  const Icon = TYPE_ICON[type];
-  return <Icon size={size} />;
-}
 
 /** Past days read as either done or missed; upcoming days stay neutral. */
 type CellStatus = "rest" | "done" | "missed" | "today" | "upcoming";
@@ -905,6 +885,8 @@ export default function CalendarGrid({
         {detail?.kind === "cell" && plan.logs[detail.cell.key] && (
           <WorkoutDetail
             log={plan.logs[detail.cell.key]}
+            planId={plan.id}
+            logKey={detail.cell.key}
             label={detail.cell.workout.label}
             dateLabel={detail.cell.date.toLocaleDateString(undefined, {
               weekday: "long",
