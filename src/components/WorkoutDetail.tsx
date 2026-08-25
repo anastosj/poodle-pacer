@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActivityDetail } from "@/app/api/strava/activity/[id]/route";
-import { BoltIcon, CheckIcon } from "@/components/Icons";
+import { BoltIcon, MedalIcon, MoodIcon } from "@/components/Icons";
+import { useApp } from "@/components/AppContext";
+import { computeAchievements } from "@/lib/achievements";
 import {
   ActivityKind,
   formatSpeed,
@@ -15,7 +17,8 @@ import {
   paceSecondsPerMile,
 } from "@/lib/pace";
 import RouteReplay from "@/components/RouteReplay";
-import { RunLog, logSeconds } from "@/lib/store";
+import { compareHalves } from "@/lib/splits";
+import { FEEL_LABEL, RunLog, logSeconds } from "@/lib/store";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -46,6 +49,58 @@ function formatDelta(
   const delta = pace - avg;
   if (delta === 0) return "even";
   return `${delta < 0 ? "-" : "+"}${formatPace(Math.abs(delta))}`;
+}
+
+/**
+ * First half against second half. The verdict is the headline, because that is
+ * the thing runners look for, and the bars are there to show how far apart the
+ * two halves actually were.
+ */
+function Halves({ detail }: { detail: ActivityDetail }) {
+  const halves = compareHalves(detail.splits);
+  if (!halves) return null;
+  const { firstPace, secondPace, deltaSeconds, kind } = halves;
+  const gap = formatPace(Math.abs(deltaSeconds));
+  // Longer bar = slower half, matching the mile splits below.
+  const slowest = Math.max(firstPace, secondPace) || 1;
+
+  const verdict =
+    kind === "negative"
+      ? `Negative split. Second half ${gap}/mi faster.`
+      : kind === "positive"
+        ? `Positive split. Second half ${gap}/mi slower.`
+        : "Even split. Both halves at the same pace.";
+
+  return (
+    <div
+      className={`rounded-sm border-2 border-outline px-4 py-3 ${
+        kind === "negative" ? "bg-mood-good" : "bg-lilac"
+      }`}
+    >
+      <p className="text-meta font-bold text-ink">{verdict}</p>
+      <div className="mt-2 space-y-1.5">
+        {[
+          { name: "First half", pace: firstPace },
+          { name: "Second half", pace: secondPace },
+        ].map((half) => (
+          <div key={half.name} className="flex items-center gap-2">
+            <span className="w-20 shrink-0 text-meta text-ink-soft">
+              {half.name}
+            </span>
+            <span className="h-2 flex-1 overflow-hidden border border-outline bg-surface">
+              <span
+                className="block h-full bg-primary"
+                style={{ width: `${(half.pace / slowest) * 100}%` }}
+              />
+            </span>
+            <span className="w-14 shrink-0 text-right text-meta font-bold tabular-nums text-ink">
+              {formatPace(half.pace)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Per-mile splits, with each mile compared against the activity's average. */
@@ -140,6 +195,8 @@ export default function WorkoutDetail({
   dateLabel,
   onClose,
   kind = "run",
+  planId,
+  logKey,
 }: {
   log: RunLog;
   label: string;
@@ -147,7 +204,28 @@ export default function WorkoutDetail({
   onClose: () => void;
   /** Which sport this was, so the replay and its metrics match it. */
   kind?: ActivityKind;
+  /**
+   * Which log this is. Only needed to work out whether the run set a personal
+   * best; without them the sheet simply shows no badges.
+   */
+  planId?: string;
+  logKey?: string;
 }) {
+  const { state } = useApp();
+  // Speed badges name the run that set them. Streaks are earned across days
+  // rather than by one run, so they never appear here.
+  const badges = useMemo(
+    () =>
+      planId && logKey
+        ? computeAchievements(state).filter(
+            (a) =>
+              a.unlocked &&
+              a.earnedBy?.planId === planId &&
+              a.earnedBy?.logKey === logKey
+          )
+        : [],
+    [state, planId, logKey]
+  );
   const [fetched, setFetched] = useState<ActivityDetail | null>(null);
   const [realMaps, setRealMaps] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,14 +343,33 @@ export default function WorkoutDetail({
           )}
         </div>
 
-        {log.feel && (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1 text-meta font-bold text-ink">
-            <CheckIcon size={11} />
-            Felt{" "}
-            {log.feel === "good" ? "good" : log.feel === "medium" ? "okay" : "rough"}
-          </p>
-        )}
-
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {log.feel && (
+            // Same colour and same face as the picker in the calendar card, so
+            // how the run felt reads the same wherever it appears.
+            <p
+              className={`inline-flex items-center gap-1.5 rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-ink ${
+                log.feel === "good"
+                  ? "bg-mood-good"
+                  : log.feel === "medium"
+                    ? "bg-mood-okay"
+                    : "bg-mood-rough"
+              }`}
+            >
+              <MoodIcon mood={log.feel} size={14} />
+              {FEEL_LABEL[log.feel]}
+            </p>
+          )}
+          {badges.map((b) => (
+            <p
+              key={b.id}
+              className="inline-flex items-center gap-1.5 rounded-full border-2 border-outline bg-highlight px-3 py-1 text-meta font-bold text-ink"
+            >
+              <MedalIcon size={14} />
+              {b.title} · {b.detail}
+            </p>
+          ))}
+        </div>
         {!id && !sample && (
           <p className="mt-4 rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
             This one was logged by hand, so there is no route or mile breakdown.
@@ -300,12 +397,15 @@ export default function WorkoutDetail({
                 seconds={detail.seconds}
                 tiles={realMaps}
                 kind={kind}
+                splits={detail.splits}
               />
             ) : (
               <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
                 No route recorded, so this was probably a treadmill run.
               </p>
             )}
+
+            <Halves detail={detail} />
 
             {detail.splits.length > 0 ? (
               <div>

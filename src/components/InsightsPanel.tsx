@@ -178,7 +178,9 @@ export default function InsightsPanel({
   program: Program;
   runs?: SyncedRun[];
 }) {
-  const [scope, setScope] = useState<MetricScope>("week");
+  // A month in, rather than a week: early in a plan, and on any week with a
+  // couple of rest days, the weekly view opens on almost no data.
+  const [scope, setScope] = useState<MetricScope>("month");
   // Four tiles answer "how is it going"; the rest are detail worth a click.
   const [expanded, setExpanded] = useState(false);
   const insights = useMemo(

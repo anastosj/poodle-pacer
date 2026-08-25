@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
  */
 
 const METERS_PER_MILE = 1609.344;
+const FEET_PER_METER = 3.280839895;
 
 /** Long runs record a point a second; more than this adds nothing visible. */
 const MAX_POINTS = 900;
@@ -25,6 +26,8 @@ export interface RoutePoint {
   t: number;
   /** Miles covered at this point. */
   d: number;
+  /** Feet above sea level, when the device recorded altitude. */
+  e?: number;
 }
 
 export interface RouteStreams {
@@ -38,6 +41,7 @@ interface StravaStreams {
   latlng?: { data: [number, number][] };
   time?: { data: number[] };
   distance?: { data: number[] };
+  altitude?: { data: number[] };
 }
 
 export async function GET(
@@ -64,7 +68,7 @@ export async function GET(
   // belonging to someone else comes back as a 404.
   const res = await fetch(
     `https://www.strava.com/api/v3/activities/${params.id}/streams` +
-      `?keys=latlng,time,distance&key_by_type=true`,
+      `?keys=latlng,time,distance,altitude&key_by_type=true`,
     {
       headers: { Authorization: `Bearer ${tokens.accessToken}` },
       cache: "no-store",
@@ -86,6 +90,7 @@ export async function GET(
 
   const time = streams.time?.data ?? [];
   const distance = streams.distance?.data ?? [];
+  const altitude = streams.altitude?.data ?? [];
   const step = Math.ceil(latlng.length / MAX_POINTS);
 
   const points: RoutePoint[] = [];
@@ -96,6 +101,10 @@ export async function GET(
       lng: Number(lng.toFixed(5)),
       t: time[i] ?? i,
       d: Number(((distance[i] ?? 0) / METERS_PER_MILE).toFixed(3)),
+      e:
+        altitude[i] === undefined
+          ? undefined
+          : Number((altitude[i] * FEET_PER_METER).toFixed(1)),
     });
   };
   for (let i = 0; i < latlng.length; i += step) push(i);

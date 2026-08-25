@@ -2,10 +2,17 @@
 export default function PoodleSleeping({
   size = 32,
   className = "",
+  onPrimary = false,
 }: {
   size?: number;
   className?: string;
+  /**
+   * Set on the blue banner. The z's are drawn in the same blue, which reads
+   * fine on the app's pale ground but disappears entirely against the banner.
+   */
+  onPrimary?: boolean;
 }) {
+  const zFill = onPrimary ? "#0f1330" : "#2f6fed";
   return (
     <svg
       width={size}
@@ -63,10 +70,10 @@ export default function PoodleSleeping({
       <ellipse cx="40" cy="86" rx="4" ry="2.5" fill="#f7ccd6" opacity="0.75" />
       <ellipse cx="80" cy="86" rx="4" ry="2.5" fill="#f7ccd6" opacity="0.75" />
       {/* zzz */}
-      <text x="94" y="34" fontSize="20" fontWeight="700" fill="#2f6fed" opacity="0.85">
+      <text x="94" y="34" fontSize="20" fontWeight="700" fill={zFill} opacity={onPrimary ? 1 : 0.85}>
         z
       </text>
-      <text x="104" y="20" fontSize="14" fontWeight="700" fill="#2f6fed" opacity="0.6">
+      <text x="104" y="20" fontSize="14" fontWeight="700" fill={zFill} opacity={onPrimary ? 0.8 : 0.6}>
         z
       </text>
     </svg>
