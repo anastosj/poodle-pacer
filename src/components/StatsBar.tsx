@@ -4,6 +4,7 @@ import { fromISO, startOfToday } from "@/lib/dates";
 import { Program } from "@/lib/programs";
 import {
   Plan,
+  SyncedRun,
   beginWeekOf,
   daysUntilStart,
   effectiveStartDate,
@@ -26,9 +27,11 @@ function currentWeek(plan: Plan, program: Program): number | null {
 export default function StatsBar({
   plan,
   program,
+  runs = [],
 }: {
   plan: Plan;
   program: Program;
+  runs?: SyncedRun[];
 }) {
   const begin = beginWeekOf(plan);
 
@@ -82,15 +85,16 @@ export default function StatsBar({
       label: "Days to race",
       value: daysToRace !== null ? `${daysToRace}` : "not set",
     },
-    {
-      label: begin > 1 ? "Weeks you train" : "Workout streak",
-      value:
-        begin > 1
-          ? `${weeksTraining} of ${program.weeks}`
-          : streak > 0
-            ? `${streak}`
-            : "none yet",
-    },
+    begin > 1
+      ? { label: "Weeks you train", value: `${weeksTraining} of ${program.weeks}` }
+      : streak > 0
+        ? { label: "Workout streak", value: `${streak}` }
+        : runs.length > 0
+          ? {
+              label: "Runs logged",
+              value: `${runs.length}`,
+            }
+          : { label: "Workout streak", value: "none yet" },
   ];
 
   return (

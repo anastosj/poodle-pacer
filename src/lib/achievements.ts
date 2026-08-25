@@ -47,17 +47,22 @@ const STREAK_TARGETS: { id: string; title: string; days: number }[] = [
   { id: "streak-50", title: "50-day streak", days: 50 },
 ];
 
-/** Best average-pace time over `targetMiles`, from any plan's logged runs. */
-function bestEffortSeconds(plans: Plan[], targetMiles: number): number | null {
+/** Best average-pace time over `targetMiles`, from every logged or synced run. */
+function bestEffortSeconds(state: RunnerState, targetMiles: number): number | null {
   let best: number | null = null;
-  for (const plan of plans) {
+  const consider = (miles: number | undefined, seconds: number | undefined) => {
+    if (!miles || miles < targetMiles || !seconds) return;
+    const projected = (seconds / miles) * targetMiles;
+    if (best === null || projected < best) best = projected;
+  };
+  for (const plan of state.plans) {
     for (const log of Object.values(plan.logs)) {
-      if (!log.completed || !log.miles || log.miles < targetMiles) continue;
-      const seconds = logSeconds(log);
-      if (!seconds) continue;
-      const projected = (seconds / log.miles) * targetMiles;
-      if (best === null || projected < best) best = projected;
+      if (!log.completed) continue;
+      consider(log.miles, logSeconds(log));
     }
+  }
+  for (const run of state.runs ?? []) {
+    consider(run.miles, run.seconds);
   }
   return best;
 }
@@ -96,7 +101,7 @@ export function computeAchievements(state: RunnerState): Achievement[] {
   const program = programs.find((p) => p.id === plan.programId) ?? programs[0];
 
   const speed: Achievement[] = SPEED_TARGETS.map((t) => {
-    const seconds = bestEffortSeconds(state.plans, t.miles);
+    const seconds = bestEffortSeconds(state, t.miles);
     return {
       id: t.id,
       title: t.title,

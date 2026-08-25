@@ -41,7 +41,7 @@ export default function ProgressPage() {
         <RacePredictorCard plan={plan} program={program} />
       )}
 
-      <InsightsPanel plan={plan} program={program} />
+      <InsightsPanel plan={plan} program={program} runs={state.runs ?? []} />
 
       <AchievementsPanel state={state} />
 

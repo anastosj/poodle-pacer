@@ -25,7 +25,7 @@ import {
   currentRowIndex,
   formatRowLabel,
 } from "@/lib/calendar";
-import { addDays, isSameDay, startOfToday } from "@/lib/dates";
+import { addDays, fromISO, isSameDay, startOfToday, toLocalISO } from "@/lib/dates";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
 import {
   Program,
@@ -38,7 +38,15 @@ import {
   parseDuration,
   paceSecondsPerMile,
 } from "@/lib/pace";
-import { Feel, Plan, RunLog, logSeconds } from "@/lib/store";
+import {
+  Feel,
+  Plan,
+  RunLog,
+  SyncedRun,
+  logSeconds,
+  matchedActivityIds,
+  runAsLog,
+} from "@/lib/store";
 import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
 type ViewMode = "week" | "program";
@@ -425,7 +433,11 @@ function DayCell({
   );
 }
 
-function rowSummary(row: CalendarRow, plan: Plan) {
+function rowSummary(
+  row: CalendarRow,
+  plan: Plan,
+  extraByIso: Map<string, SyncedRun[]>
+) {
   let done = 0;
   let total = 0;
   let miles = 0;
@@ -443,7 +455,77 @@ function rowSummary(row: CalendarRow, plan: Plan) {
         : 0;
     }
   }
+  for (let i = 0; i < 7; i++) {
+    const iso = toLocalISO(addDays(row.start, i));
+    for (const run of extraByIso.get(iso) ?? []) miles += run.miles;
+  }
   return { done, total, miles: Math.round(miles * 10) / 10 };
+}
+
+/** A synced run outside the plan — or with no plan at all — kept in the log. */
+function ExtraRunCard({
+  run,
+  date,
+  isToday,
+  onOpen,
+}: {
+  run: SyncedRun;
+  date: Date;
+  isToday: boolean;
+  onOpen: () => void;
+}) {
+  const pace = paceSecondsPerMile(run.seconds, run.miles);
+  return (
+    <button
+      onClick={onOpen}
+      title="See splits, route, and heart rate"
+      className={`relative flex w-full gap-3 rounded-sm border-3 border-outline bg-surface p-2.5 text-left text-body shadow-card transition hover:bg-lilac md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
+        isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""
+      }`}
+    >
+      <div className="flex shrink-0 items-start pt-0.5 md:hidden">
+        <RunIcon size={50} />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-ink-soft">
+            <span className="md:hidden">
+              {date.toLocaleDateString(undefined, { weekday: "short" })}{" "}
+            </span>
+            {date.toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-meta font-bold text-orange-700">
+            <BoltIcon size={11} />
+            Run log
+          </span>
+        </div>
+        <div className="mt-0.5 flex items-start gap-1.5 md:mt-1">
+          <span
+            className="min-w-0 flex-1 truncate font-display text-meta uppercase leading-tight tracking-tight"
+            title={run.name}
+          >
+            {run.name ?? "Run"}
+          </span>
+          <span className="-mr-0.5 hidden shrink-0 self-start md:block">
+            <RunIcon size={34} />
+          </span>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-meta tabular-nums text-ink-soft">
+          <span>
+            {run.miles} mi · {formatDurationShort(run.seconds)}
+          </span>
+          {pace && (
+            <span className="font-bold text-primary underline underline-offset-2">
+              {formatPacePerMile(pace)}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
 }
 
 function WeekdayHeader() {
@@ -465,10 +547,13 @@ export default function CalendarGrid({
   plan,
   program,
   updatePlan,
+  runs = [],
 }: {
   plan: Plan;
   program: Program;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
+  /** Every synced run; ones already matched to a plan slot are filtered out. */
+  runs?: SyncedRun[];
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   /**
@@ -477,20 +562,36 @@ export default function CalendarGrid({
    * plan opens as a readable list rather than a wall of cells.
    */
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
-  /** The completed day whose detail sheet is showing, if any. */
-  const [detailCell, setDetailCell] = useState<CalendarCell | null>(null);
+  /** The completed day or synced run whose detail sheet is showing, if any. */
+  const [detail, setDetail] = useState<
+    { kind: "cell"; cell: CalendarCell } | { kind: "run"; run: SyncedRun } | null
+  >(null);
   const today = startOfToday();
 
+  // Runs that filled a plan slot already render as that slot's DayCell; the
+  // rest are the free run log, grouped by date.
+  const extraByIso = useMemo(() => {
+    const matched = matchedActivityIds(plan);
+    const byIso = new Map<string, SyncedRun[]>();
+    for (const run of runs) {
+      if (matched.has(run.stravaActivityId)) continue;
+      const list = byIso.get(run.date) ?? [];
+      list.push(run);
+      byIso.set(run.date, list);
+    }
+    return byIso;
+  }, [plan, runs]);
+
   const rows = useMemo(
-    () => buildCalendar(program, plan),
+    () => buildCalendar(program, plan, Array.from(extraByIso.keys())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [program, plan.startDate, plan.beginWeek]
+    [program, plan.startDate, plan.beginWeek, extraByIso]
   );
 
   const [weekIndex, setWeekIndex] = useState(() => currentRowIndex(rows));
-  // The rows only exist once a race date is set, so re-anchor on the current
-  // week whenever the schedule shifts rather than stranding the view on week 1.
-  const anchor = `${plan.startDate ?? ""}:${plan.beginWeek ?? 1}`;
+  // Re-anchor on the current week whenever the schedule shifts (or synced runs
+  // add rows) rather than stranding the view on week 1.
+  const anchor = `${plan.startDate ?? ""}:${plan.beginWeek ?? 1}:${rows.length}`;
   const [anchoredOn, setAnchoredOn] = useState(anchor);
   if (anchoredOn !== anchor) {
     setAnchoredOn(anchor);
@@ -559,27 +660,41 @@ export default function CalendarGrid({
       })),
   });
 
-  const renderCell = (cell: CalendarCell | null, i: number) => {
-    if (!cell) {
-      // Outside the plan: an empty desktop slot, nothing at all when stacked.
+  const renderSlot = (r: CalendarRow, cell: CalendarCell | null, i: number) => {
+    const date = addDays(r.start, i);
+    const extras = extraByIso.get(toLocalISO(date)) ?? [];
+    if (!cell && extras.length === 0) {
+      // Nothing on this day: an empty desktop slot, nothing at all when stacked.
       return <div key={`empty-${i}`} className="hidden md:block" aria-hidden />;
     }
-    const handlers = makeHandlers(cell);
     return (
-      <DayCell
-        key={cell.key}
-        cell={cell}
-        log={plan.logs[cell.key]}
-        isToday={isSameDay(cell.date, today)}
-        isPast={cell.date < today}
-        onOpen={() => setDetailCell(cell)}
-        {...handlers}
-      />
+      <div key={cell?.key ?? `runs-${toLocalISO(date)}`} className="space-y-2">
+        {cell && (
+          <DayCell
+            cell={cell}
+            log={plan.logs[cell.key]}
+            isToday={isSameDay(cell.date, today)}
+            isPast={cell.date < today}
+            onOpen={() => setDetail({ kind: "cell", cell })}
+            {...makeHandlers(cell)}
+          />
+        )}
+        {extras.map((run) => (
+          <ExtraRunCard
+            key={run.stravaActivityId}
+            run={run}
+            date={date}
+            isToday={isSameDay(date, today)}
+            onOpen={() => setDetail({ kind: "run", run })}
+          />
+        ))}
+      </div>
     );
   };
 
-  // No start date yet, so show the program shape, still Sunday-first.
-  if (!plan.startDate) {
+  // No start date yet, so show the program shape, still Sunday-first. Synced
+  // runs still get a real dated calendar above it once any exist.
+  if (!plan.startDate && rows.length === 0) {
     const undated = buildUndatedRows(program);
     return (
       <div className="mt-6 space-y-4">
@@ -634,6 +749,12 @@ export default function CalendarGrid({
 
   return (
     <div className="mt-6">
+      {!plan.startDate && (
+        <p className="mb-2 rounded-sm border-2 border-outline bg-highlight px-4 py-2 text-meta font-bold text-ink">
+          These are your synced runs. Set a race date on the Goals page to lay
+          your training program over this calendar.
+        </p>
+      )}
       {/* Sticky so the way back out of a long plan is always on screen. */}
       <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-1 py-2 backdrop-blur">
         <SegmentedToggle
@@ -702,27 +823,40 @@ export default function CalendarGrid({
 
         {mode === "week" && row && (
           <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-7">
-            {row.cells.map(renderCell)}
+            {row.cells.map((cell, i) => renderSlot(row, cell, i))}
           </div>
         )}
 
-        {detailCell && plan.logs[detailCell.key] && (
+        {detail?.kind === "cell" && plan.logs[detail.cell.key] && (
           <WorkoutDetail
-            log={plan.logs[detailCell.key]}
-            label={detailCell.workout.label}
-            dateLabel={detailCell.date.toLocaleDateString(undefined, {
+            log={plan.logs[detail.cell.key]}
+            label={detail.cell.workout.label}
+            dateLabel={detail.cell.date.toLocaleDateString(undefined, {
               weekday: "long",
               month: "long",
               day: "numeric",
             })}
-            onClose={() => setDetailCell(null)}
+            onClose={() => setDetail(null)}
+          />
+        )}
+
+        {detail?.kind === "run" && (
+          <WorkoutDetail
+            log={runAsLog(detail.run)}
+            label="Synced run"
+            dateLabel={fromISO(detail.run.date).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+            onClose={() => setDetail(null)}
           />
         )}
 
         {mode === "program" && (
           <div className="mt-2 space-y-2">
             {rows.map((r, idx) => {
-              const s = rowSummary(r, plan);
+              const s = rowSummary(r, plan, extraByIso);
               const isCurrent = idx === currentRowIndex(rows);
               const rowInPast = addDays(r.start, 6) < today;
               const open = isRowOpen(idx, isCurrent);
@@ -757,16 +891,18 @@ export default function CalendarGrid({
                         wk {r.weeks.join(" & ")}
                       </span>
                     )}
-                    {s.total > 0 && (
+                    {(s.total > 0 || s.miles > 0) && (
                       <span
                         className={
-                          rowInPast && s.done < s.total
+                          rowInPast && s.total > 0 && s.done < s.total
                             ? "text-accent"
                             : "text-ink-soft"
                         }
                       >
-                        {s.done}/{s.total} done
-                        {s.miles > 0 ? ` · ${s.miles} mi` : ""}
+                        {s.total > 0 ? `${s.done}/${s.total} done` : ""}
+                        {s.miles > 0
+                          ? `${s.total > 0 ? " · " : ""}${s.miles} mi`
+                          : ""}
                       </span>
                     )}
                     {s.total > 0 && s.done === s.total && (
@@ -780,7 +916,7 @@ export default function CalendarGrid({
                   </button>
                   {open && (
                     <div className="mt-1 grid grid-cols-1 gap-2 md:grid-cols-7">
-                      {r.cells.map(renderCell)}
+                      {r.cells.map((cell, i) => renderSlot(r, cell, i))}
                     </div>
                   )}
                 </div>

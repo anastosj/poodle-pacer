@@ -69,18 +69,29 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
  * Lay the plan out on a real calendar: rows are Sunday → Saturday, and each
  * workout sits on its actual date. A program week (Mon → Sun) therefore
  * straddles two rows, which is what makes the grid line up with a wall calendar.
+ *
+ * `extraDates` are ISO dates that must be visible even though no workout is
+ * scheduled on them — synced runs outside the plan window, or with no plan at
+ * all. The grid stretches to cover them, but weeks with neither a workout nor
+ * a run are dropped so a far-off race doesn't produce a wall of empty rows.
  */
-export function buildCalendar(program: Program, plan: Plan): CalendarRow[] {
+export function buildCalendar(
+  program: Program,
+  plan: Plan,
+  extraDates: string[] = []
+): CalendarRow[] {
   const cells = planCells(program, plan);
-  if (cells.length === 0) return [];
+  const extras = new Set(extraDates);
+  const dates = [
+    ...cells.map((c) => c.date),
+    ...extraDates.map(fromISO),
+  ].sort((a, b) => a.getTime() - b.getTime());
+  if (dates.length === 0) return [];
 
   const byIso = new Map(cells.map((c) => [c.iso, c]));
-  const first = cells[0].date;
-  const last = cells[cells.length - 1].date;
-
-  const gridStart = startOfCalendarWeek(first);
+  const gridStart = startOfCalendarWeek(dates[0]);
   // Pad forward to the Saturday on or after the final day.
-  const gridEnd = addDays(startOfCalendarWeek(last), 6);
+  const gridEnd = addDays(startOfCalendarWeek(dates[dates.length - 1]), 6);
 
   const rows: CalendarRow[] = [];
   for (
@@ -89,12 +100,16 @@ export function buildCalendar(program: Program, plan: Plan): CalendarRow[] {
     rowStart = addDays(rowStart, 7)
   ) {
     const rowCells: (CalendarCell | null)[] = [];
+    let hasExtra = false;
     for (let i = 0; i < 7; i++) {
-      rowCells.push(byIso.get(toLocalISO(addDays(rowStart, i))) ?? null);
+      const iso = toLocalISO(addDays(rowStart, i));
+      rowCells.push(byIso.get(iso) ?? null);
+      if (extras.has(iso)) hasExtra = true;
     }
     const weeks = Array.from(
       new Set(rowCells.filter(Boolean).map((c) => c!.week))
     ).sort((a, b) => a - b);
+    if (weeks.length === 0 && !hasExtra) continue;
     rows.push({ start: rowStart, cells: rowCells, weeks });
   }
   return rows;

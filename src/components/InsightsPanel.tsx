@@ -16,7 +16,7 @@ import {
   paceDelta,
 } from "@/lib/pace";
 import { Program } from "@/lib/programs";
-import { Plan } from "@/lib/store";
+import { Plan, SyncedRun } from "@/lib/store";
 
 const SCOPES: MetricScope[] = ["week", "month", "plan"];
 
@@ -172,16 +172,18 @@ function completionTone(s: PeriodStats) {
 export default function InsightsPanel({
   plan,
   program,
+  runs = [],
 }: {
   plan: Plan;
   program: Program;
+  runs?: SyncedRun[];
 }) {
   const [scope, setScope] = useState<MetricScope>("week");
   // Four tiles answer "how is it going"; the rest are detail worth a click.
   const [expanded, setExpanded] = useState(false);
   const insights = useMemo(
-    () => computeInsights(plan, program, scope),
-    [plan, program, scope]
+    () => computeInsights(plan, program, scope, runs),
+    [plan, program, scope, runs]
   );
 
   if (!insights) {
@@ -191,7 +193,8 @@ export default function InsightsPanel({
           Performance
         </h2>
         <p className="mt-2 type-body text-ink-muted">
-          Set a race date to start tracking pace, mileage, and heart-rate trends.
+          Sync a run or set a race date to start tracking pace, mileage, and
+          heart-rate trends.
         </p>
       </section>
     );
