@@ -15,7 +15,14 @@ export function stravaConfigured(): boolean {
 }
 
 export function hasActivityScope(scope: string | null | undefined): boolean {
-  return Boolean(scope?.split(",").includes(ACTIVITY_SCOPE));
+  // We ask for "read,activity:read_all", but Strava hands the granted scope
+  // back space-separated ("activity:read_all read"), so accept either.
+  return Boolean(
+    scope
+      ?.split(/[,\s]+/)
+      .filter(Boolean)
+      .includes(ACTIVITY_SCOPE)
+  );
 }
 
 export interface StravaTokenResponse {
