@@ -1,4 +1,5 @@
 import { ActivityKind, activityKind } from "@/lib/activities";
+import { fromISO } from "@/lib/dates";
 import { Program, Workout, workoutTracksRunningMiles } from "@/lib/programs";
 import {
   RunnerState,
@@ -30,10 +31,22 @@ export interface SyncOutcome {
   matched: number;
 }
 
+/**
+ * The calendar date an activity happened on, as the athlete experienced it.
+ *
+ * Strava sends `start_date_local`: local wall-clock time, but stamped with a
+ * trailing Z as though it were UTC. Reading the date off the string is the only
+ * safe way to take it; `new Date(...)` would treat that Z as real and shift the
+ * day for anyone west of Greenwich.
+ */
+function localDateOf(run: FetchedRun): string {
+  return run.startDate.slice(0, 10);
+}
+
 function toSyncedRun(run: FetchedRun): SyncedRun {
   return {
     stravaActivityId: run.id,
-    date: run.startDate.slice(0, 10),
+    date: localDateOf(run),
     name: run.name,
     sportType: run.sportType,
     miles: run.miles,
@@ -45,13 +58,22 @@ function toSyncedRun(run: FetchedRun): SyncedRun {
   };
 }
 
+/**
+ * Which plan slot a calendar date falls in, both dates taken as local midnight.
+ *
+ * Rounding rather than flooring the day count matters across a daylight saving
+ * change, where two local midnights are 23 or 25 hours apart and a floor would
+ * put the whole rest of the plan out by a day.
+ */
 function weekAndDayFor(
-  date: Date,
+  iso: string,
   startDate: string,
   weeks: number
 ): { week: number; dayIndex: number } | null {
-  const start = new Date(startDate + "T00:00:00");
-  const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
+  const start = fromISO(startDate);
+  const diffDays = Math.round(
+    (fromISO(iso).getTime() - start.getTime()) / 86400000
+  );
   if (diffDays < 0 || diffDays >= weeks * 7) return null;
   return { week: Math.floor(diffDays / 7) + 1, dayIndex: diffDays % 7 };
 }
@@ -91,7 +113,7 @@ export function applySyncedRuns(
     logs = { ...plan.logs };
     for (const run of fetched) {
       const slot = weekAndDayFor(
-        new Date(run.startDate),
+        localDateOf(run),
         plan.startDate,
         program.weeks
       );
