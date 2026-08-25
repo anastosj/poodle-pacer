@@ -12,6 +12,13 @@ import {
 
 export type Feel = "good" | "medium" | "bad";
 
+/** One wording, used by the picker and the workout detail alike. */
+export const FEEL_LABEL: Record<Feel, string> = {
+  good: "Felt good!",
+  medium: "Felt okay",
+  bad: "Felt ruff",
+};
+
 export interface RunLog {
   completed: boolean;
   miles?: number;

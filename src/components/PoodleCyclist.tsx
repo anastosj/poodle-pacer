@@ -132,33 +132,45 @@ export default function PoodleCyclist({
         <circle cx="10" cy="11" r="4.5" fill={FUR} stroke={FUR_EDGE} strokeWidth="1.5" />
       </g>
 
-      {/* back legs, reaching the pedals and turning with them */}
-      <g transform="translate(26, 32)">
-        <g
-          className={riding ? "poodle-crank" : ""}
-          style={{ transformOrigin: "0px 0px" }}
-        >
-          {/* Counter-rotated so the paw stays flat while the crank goes round. */}
-          <g transform="translate(0, -4.5)">
-            <path
-              d="M -4 -10 L 0 0"
-              stroke={FUR}
-              strokeWidth="4"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </g>
-          <g transform="translate(0, 4.5)">
-            <path
-              d="M -4 -10 L 0 0"
-              stroke={FUR}
-              strokeWidth="4"
-              strokeLinecap="round"
-              fill="none"
-              opacity="0.85"
-            />
-          </g>
-        </g>
+      {/* Back legs pivot at the hip, where they join the body — not at the
+          bottom bracket, which would swing the whole leg round like a spoke.
+          Haunch, knee, then paw down at the pedals; the two are half a turn
+          apart so one drives while the other lifts. */}
+      <g
+        className={riding ? "poodle-pedal" : ""}
+        style={{ transformOrigin: "23px 21px" }}
+      >
+        <path
+          d="M 23 21 L 21.5 27 L 26 31.5"
+          stroke={FUR}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <path
+          d="M 23 21 L 21.5 27 L 26 31.5"
+          stroke={FUR_EDGE}
+          strokeWidth="0.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity="0.55"
+        />
+      </g>
+      <g
+        className={riding ? "poodle-pedal-off" : ""}
+        style={{ transformOrigin: "23px 21px" }}
+      >
+        <path
+          d="M 23 21 L 25.5 27 L 26 32.5"
+          stroke={FUR}
+          strokeWidth="3.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity="0.85"
+        />
       </g>
 
       {/* body, leaning forward into the ride */}

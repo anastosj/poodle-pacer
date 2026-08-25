@@ -45,6 +45,7 @@ import {
   paceSecondsPerMile,
 } from "@/lib/pace";
 import {
+  FEEL_LABEL,
   Feel,
   Plan,
   RunLog,
@@ -57,10 +58,14 @@ import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
 type ViewMode = "week" | "program";
 
-const FEELS: { value: Feel; label: string }[] = [
-  { value: "good", label: "Felt good" },
-  { value: "medium", label: "Felt okay" },
-  { value: "bad", label: "Felt rough" },
+/**
+ * Written out rather than built from the value, so Tailwind's scanner sees
+ * every class it has to generate.
+ */
+const FEELS: { value: Feel; on: string; hover: string }[] = [
+  { value: "good", on: "bg-mood-good", hover: "hover:bg-mood-good" },
+  { value: "medium", on: "bg-mood-okay", hover: "hover:bg-mood-okay" },
+  { value: "bad", on: "bg-mood-rough", hover: "hover:bg-mood-rough" },
 ];
 
 /** Rest days render the sleeping poodle instead, so "rest" is never used here. */
@@ -358,22 +363,36 @@ function DayCell({
             className="mt-1 flex items-center gap-0.5"
             aria-label="How did it feel?"
           >
-            {FEELS.map((f) => (
-              <button
-                key={f.value}
-                title={f.label}
-                aria-label={f.label}
-                aria-pressed={log?.feel === f.value}
-                onClick={() => onFeel(f.value)}
-              className={`focus-pouf rounded-full p-0.5 transition ${
-                  log?.feel === f.value
-                    ? "bg-headband-light ring-1 ring-headband"
-                    : "opacity-40 hover:opacity-100"
-                }`}
-              >
-                <MoodIcon mood={f.value} size={18} />
-              </button>
-            ))}
+            {FEELS.map((f) => {
+              const picked = log?.feel === f.value;
+              return (
+                <button
+                  key={f.value}
+                  title={FEEL_LABEL[f.value]}
+                  aria-label={FEEL_LABEL[f.value]}
+                  aria-pressed={picked}
+                  onClick={() => onFeel(f.value)}
+                  // Grey and unringed until you reach for it: hovering colours
+                  // the one under the cursor, so the three stay tellable apart
+                  // before anything is chosen as well as after.
+                  className={`focus-pouf group rounded-full border-2 p-0.5 transition ${f.hover} ${
+                    picked
+                      ? `${f.on} border-outline`
+                      : "border-transparent hover:border-outline"
+                  }`}
+                >
+                  <MoodIcon
+                    mood={f.value}
+                    size={22}
+                    className={`transition ${
+                      picked
+                        ? ""
+                        : "opacity-60 grayscale group-hover:opacity-100 group-hover:grayscale-0"
+                    }`}
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -547,22 +566,33 @@ function ExtraRunCard({
           className="pointer-events-auto mt-1 flex items-center gap-0.5"
           aria-label="How did it feel?"
         >
-          {FEELS.map((f) => (
-            <button
-              key={f.value}
-              title={f.label}
-              aria-label={f.label}
-              aria-pressed={run.feel === f.value}
-              onClick={() => onFeel(f.value)}
-              className={`focus-pouf rounded-full p-0.5 transition ${
-                run.feel === f.value
-                  ? "bg-headband-light ring-1 ring-headband"
-                  : "opacity-40 hover:opacity-100"
-              }`}
-            >
-              <MoodIcon mood={f.value} size={18} />
-            </button>
-          ))}
+          {FEELS.map((f) => {
+            const picked = run.feel === f.value;
+            return (
+              <button
+                key={f.value}
+                title={FEEL_LABEL[f.value]}
+                aria-label={FEEL_LABEL[f.value]}
+                aria-pressed={picked}
+                onClick={() => onFeel(f.value)}
+                className={`focus-pouf group rounded-full border-2 p-0.5 transition ${f.hover} ${
+                  picked
+                    ? `${f.on} border-outline`
+                    : "border-transparent hover:border-outline"
+                }`}
+              >
+                <MoodIcon
+                  mood={f.value}
+                  size={22}
+                  className={`transition ${
+                    picked
+                      ? ""
+                      : "opacity-60 grayscale group-hover:opacity-100 group-hover:grayscale-0"
+                  }`}
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
