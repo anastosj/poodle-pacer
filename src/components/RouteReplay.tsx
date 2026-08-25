@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePoint, RouteStreams } from "@/app/api/strava/activity/[id]/streams/route";
+import MapTiles from "@/components/MapTiles";
 import PoodleCyclist from "@/components/PoodleCyclist";
 import PoodleRunner from "@/components/PoodleRunner";
 import { ActivityKind, formatSpeed } from "@/lib/activities";
@@ -336,6 +337,7 @@ export default function RouteReplay({
   if (!geometry || !view || !frame) return null;
 
   const finished = elapsed >= duration;
+  const mapbox = tiles && !tilesFailed;
   const playedPct = duration > 0 ? (elapsed / duration) * 100 : 0;
   const mapSrc =
     `/api/map?center=${view.center.lng.toFixed(6)},${view.center.lat.toFixed(6)}` +
@@ -355,7 +357,9 @@ export default function RouteReplay({
   return (
     <div>
       <div className="relative overflow-hidden rounded-2xl bg-poodle-cream ring-1 ring-poodle-fur">
-        {tiles && !tilesFailed && (
+        {/* Mapbox when a token is set, because it labels streets better;
+            OpenStreetMap otherwise, so there is always a map under the route. */}
+        {mapbox ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={mapSrc}
@@ -365,12 +369,14 @@ export default function RouteReplay({
             className="block h-auto w-full"
             onError={() => setTilesFailed(true)}
           />
+        ) : (
+          <div style={{ aspectRatio: `${MAP_W} / ${MAP_H}` }} className="w-full">
+            <MapTiles view={view} />
+          </div>
         )}
         <svg
           viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-          className={
-            tiles && !tilesFailed ? "absolute inset-0 h-full w-full" : "block h-auto w-full"
-          }
+          className="absolute inset-0 h-full w-full"
           role="img"
           aria-label={`Replay of the route run, ${miles} miles`}
         >
@@ -491,6 +497,22 @@ export default function RouteReplay({
         {streams
           ? "Replayed at the speed actually recorded, from Strava's GPS trace."
           : "Replayed at an even speed: this activity has no second-by-second trace."}
+        {/* Required by OpenStreetMap's tile usage policy. */}
+        {!mapbox && (
+          <>
+            {" "}
+            Map data ©{" "}
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline"
+            >
+              OpenStreetMap
+            </a>{" "}
+            contributors.
+          </>
+        )}
       </p>
     </div>
   );
