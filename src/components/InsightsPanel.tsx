@@ -10,6 +10,16 @@ import {
   consistencyOf,
 } from "@/lib/insights";
 import {
+  ActivityKind,
+  KIND_LABEL,
+  KIND_NOUN,
+  defaultKind,
+  formatSpeed,
+  kindsPresent,
+  speedLabel,
+  tracksDistance,
+} from "@/lib/activities";
+import {
   formatDuration,
   formatPace,
   formatPacePerMile,
@@ -53,7 +63,13 @@ function Tile({
 }
 
 /** Miles as bars with average pace overlaid as a line. */
-function TrendChart({ points }: { points: TrendPoint[] }) {
+function TrendChart({
+  points,
+  kind,
+}: {
+  points: TrendPoint[];
+  kind: ActivityKind;
+}) {
   /*
    * Pace used to be readable only from a <title> on the 3.5px dots, which is
    * not a hit target anyone finds. The whole column is now hoverable, and
@@ -165,7 +181,9 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
             tabIndex={0}
             role="button"
             aria-label={`${p.label}: ${p.miles} miles${
-              p.pace !== undefined ? `, ${formatPacePerMile(p.pace)}` : ""
+              p.pace !== undefined
+                ? `, ${formatSpeed(kind, 1, p.pace) ?? formatPacePerMile(p.pace)}`
+                : ""
             }${p.avgHeartRate ? `, ${p.avgHeartRate} bpm average` : ""}`}
             onMouseEnter={() => setActive(i)}
             onMouseLeave={() => setActive((a) => (a === i ? null : a))}
@@ -185,7 +203,11 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
           <div className="tabular-nums text-ink-soft">
             {points[active].miles} mi
             {points[active].pace !== undefined && (
-              <> · {formatPacePerMile(points[active].pace)}</>
+              <>
+                {" · "}
+                {formatSpeed(kind, 1, points[active].pace) ??
+                  formatPacePerMile(points[active].pace)}
+              </>
             )}
           </div>
           {points[active].avgHeartRate && (
@@ -204,10 +226,26 @@ function paceTone(delta: ReturnType<typeof paceDelta>) {
   return delta.faster ? ("good" as const) : ("warn" as const);
 }
 
-function paceSub(delta: ReturnType<typeof paceDelta>, scope: MetricScope) {
+/**
+ * How the speed moved, in the unit the tile above it is showing: a time gap
+ * for pace-based sports, an mph gap for riding.
+ */
+function paceSub(
+  delta: ReturnType<typeof paceDelta>,
+  scope: MetricScope,
+  kind: ActivityKind,
+  current?: number,
+  previous?: number
+) {
   if (!delta || delta.seconds < 1) return undefined;
   const period = scope === "week" ? "last week" : "last month";
-  return `${delta.faster ? "▼" : "▲"} ${formatPace(delta.seconds)} vs ${period}`;
+  const arrow = delta.faster ? "▼" : "▲";
+  if (kind === "ride" && current && previous) {
+    const mph = Math.abs(3600 / current - 3600 / previous);
+    if (mph < 0.05) return undefined;
+    return `${arrow} ${mph.toFixed(1)} mph vs ${period}`;
+  }
+  return `${arrow} ${formatPace(delta.seconds)} vs ${period}`;
 }
 
 function completionTone(s: PeriodStats) {
@@ -230,10 +268,28 @@ export default function InsightsPanel({
   const [scope, setScope] = useState<MetricScope>("month");
   // Four tiles answer "how is it going"; the rest are detail worth a click.
   const [expanded, setExpanded] = useState(false);
-  const insights = useMemo(
-    () => computeInsights(plan, program, scope, runs),
-    [plan, program, scope, runs]
+
+  /*
+   * A running plan is about running, so it opens there and offers no choice
+   * unless other sports have actually been logged. Triathlon plans and runners
+   * with no plan open on whatever they have been doing most.
+   */
+  const planIsRunning = Boolean(plan.startDate) && program.category === "running";
+  const available = useMemo(() => kindsPresent(runs), [runs]);
+  const opening = useMemo(
+    () => defaultKind(runs, planIsRunning),
+    [runs, planIsRunning]
   );
+  const [chosen, setChosen] = useState<ActivityKind | null>(null);
+  const kind = chosen ?? opening;
+
+  const insights = useMemo(
+    () => computeInsights(plan, program, scope, runs, kind),
+    [plan, program, scope, runs, kind]
+  );
+
+  const noun = KIND_NOUN[kind];
+  const showsDistance = tracksDistance(kind);
 
   if (!insights) {
     return (
@@ -282,51 +338,78 @@ export default function InsightsPanel({
         </div>
       </div>
 
+      {/* Only worth asking which sport when more than one has been logged. */}
+      {available.length > 1 && (
+        <div className="mt-3 inline-flex flex-wrap gap-1 rounded-full border-2 border-outline bg-lilac p-1">
+          {available.map((k) => (
+            <button
+              key={k}
+              onClick={() => setChosen(k)}
+              aria-pressed={kind === k}
+              className={`focus-pouf rounded-full px-3 py-1 text-meta font-bold transition ${
+                kind === k
+                  ? "bg-ink text-highlight"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {KIND_LABEL[k]}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {showsDistance && (
+          <Tile
+            label="Miles"
+            value={`${current.miles}`}
+            sub={
+              current.plannedMiles > 0
+                ? `of ${current.plannedMiles} planned`
+                : undefined
+            }
+          />
+        )}
         <Tile
-          label="Miles"
-          value={`${current.miles}`}
-          sub={
-            current.plannedMiles > 0
-              ? `of ${current.plannedMiles} planned`
-              : undefined
-          }
-        />
-        <Tile
-          label="Avg pace"
-          value={formatPacePerMile(current.avgPace)}
-          sub={paceSub(delta, scope)}
+          label={speedLabel(kind)}
+          value={formatSpeed(kind, 1, current.avgPace) ?? "–"}
+          sub={paceSub(delta, scope, kind, current.avgPace, previous?.avgPace)}
           tone={paceTone(delta)}
         />
         <Tile
-          label="Time on feet"
+          label={kind === "run" ? "Time on feet" : "Time"}
           value={current.seconds > 0 ? formatDuration(current.seconds) : "–"}
           sub={
             current.runCount > 0
-              ? `${current.runCount} run${current.runCount === 1 ? "" : "s"}`
+              ? `${current.runCount} ${noun}${current.runCount === 1 ? "" : "s"}`
               : undefined
           }
         />
-        <Tile
-          label="Completed"
-          value={
-            current.due > 0
-              ? `${current.completed}/${current.due}`
-              : `0/0`
-          }
-          sub={
-            current.due > 0
-              ? `${Math.round(consistencyOf(current) * 100)}% consistency`
-              : "nothing due yet"
-          }
-          tone={completionTone(current)}
-        />
+        {/* Only the plan's own sport has anything scheduled to complete. */}
+        {current.scheduled > 0 && (
+          <Tile
+            label="Completed"
+            value={
+              current.due > 0
+                ? `${current.completed}/${current.due}`
+                : `0/0`
+            }
+            sub={
+              current.due > 0
+                ? `${Math.round(consistencyOf(current) * 100)}% consistency`
+                : "nothing due yet"
+            }
+            tone={completionTone(current)}
+          />
+        )}
         {expanded && (
           <>
-            <Tile
-              label="Longest run"
-              value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
-            />
+            {showsDistance && (
+              <Tile
+                label={`Longest ${noun}`}
+                value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
+              />
+            )}
             {hasHeartRate && (
               <Tile
                 label="Avg heart rate"
@@ -363,14 +446,15 @@ export default function InsightsPanel({
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-0.5 w-3 bg-primary" />
-              Avg pace (higher = faster)
+              {speedLabel(kind)} (higher = faster)
             </span>
           </div>
-          <TrendChart points={trend} />
+          <TrendChart points={trend} kind={kind} />
         </div>
       ) : (
         <p className="mt-4 text-meta text-ink-soft">
-          Log a run, or connect Strava, to see pace and mileage trends here.
+          Log {kind === "run" ? "a run" : `a ${noun}`}, or connect Strava, to
+          see trends here.
         </p>
       )}
 

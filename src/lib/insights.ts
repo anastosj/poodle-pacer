@@ -1,4 +1,4 @@
-import { countsAsRunning } from "@/lib/activities";
+import { ActivityKind, activityKind } from "@/lib/activities";
 import { CalendarCell, planCells } from "@/lib/calendar";
 import {
   addDays,
@@ -99,7 +99,8 @@ function summarize(
   logs: Record<string, RunLog>,
   runs: SyncedRun[],
   start: Date,
-  end: Date
+  end: Date,
+  kind: ActivityKind
 ): PeriodStats {
   const stats = EMPTY(start, end);
 
@@ -159,7 +160,7 @@ function summarize(
     if (run.maxHeartRate) {
       stats.maxHeartRate = Math.max(stats.maxHeartRate ?? 0, run.maxHeartRate);
     }
-    if (!countsAsRunning(run.sportType)) continue;
+    if (activityKind(run.sportType) !== kind) continue;
 
     stats.runCount += 1;
     stats.miles += run.miles;
@@ -223,12 +224,13 @@ function buildTrend(
   cells: CalendarCell[],
   logs: Record<string, RunLog>,
   runs: SyncedRun[],
-  window: { start: Date; end: Date }
+  window: { start: Date; end: Date },
+  kind: ActivityKind
 ): TrendPoint[] {
   const inWindow = within(cells, window.start, window.end);
-  // The trend plots mileage and pace, so only running belongs on it.
-  const runsInWindow = runsWithin(runs, window.start, window.end).filter((r) =>
-    countsAsRunning(r.sportType)
+  // The trend plots distance and speed, so only the chosen sport belongs.
+  const runsInWindow = runsWithin(runs, window.start, window.end).filter(
+    (r) => activityKind(r.sportType) === kind
   );
 
   if (scope === "week") {
@@ -282,7 +284,7 @@ function buildTrend(
     const bucket = within(inWindow, weekStart, weekEnd);
     const bucketRuns = runsWithin(runsInWindow, weekStart, weekEnd);
     if (bucket.length === 0 && bucketRuns.length === 0) continue;
-    const s = summarize(bucket, logs, bucketRuns, weekStart, weekEnd);
+    const s = summarize(bucket, logs, bucketRuns, weekStart, weekEnd, kind);
     points.push({
       label: weekStart.toLocaleDateString(undefined, {
         month: "numeric",
@@ -300,15 +302,29 @@ export function computeInsights(
   plan: Plan,
   program: Program,
   scope: MetricScope,
-  runs: SyncedRun[] = []
+  runs: SyncedRun[] = [],
+  kind: ActivityKind = "run"
 ): Insights | null {
-  const cells = plan.startDate ? planCells(program, plan) : [];
-  // Runs already matched to a slot are counted through that slot's log.
+  /*
+   * Running is the sport the plan is written in, so it reads the schedule: its
+   * miles come from plan slots as well as synced runs, and it can report what
+   * was completed against what was due.
+   *
+   * Other sports have no slots of their own here, so they are measured purely
+   * from what was synced. That also means taking every activity of that sport,
+   * including any that filled a cross-training slot, since the slots are not
+   * being counted on this view.
+   */
+  const planned = kind === "run";
+  const cells = planned && plan.startDate ? planCells(program, plan) : [];
   const matched = matchedActivityIds(plan);
-  const extraRuns = runs.filter((r) => !matched.has(r.stravaActivityId));
+  const extraRuns = planned
+    ? // Runs already matched to a slot are counted through that slot's log.
+      runs.filter((r) => !matched.has(r.stravaActivityId))
+    : runs.filter((r) => activityKind(r.sportType) === kind);
   if (cells.length === 0 && extraRuns.length === 0) return null;
   const logs =
-    plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
+    planned && plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
       ? plan.logs
       : {};
 
@@ -323,7 +339,8 @@ export function computeInsights(
     logs,
     runsWithin(extraRuns, window.start, window.end),
     window.start,
-    window.end
+    window.end,
+    kind
   );
 
   let previous: PeriodStats | undefined;
@@ -335,13 +352,13 @@ export function computeInsights(
     const prevCells = within(cells, prevStart, prevEnd);
     const prevRuns = runsWithin(extraRuns, prevStart, prevEnd);
     if (prevCells.length > 0 || prevRuns.length > 0) {
-      previous = summarize(prevCells, logs, prevRuns, prevStart, prevEnd);
+      previous = summarize(prevCells, logs, prevRuns, prevStart, prevEnd, kind);
     }
   }
 
   return {
     current,
     previous,
-    trend: buildTrend(scope, cells, logs, extraRuns, window),
+    trend: buildTrend(scope, cells, logs, extraRuns, window, kind),
   };
 }
