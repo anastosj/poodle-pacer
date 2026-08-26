@@ -124,6 +124,63 @@ const week = (number: number, days: Workout[]): ProgramWeek => ({
   days,
 });
 
+/**
+ * Whether a scheduled workout involves a given sport at all.
+ *
+ * A brick is a bike and a run, and the multi-sport days are a swim plus one or
+ * both of the others, so those days count towards more than one sport. This is
+ * what lets a triathlon plan report progress per discipline instead of folding
+ * everything into running.
+ */
+export function workoutIncludes(
+  workout: Workout,
+  sport: "running" | "cycling" | "swimming"
+): boolean {
+  const { type } = workout;
+  if (type === "rest") return false;
+  if (type === "race") {
+    // A triathlon race is all three; a running race is only running.
+    return workout.sport === "triathlon" || sport === "running";
+  }
+  if (sport === "running") {
+    return (
+      type === "run" || type === "run-or-cross" || type === "brick" ||
+      type === "multi"
+    );
+  }
+  if (sport === "cycling") return type === "bike" || type === "brick";
+  return type === "swim" || type === "multi";
+}
+
+/** Yards to miles, for storing a swim alongside every other distance. */
+export function yardsToMiles(yards: number): number {
+  return yards / 1760;
+}
+
+export function milesToYards(miles: number): number {
+  return miles * 1760;
+}
+
+/**
+ * The unit a workout's distance is logged in, or null when it is scheduled by
+ * time alone and asking for a distance would be noise.
+ */
+export function loggableDistanceUnit(workout: Workout): "mi" | "yd" | null {
+  if (workout.type === "swim") return "yd";
+  if (workout.type === "bike") return "mi";
+  return workoutTracksRunningMiles(workout) ? "mi" : null;
+}
+
+/**
+ * The sport a manually logged workout should be recorded as, so the log knows
+ * what filled it just as a synced activity would.
+ */
+export function workoutSportType(workout: Workout): string | undefined {
+  if (workout.type === "swim") return "Swim";
+  if (workout.type === "bike") return "Ride";
+  return workoutTracksRunningMiles(workout) ? "Run" : undefined;
+}
+
 export function workoutTracksRunningMiles(workout: Workout): boolean {
   return (
     workout.type === "run" ||
@@ -512,4 +569,20 @@ export function totalPlannedMiles(program: Program): number {
       ),
     0,
   );
+}
+
+/**
+ * The disciplines a program actually schedules. A triathlon plan is three
+ * sports from the first day, whether or not anything has been logged yet, so
+ * its progress view should offer all three.
+ */
+export function programSports(
+  program: Program
+): ("running" | "cycling" | "swimming")[] {
+  const sports = (["running", "cycling", "swimming"] as const).filter((sport) =>
+    program.schedule.some((week) =>
+      week.days.some((day) => workoutIncludes(day, sport))
+    )
+  );
+  return [...sports];
 }

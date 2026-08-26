@@ -178,3 +178,24 @@ export function defaultKind(
   );
   return latest ? activityKind(latest.sportType) : ranked[0].kind;
 }
+
+/**
+ * A distance in the unit its sport is spoken in. Everything is stored in miles;
+ * swimmers count yards, so a swim is converted back for display.
+ */
+export function formatDistance(
+  kind: ActivityKind,
+  miles: number | undefined
+): string | null {
+  if (miles === undefined || miles <= 0) return null;
+  if (kind === "swim") {
+    return `${Math.round(miles * 1760).toLocaleString("en-US")} yd`;
+  }
+  if (!tracksDistance(kind)) return null;
+  return `${Math.round(miles * 100) / 100} mi`;
+}
+
+/** What the distance number is, for labelling a stat tile. */
+export function distanceLabel(kind: ActivityKind): string {
+  return kind === "swim" ? "Yards" : "Miles";
+}

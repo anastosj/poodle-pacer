@@ -13,7 +13,10 @@ import {
   ActivityKind,
   KIND_LABEL,
   KIND_NOUN,
+  TRACKED_KINDS,
   defaultKind,
+  distanceLabel,
+  formatDistance,
   formatSpeed,
   kindsPresent,
   speedLabel,
@@ -25,7 +28,15 @@ import {
   formatPacePerMile,
   paceDelta,
 } from "@/lib/pace";
-import { Program } from "@/lib/programs";
+import { planCells } from "@/lib/calendar";
+import { Program, programSports } from "@/lib/programs";
+
+/** A program discipline, as the activity kind it corresponds to. */
+const SPORT_KIND: Record<"running" | "cycling" | "swimming", ActivityKind> = {
+  running: "run",
+  cycling: "ride",
+  swimming: "swim",
+};
 import { Plan, SyncedRun } from "@/lib/store";
 
 const SCOPES: MetricScope[] = ["week", "month", "plan"];
@@ -275,10 +286,36 @@ export default function InsightsPanel({
    * with no plan open on whatever they have been doing most.
    */
   const planIsRunning = Boolean(plan.startDate) && program.category === "running";
-  const available = useMemo(() => kindsPresent(runs), [runs]);
+
+  /*
+   * What counts as "a sport this runner does" is both what they synced and what
+   * they ticked off in the plan. A triathlete logging by hand has no synced
+   * activities at all, and would otherwise be offered no choice of discipline.
+   */
+  const done = useMemo(() => {
+    const list = runs.map((r) => ({ sportType: r.sportType, date: r.date }));
+    if (plan.startDate) {
+      for (const cell of planCells(program, plan)) {
+        const log = plan.logs[cell.key];
+        if (log?.completed) list.push({ sportType: log.sportType, date: cell.iso });
+      }
+    }
+    return list;
+  }, [runs, plan, program]);
+
+  // A plan's own disciplines are offered from day one, logged or not: a
+  // triathlon plan is three sports whether or not week 1 has happened.
+  const available = useMemo(() => {
+    const fromPlan = plan.startDate
+      ? programSports(program).map((sport) => SPORT_KIND[sport])
+      : [];
+    const all = new Set([...kindsPresent(done), ...fromPlan]);
+    return TRACKED_KINDS.filter((k) => all.has(k));
+  }, [done, plan.startDate, program]);
+
   const opening = useMemo(
-    () => defaultKind(runs, planIsRunning),
-    [runs, planIsRunning]
+    () => defaultKind(done, planIsRunning),
+    [done, planIsRunning]
   );
   const [chosen, setChosen] = useState<ActivityKind | null>(null);
   const kind = chosen ?? opening;
@@ -361,11 +398,15 @@ export default function InsightsPanel({
       <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {showsDistance && (
           <Tile
-            label="Miles"
-            value={`${current.miles}`}
+            label={distanceLabel(kind)}
+            value={
+              kind === "swim"
+                ? Math.round(current.miles * 1760).toLocaleString("en-US")
+                : `${Math.round(current.miles * 10) / 10}`
+            }
             sub={
               current.plannedMiles > 0
-                ? `of ${current.plannedMiles} planned`
+                ? `of ${Math.round(current.plannedMiles * 10) / 10} planned`
                 : undefined
             }
           />
@@ -407,7 +448,7 @@ export default function InsightsPanel({
             {showsDistance && (
               <Tile
                 label={`Longest ${noun}`}
-                value={current.longestRun > 0 ? `${current.longestRun} mi` : "–"}
+                value={formatDistance(kind, current.longestRun) ?? "–"}
               />
             )}
             {hasHeartRate && (

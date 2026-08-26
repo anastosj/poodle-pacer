@@ -7,6 +7,7 @@ import { useApp } from "@/components/AppContext";
 import { computeAchievements } from "@/lib/achievements";
 import {
   ActivityKind,
+  formatDistance,
   formatSpeed,
   speedLabel,
   tracksDistance,
@@ -330,7 +331,10 @@ export default function WorkoutDetail({
 
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {tracksDistance(kind) && (
-            <Stat label="Distance" value={log.miles ? `${log.miles} mi` : "–"} />
+            <Stat
+              label="Distance"
+              value={formatDistance(kind, log.miles) ?? "–"}
+            />
           )}
           <Stat label="Time" value={seconds ? formatDuration(seconds) : "–"} />
           <Stat
