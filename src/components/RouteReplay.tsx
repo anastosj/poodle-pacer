@@ -446,6 +446,25 @@ export default function RouteReplay({
             </g>
           </g>
         </svg>
+        {/*
+          OSM's tile policy wants attribution visible on the map rather than
+          tucked away, so it sits over the corner of the tiles and not in the
+          caption below, where it read as a footnote to the replay.
+        */}
+        {!mapbox && (
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="absolute bottom-0 right-0 px-1.5 py-0.5 text-[10px] font-medium text-ink underline decoration-ink/40 underline-offset-2"
+            // A plain rgba, because Tailwind's opacity modifier does not apply
+            // to these var-based colours and the label has to stay readable
+            // wherever the tiles happen to be dark.
+            style={{ backgroundColor: "rgba(255, 255, 255, 0.85)" }}
+          >
+            © OpenStreetMap contributors
+          </a>
+        )}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -497,22 +516,7 @@ export default function RouteReplay({
         {streams
           ? "Replayed at the speed actually recorded, from Strava's GPS trace."
           : "Replayed at an even speed: this activity has no second-by-second trace."}
-        {/* Required by OpenStreetMap's tile usage policy. */}
-        {!mapbox && (
-          <>
-            {" "}
-            Map data ©{" "}
-            <a
-              href="https://www.openstreetmap.org/copyright"
-              target="_blank"
-              rel="noreferrer noopener"
-              className="underline"
-            >
-              OpenStreetMap
-            </a>{" "}
-            contributors.
-          </>
-        )}
+
       </p>
     </div>
   );
