@@ -99,3 +99,82 @@ export function speedLabel(kind: ActivityKind): string {
   if (kind === "swim") return "Pace /100yd";
   return "Avg pace";
 }
+
+/** Sports the Progress view can break out, in the order they are offered. */
+export const TRACKED_KINDS: ActivityKind[] = ["run", "ride", "swim", "walk"];
+
+export const KIND_LABEL: Record<ActivityKind, string> = {
+  run: "Running",
+  ride: "Cycling",
+  swim: "Swimming",
+  walk: "Walking",
+  other: "Other",
+};
+
+/** What a sport's sessions are called, for counts and "longest" labels. */
+export const KIND_NOUN: Record<ActivityKind, string> = {
+  run: "run",
+  ride: "ride",
+  swim: "swim",
+  walk: "walk",
+  other: "session",
+};
+
+/**
+ * Which sports a runner has actually done, so the Progress view only offers a
+ * choice when there is one to make.
+ */
+export function kindsPresent(
+  activities: { sportType?: string; date: string }[]
+): ActivityKind[] {
+  const seen = new Set(activities.map((a) => activityKind(a.sportType)));
+  return TRACKED_KINDS.filter((k) => seen.has(k));
+}
+
+/**
+ * The sport Progress should open on.
+ *
+ * A running plan is a commitment to running, so that wins outright. Without
+ * one — or on a triathlon plan, where no single sport is the point — go with
+ * whatever the runner is actually doing: the sport they have been most
+ * consistent at recently, and failing a clear leader, whatever they did last.
+ */
+export function defaultKind(
+  activities: { sportType?: string; date: string }[],
+  planIsRunning: boolean
+): ActivityKind {
+  if (planIsRunning) return "run";
+  const available = kindsPresent(activities);
+  if (available.length === 0) return "run";
+  if (available.length === 1) return available[0];
+
+  // "Recently" is the last 60 days: long enough to see a habit, short enough
+  // that a sport given up months ago does not still own the view.
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 60);
+  const cutoffIso = cutoff.toISOString().slice(0, 10);
+
+  const counts = new Map<ActivityKind, number>();
+  for (const a of activities) {
+    if (a.date < cutoffIso) continue;
+    const k = activityKind(a.sportType);
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+
+  const ranked = available
+    .map((k) => ({ kind: k, count: counts.get(k) ?? 0 }))
+    .sort((a, b) => b.count - a.count);
+
+  // Materially more consistent means half again as many sessions as the next
+  // sport. Anything closer is a toss-up, and the last thing done is the better
+  // guess at what someone opened the page to see.
+  if (ranked[0].count >= ranked[1].count * 1.5 && ranked[0].count > 0) {
+    return ranked[0].kind;
+  }
+
+  const latest = activities.reduce<{ sportType?: string; date: string } | null>(
+    (best, a) => (best === null || a.date > best.date ? a : best),
+    null
+  );
+  return latest ? activityKind(latest.sportType) : ranked[0].kind;
+}
