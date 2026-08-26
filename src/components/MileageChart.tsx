@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Program, workoutTracksRunningMiles } from "@/lib/programs";
-import { Plan, beginWeekOf, logKey } from "@/lib/store";
+import { formatPacePerMile, paceSecondsPerMile } from "@/lib/pace";
+import { Plan, beginWeekOf, logKey, logSeconds } from "@/lib/store";
 
 function currentWeek(plan: Plan, program: Program): number | null {
   if (!plan.startDate) return null;
@@ -19,12 +21,16 @@ export default function MileageChart({
   plan: Plan;
   program: Program;
 }) {
+  const [active, setActive] = useState<number | null>(null);
   const nowWeek = currentWeek(plan, program);
   const weeks = program.schedule
     .filter((week) => week.week >= beginWeekOf(plan))
     .map((week) => {
       let planned = 0;
       let logged = 0;
+      // Only time that covered distance, so a cross-training hour cannot drag
+      // the week's pace out. Same rule the Performance panel uses.
+      let seconds = 0;
       week.days.forEach((day, i) => {
         const plannedMiles = workoutTracksRunningMiles(day)
           ? day.miles ?? 0
@@ -32,11 +38,19 @@ export default function MileageChart({
         planned += plannedMiles;
         const log = plan.logs[logKey(week.week, i)];
         if (log?.completed && workoutTracksRunningMiles(day)) {
-          logged +=
+          const miles =
             log.miles ?? (day.type === "run-or-cross" ? 0 : plannedMiles);
+          logged += miles;
+          const s = logSeconds(log);
+          if (s && miles > 0) seconds += s;
         }
       });
-      return { week: week.week, planned, logged };
+      return {
+        week: week.week,
+        planned,
+        logged,
+        pace: paceSecondsPerMile(seconds, logged),
+      };
     });
   const max = Math.max(...weeks.map((w) => Math.max(w.planned, w.logged)), 1);
 
@@ -59,18 +73,34 @@ export default function MileageChart({
       </div>
       <div className="mt-3 flex items-end gap-1.5">
         {weeks.map((w) => (
-          <div key={w.week} className="flex flex-1 flex-col items-center gap-1">
+          <div
+            key={w.week}
+            className="relative flex flex-1 flex-col items-center gap-1"
+            onMouseEnter={() => setActive(w.week)}
+            onMouseLeave={() => setActive((a) => (a === w.week ? null : a))}
+          >
+            {/* The column is the hit target, so the numbers are reachable
+                without having to land on a bar a few pixels wide. */}
+            <button
+              type="button"
+              className="absolute inset-0 z-10 cursor-default"
+              aria-label={`Week ${w.week}: ${
+                Math.round(w.logged * 10) / 10
+              } miles run of ~${Math.round(w.planned)} planned${
+                w.pace ? `, averaging ${formatPacePerMile(w.pace)}` : ""
+              }`}
+              onFocus={() => setActive(w.week)}
+              onBlur={() => setActive((a) => (a === w.week ? null : a))}
+            />
             <div className="relative flex h-24 w-full items-end justify-center">
               <div
                 className="w-full border-2 border-outline bg-lilac"
                 style={{ height: `${(w.planned / max) * 100}%` }}
-                title={`Week ${w.week}: ~${Math.round(w.planned)} mi planned`}
               />
               {w.logged > 0 && (
                 <div
                   className="absolute inset-x-[18%] bottom-0 border-2 border-outline bg-primary"
                   style={{ height: `${(w.logged / max) * 100}%` }}
-                  title={`Week ${w.week}: ${Math.round(w.logged * 10) / 10} mi run`}
                 />
               )}
             </div>
@@ -83,6 +113,19 @@ export default function MileageChart({
             >
               {w.week}
             </span>
+
+            {active === w.week && (
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 w-max -translate-x-1/2 rounded-sm border-2 border-outline bg-surface px-2 py-1 text-left text-meta shadow-card">
+                <div className="font-bold text-ink">Week {w.week}</div>
+                <div className="tabular-nums text-ink-soft">
+                  {Math.round(w.logged * 10) / 10} mi run · ~
+                  {Math.round(w.planned)} planned
+                </div>
+                <div className="tabular-nums text-ink-soft">
+                  {w.pace ? formatPacePerMile(w.pace) : "no pace logged"}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

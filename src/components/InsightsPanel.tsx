@@ -54,6 +54,12 @@ function Tile({
 
 /** Miles as bars with average pace overlaid as a line. */
 function TrendChart({ points }: { points: TrendPoint[] }) {
+  /*
+   * Pace used to be readable only from a <title> on the 3.5px dots, which is
+   * not a hit target anyone finds. The whole column is now hoverable, and
+   * focusable so the numbers are reachable from the keyboard too.
+   */
+  const [active, setActive] = useState<number | null>(null);
   const width = 640;
   const height = 150;
   const padX = 8;
@@ -81,7 +87,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     .join(" ");
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="h-[150px] w-full min-w-[420px]"
@@ -139,15 +145,56 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
             key={`pace-${i}`}
             cx={x(points.indexOf(p))}
             cy={yPace(p.pace!)}
-            r="3.5"
+            r={active === points.indexOf(p) ? 5 : 3.5}
             fill="var(--surface)"
             stroke="var(--primary)"
             strokeWidth="2"
-          >
-            <title>{`${p.label} · ${formatPacePerMile(p.pace)}`}</title>
-          </circle>
+          />
+        ))}
+
+        {/* Full-height hit targets, so the whole column answers the hover. */}
+        {points.map((p, i) => (
+          <rect
+            key={`hit-${p.label}-${i}`}
+            x={x(i) - slot / 2}
+            y={0}
+            width={slot}
+            height={height}
+            fill={active === i ? "var(--primary)" : "transparent"}
+            opacity={active === i ? 0.07 : 1}
+            tabIndex={0}
+            role="button"
+            aria-label={`${p.label}: ${p.miles} miles${
+              p.pace !== undefined ? `, ${formatPacePerMile(p.pace)}` : ""
+            }${p.avgHeartRate ? `, ${p.avgHeartRate} bpm average` : ""}`}
+            onMouseEnter={() => setActive(i)}
+            onMouseLeave={() => setActive((a) => (a === i ? null : a))}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive((a) => (a === i ? null : a))}
+            className="cursor-pointer focus:outline-none"
+          />
         ))}
       </svg>
+
+      {active !== null && (
+        <div
+          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-sm border-2 border-outline bg-surface px-2 py-1 text-meta shadow-card"
+          style={{ left: `${(x(active) / width) * 100}%` }}
+        >
+          <div className="font-bold text-ink">{points[active].label}</div>
+          <div className="tabular-nums text-ink-soft">
+            {points[active].miles} mi
+            {points[active].pace !== undefined && (
+              <> · {formatPacePerMile(points[active].pace)}</>
+            )}
+          </div>
+          {points[active].avgHeartRate && (
+            <div className="tabular-nums text-ink-soft">
+              {points[active].avgHeartRate} bpm
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
