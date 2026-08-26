@@ -108,6 +108,47 @@ function elevationProfile(
   return rises;
 }
 
+/**
+ * The flattest scale an elevation profile is drawn at, in feet. Chosen so a
+ * riverside run, which wanders a few feet on GPS noise alone, reads as flat.
+ */
+const MIN_RANGE_FT = 60;
+
+/**
+ * A climb has to be at least this tall, in feet, before it counts.
+ *
+ * GPS and barometric altitude wander by a few feet even standing still, and
+ * summing every upward tick turns that noise into real-looking numbers: a
+ * riverside ride flat to within 3 feet was reporting 16 feet of climbing.
+ * Only rises that clear this, and descents that clear it before a new climb
+ * begins, are counted.
+ */
+const CLIMB_THRESHOLD_FT = 10;
+
+/** Total climb, which is what runners mean by a route's elevation. */
+function totalClimb(rises: Rise[]): number {
+  if (rises.length === 0) return 0;
+  let gain = 0;
+  // The low the current climb started from, and the highest point since.
+  let floor = rises[0].e;
+  let peak = rises[0].e;
+
+  for (const r of rises) {
+    if (r.e >= peak) {
+      peak = r.e;
+      continue;
+    }
+    // Only a real descent ends a climb; a few feet of wobble does not.
+    if (peak - r.e > CLIMB_THRESHOLD_FT) {
+      if (peak - floor > CLIMB_THRESHOLD_FT) gain += peak - floor;
+      floor = r.e;
+      peak = r.e;
+    }
+  }
+  if (peak - floor > CLIMB_THRESHOLD_FT) gain += peak - floor;
+  return gain;
+}
+
 function ElevationChart({
   rises,
   atMiles,
@@ -122,22 +163,33 @@ function ElevationChart({
   const totalMiles = rises[rises.length - 1].d || 1;
   const lo = Math.min(...rises.map((r) => r.e));
   const hi = Math.max(...rises.map((r) => r.e));
-  // A flat run would otherwise divide by zero and draw a line off the top.
-  const range = Math.max(hi - lo, 1);
+  const span = hi - lo;
+
+  /*
+   * Scaling to the data alone drew every route at full height, so a flat
+   * riverside mile and a mountain looked exactly alike. A floor under the
+   * scale keeps the drawing honest: anything flatter than this renders as the
+   * gentle wobble it was, and only a real climb fills the chart.
+   */
+  const range = Math.max(span, MIN_RANGE_FT);
+  // Centre the route in its window, so a flat run sits mid-height.
+  const base = (hi + lo) / 2 - range / 2;
 
   const x = (d: number) => (d / totalMiles) * W;
-  const y = (e: number) => H - PAD - ((e - lo) / range) * (H - PAD * 2);
+  const y = (e: number) => H - PAD - ((e - base) / range) * (H - PAD * 2);
+
+  // Three labelled gridlines: the window's floor, middle and ceiling.
+  const ticks = [0, 0.5, 1].map((f) => ({
+    feet: Math.round(base + range * f),
+    y: y(base + range * f),
+  }));
 
   const line = rises
     .map((r, i) => `${i === 0 ? "M" : "L"}${x(r.d).toFixed(1)},${y(r.e).toFixed(1)}`)
     .join(" ");
   const area = `${line} L${W},${H} L0,${H} Z`;
 
-  // Total climb, which is what runners mean by a run's elevation.
-  const gain = rises.reduce(
-    (sum, r, i) => (i === 0 ? 0 : sum + Math.max(0, r.e - rises[i - 1].e)),
-    0
-  );
+  const gain = totalClimb(rises);
 
   return (
     <div className="mt-3">
@@ -149,13 +201,29 @@ function ElevationChart({
           {Math.round(gain)} ft climbed · {Math.round(hi - lo)} ft range
         </span>
       </div>
+      <div className="relative mt-1">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="mt-1 block h-20 w-full rounded-sm border-2 border-outline bg-lilac"
+        className="block h-20 w-full rounded-sm border-2 border-outline bg-lilac"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`Elevation profile, ${Math.round(gain)} feet of climbing`}
+        aria-label={`Elevation profile, ${Math.round(gain)} feet of climbing, ranging over ${Math.round(span)} feet`}
       >
+        {/* Gridlines live in the stretched SVG; their labels cannot, so they
+            are HTML overlaid below and would otherwise be drawn out of shape. */}
+        {ticks.map((tick) => (
+          <line
+            key={tick.feet}
+            x1="0"
+            x2={W}
+            y1={tick.y}
+            y2={tick.y}
+            stroke="#0f1330"
+            strokeWidth="1"
+            opacity="0.16"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         <path d={area} fill="#2f6fed" opacity="0.28" />
         <path
           d={line}
@@ -176,6 +244,16 @@ function ElevationChart({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
+      {ticks.map((tick) => (
+        <span
+          key={tick.feet}
+          className="pointer-events-none absolute left-1 -translate-y-1/2 text-[9px] tabular-nums text-ink-soft"
+          style={{ top: `${(tick.y / H) * 100}%` }}
+        >
+          {tick.feet} ft
+        </span>
+      ))}
+      </div>
     </div>
   );
 }
@@ -380,15 +458,20 @@ export default function RouteReplay({
           role="img"
           aria-label={`Replay of the route run, ${miles} miles`}
         >
-          {/* the whole route, faint, so the shape reads before the poodle gets there */}
+          {/*
+            The route ahead, once faint but full width, which made the whole
+            shape look drawn from the first frame rather than drawn as the
+            poodle ran it. Now a thin guide, clearly subordinate to the trail.
+          */}
           <path
             d={geometry.path}
             fill="none"
             stroke="#1d4ed8"
-            strokeWidth="4"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.22"
+            opacity="0.13"
+            vectorEffect="non-scaling-stroke"
           />
           {/* the part already run */}
           <path
