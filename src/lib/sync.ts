@@ -127,22 +127,21 @@ export function applySyncedRuns(
       const key = logKey(slot.week, slot.dayIndex);
       const existing = logs[key];
       if (existing?.stravaActivityId === run.id) continue;
-      const isRun = kind === "run";
       logs[key] = {
         ...existing,
         completed: true,
-        // Distance, cadence, and elevation are only written for runs: a
-        // run-shaped slot credits `miles` straight to running mileage, and
-        // bike cadence (rpm) is not comparable to running cadence.
-        miles: isRun ? run.miles : 0,
+        // Every sport's real distance is kept now that the log records which
+        // sport it was: the consumers that only want running miles ask.
+        miles: run.miles,
+        sportType: run.sportType,
         seconds: run.seconds,
         minutes: undefined, // superseded by `seconds`
         stravaActivityId: run.id,
         stravaName: run.name,
         avgHeartRate: run.avgHeartRate,
         maxHeartRate: run.maxHeartRate,
-        elevationGain: isRun ? run.elevationGain : undefined,
-        cadence: isRun ? run.cadence : undefined,
+        elevationGain: run.elevationGain,
+        cadence: run.cadence,
       };
       matched += 1;
     }

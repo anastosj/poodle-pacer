@@ -1,4 +1,4 @@
-import { ActivityKind, activityKind } from "@/lib/activities";
+import { ActivityKind, activityKind, countsAsRunning } from "@/lib/activities";
 import { CalendarCell, planCells } from "@/lib/calendar";
 import {
   addDays,
@@ -7,14 +7,17 @@ import {
   startOfMonth,
   startOfToday,
 } from "@/lib/dates";
-import { Program, workoutTracksRunningMiles } from "@/lib/programs";
+import {
+  Program,
+  workoutIncludes,
+  workoutTracksRunningMiles,
+} from "@/lib/programs";
 import { paceSecondsPerMile } from "@/lib/pace";
 import {
   Plan,
   RunLog,
   SyncedRun,
   logSeconds,
-  matchedActivityIds,
 } from "@/lib/store";
 
 export type MetricScope = "week" | "month" | "plan";
@@ -72,6 +75,15 @@ export function consistencyOf(stats: {
   return stats.due > 0 ? stats.completed / stats.due : 0;
 }
 
+/** Which of a program's three disciplines a synced sport corresponds to. */
+const PROGRAM_SPORT: Partial<
+  Record<ActivityKind, "running" | "cycling" | "swimming">
+> = {
+  run: "running",
+  ride: "cycling",
+  swim: "swimming",
+};
+
 const EMPTY = (start: Date, end: Date): PeriodStats => ({
   start,
   end,
@@ -86,9 +98,16 @@ const EMPTY = (start: Date, end: Date): PeriodStats => ({
   elevationGain: 0,
 });
 
-/** Miles credited for a workout: what was logged, else what was planned. */
+/**
+ * Running miles credited for a workout: what was logged, else what was planned.
+ *
+ * A slot that accepts either a run or a cross-training session can be filled by
+ * a ride, and its distance must not be credited as running. Logs written before
+ * sports were recorded carry no sport and were all runs.
+ */
 function loggedMiles(cell: CalendarCell, log: RunLog | undefined): number {
   if (!workoutTracksRunningMiles(cell.workout)) return 0;
+  if (log?.sportType && !countsAsRunning(log.sportType)) return 0;
   if (typeof log?.miles === "number") return log.miles;
   if (cell.workout.type === "run-or-cross") return 0;
   return cell.workout.miles ?? 0;
@@ -126,7 +145,13 @@ function summarize(
     if (!log?.completed) continue;
     stats.completed += 1;
 
-    const miles = loggedMiles(cell, log);
+    /*
+     * Running reads the schedule as well as the log, because a plan states the
+     * miles. The other disciplines are scheduled by time, so their distance is
+     * only ever what was actually recorded.
+     */
+    const miles =
+      kind === "run" ? loggedMiles(cell, log) : log.miles ?? 0;
     const seconds = logSeconds(log);
     if (miles > 0) {
       stats.miles += miles;
@@ -181,9 +206,16 @@ function summarize(
   stats.avgPace = paceSecondsPerMile(paceSeconds, stats.miles);
   if (hrMiles > 0) stats.avgHeartRate = Math.round(hrMilesWeighted / hrMiles);
   if (cadenceCount > 0) stats.avgCadence = Math.round(cadenceSum / cadenceCount);
-  stats.miles = Math.round(stats.miles * 10) / 10;
-  stats.plannedMiles = Math.round(stats.plannedMiles * 10) / 10;
-  stats.longestRun = Math.round(stats.longestRun * 10) / 10;
+  /*
+   * Three decimals, not one. A tenth of a mile is 176 yards, which is a
+   * nonsense quantum for a sport counted in hundreds of yards: rounding here
+   * turned a 1,000 yard swim into 1,056. Display rounds to whatever the sport
+   * reads in.
+   */
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+  stats.miles = round(stats.miles);
+  stats.plannedMiles = round(stats.plannedMiles);
+  stats.longestRun = round(stats.longestRun);
   stats.elevationGain = Math.round(stats.elevationGain);
   return stats;
 }
@@ -305,28 +337,37 @@ export function computeInsights(
   runs: SyncedRun[] = [],
   kind: ActivityKind = "run"
 ): Insights | null {
-  /*
-   * Running is the sport the plan is written in, so it reads the schedule: its
-   * miles come from plan slots as well as synced runs, and it can report what
-   * was completed against what was due.
-   *
-   * Other sports have no slots of their own here, so they are measured purely
-   * from what was synced. That also means taking every activity of that sport,
-   * including any that filled a cross-training slot, since the slots are not
-   * being counted on this view.
-   */
-  const planned = kind === "run";
-  const cells = planned && plan.startDate ? planCells(program, plan) : [];
-  const matched = matchedActivityIds(plan);
-  const extraRuns = planned
-    ? // Runs already matched to a slot are counted through that slot's log.
-      runs.filter((r) => !matched.has(r.stravaActivityId))
-    : runs.filter((r) => activityKind(r.sportType) === kind);
-  if (cells.length === 0 && extraRuns.length === 0) return null;
   const logs =
-    planned && plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
+    plan.logs && typeof plan.logs === "object" && !Array.isArray(plan.logs)
       ? plan.logs
       : {};
+
+  /*
+   * Only the three sports a program can schedule read the plan. Walking and
+   * everything else are measured purely from what was synced, since no plan
+   * asks for them.
+   */
+  const sport = PROGRAM_SPORT[kind];
+  const cells =
+    sport && plan.startDate
+      ? planCells(program, plan).filter((c) => workoutIncludes(c.workout, sport))
+      : [];
+
+  /*
+   * An activity counted through a slot must not be counted again as a loose
+   * one. Only the slots on this view count, so a ride that filled a
+   * cross-training day still shows up in cycling's own totals.
+   */
+  const throughASlot = new Set<number>();
+  for (const cell of cells) {
+    const id = logs[cell.key]?.stravaActivityId;
+    if (id !== undefined) throughASlot.add(id);
+  }
+  const extraRuns = runs.filter(
+    (r) =>
+      activityKind(r.sportType) === kind && !throughASlot.has(r.stravaActivityId)
+  );
+  if (cells.length === 0 && extraRuns.length === 0) return null;
 
   const dates = [
     ...cells.map((c) => c.date),

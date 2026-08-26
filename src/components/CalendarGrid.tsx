@@ -18,6 +18,7 @@ import {
   activityKind,
   activityLabel,
   countsAsRunning,
+  formatDistance,
   formatSpeed,
   tracksDistance,
 } from "@/lib/activities";
@@ -42,7 +43,10 @@ import { celebrate, celebrationKind } from "@/lib/celebrate";
 import {
   Program,
   Workout,
+  loggableDistanceUnit,
+  workoutSportType,
   workoutTracksRunningMiles,
+  yardsToMiles,
 } from "@/lib/programs";
 import {
   formatDurationShort,
@@ -145,7 +149,7 @@ function DayCell({
   isToday: boolean;
   isPast: boolean;
   onToggle: () => void;
-  onLog: (miles?: number, seconds?: number) => void;
+  onLog: (miles?: number, seconds?: number, sportType?: string) => void;
   onFeel: (feel: Feel) => void;
   onOpen: () => void;
 }) {
@@ -159,6 +163,7 @@ function DayCell({
   const [time, setTime] = useState("");
 
   const { workout } = cell;
+  const distanceUnit = loggableDistanceUnit(workout);
   const status = cellStatus(workout, log, isPast, isToday);
   const isRest = status === "rest";
   const done = status === "done";
@@ -365,7 +370,7 @@ function DayCell({
                 className="-mx-1 flex flex-wrap items-center gap-x-1.5 rounded-sm px-1 py-0.5 text-left transition hover:bg-surface"
               >
                 <span className="text-meta tabular-nums text-ink-soft">
-                  {log?.miles ? `${log.miles} mi` : ""}
+                  {formatDistance(activityKind(log?.sportType), log?.miles) ?? ""}
                   {log?.miles && seconds ? " · " : ""}
                   {seconds ? formatDurationShort(seconds) : ""}
                 </span>
@@ -429,10 +434,13 @@ function DayCell({
           onSubmit={(e) => {
             e.preventDefault();
             onLog(
-              workoutTracksRunningMiles(workout) && miles
-                ? parseFloat(miles)
+              distanceUnit && miles
+                ? distanceUnit === "yd"
+                  ? yardsToMiles(parseFloat(miles))
+                  : parseFloat(miles)
                 : undefined,
-              time ? parseDuration(time) : undefined
+              time ? parseDuration(time) : undefined,
+              workoutSportType(workout)
             );
             closeEditor();
           }}
@@ -450,12 +458,20 @@ function DayCell({
               &#215;
             </button>
           </div>
-          {workoutTracksRunningMiles(workout) && (
+          {/* A swim is scheduled in yards and a ride in miles, so the box
+              asks for whatever the workout is actually measured in. */}
+          {distanceUnit && (
             <input
               type="number"
-              step="0.01"
+              step={distanceUnit === "yd" ? "25" : "0.01"}
               min="0"
-              placeholder="Running miles"
+              placeholder={
+                distanceUnit === "yd"
+                  ? "Yards swum"
+                  : workoutTracksRunningMiles(workout)
+                    ? "Running miles"
+                    : "Miles ridden"
+              }
               value={miles}
               onChange={(e) => setMiles(e.target.value)}
               className="focus-pouf rounded-sm border-2 border-outline px-2 py-1 text-meta tabular-nums"
@@ -463,7 +479,7 @@ function DayCell({
           )}
           <DurationInput value={time} onChange={setTime} />
           <span className="text-meta leading-tight text-ink-soft">
-            {workoutTracksRunningMiles(workout)
+            {distanceUnit
               ? "mm:ss or h:mm:ss, used to compute pace"
               : "mm:ss or h:mm:ss"}
           </span>
@@ -576,7 +592,7 @@ function ExtraRunCard({
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-meta tabular-nums text-ink-soft">
           <span>
-            {showDistance && `${run.miles} mi · `}
+            {showDistance && `${formatDistance(kind, run.miles)} · `}
             {formatDurationShort(run.seconds)}
           </span>
           {speed && (
@@ -755,7 +771,7 @@ export default function CalendarGrid({
         },
       }));
     },
-    onLog: (miles?: number, seconds?: number) =>
+    onLog: (miles?: number, seconds?: number, sportType?: string) =>
       updatePlan((prev) => ({
         ...prev,
         logs: {
@@ -763,6 +779,9 @@ export default function CalendarGrid({
           [cell.key]: {
             ...prev.logs[cell.key],
             completed: true,
+            // Recorded so a swim or a ride counts towards its own discipline
+            // rather than being read as running.
+            sportType: prev.logs[cell.key]?.sportType ?? sportType,
             miles,
             seconds,
             // drop the legacy field so `logSeconds` can't read a stale value
@@ -1001,6 +1020,7 @@ export default function CalendarGrid({
         {detail?.kind === "cell" && plan.logs[detail.cell.key] && (
           <WorkoutDetail
             log={plan.logs[detail.cell.key]}
+            kind={activityKind(plan.logs[detail.cell.key]?.sportType)}
             planId={plan.id}
             logKey={detail.cell.key}
             label={detail.cell.workout.label}

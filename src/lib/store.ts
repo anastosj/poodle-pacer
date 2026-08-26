@@ -21,7 +21,16 @@ export const FEEL_LABEL: Record<Feel, string> = {
 
 export interface RunLog {
   completed: boolean;
+  /**
+   * Distance in miles, whatever the sport. Swims are stored in miles too and
+   * shown in yards, so there is one distance field to reason about.
+   */
   miles?: number;
+  /**
+   * Which sport actually filled this slot, when it is known. Absent on logs
+   * written before sports were tracked, which were all running.
+   */
+  sportType?: string;
   /** Legacy whole-minute duration. Superseded by `seconds`, read via `logSeconds`. */
   minutes?: number;
   /** Precise duration in seconds, so pace is accurate. */
@@ -251,6 +260,8 @@ function sanitizeLog(value: unknown): RunLog | undefined {
   if (value.feel === "good" || value.feel === "medium" || value.feel === "bad") {
     log.feel = value.feel;
   }
+  const sportType = boundedString(value.sportType, MAX_NAME_LENGTH);
+  if (sportType !== undefined) log.sportType = sportType;
   const sampleDetail = sanitizeSampleDetail(value.sampleDetail);
   if (sampleDetail) log.sampleDetail = sampleDetail;
   return log;
@@ -549,6 +560,7 @@ export function runAsLog(run: SyncedRun): RunLog {
   return {
     completed: true,
     miles: run.miles,
+    sportType: run.sportType,
     seconds: run.seconds,
     feel: run.feel,
     stravaActivityId: run.stravaActivityId,
