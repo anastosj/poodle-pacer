@@ -74,6 +74,10 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
  * scheduled on them — synced runs outside the plan window, or with no plan at
  * all. The grid stretches to cover them, but weeks with neither a workout nor
  * a run are dropped so a far-off race doesn't produce a wall of empty rows.
+ *
+ * Today's week is the one exception to that pruning: it is always present, so
+ * the grid can always say where "now" is. Without it a plan starting tomorrow
+ * renders a calendar with no way at all to find the current day.
  */
 export function buildCalendar(
   program: Program,
@@ -89,9 +93,16 @@ export function buildCalendar(
   if (dates.length === 0) return [];
 
   const byIso = new Map(cells.map((c) => [c.iso, c]));
-  const gridStart = startOfCalendarWeek(dates[0]);
+  // Stretch the span over today as well as the scheduled and logged days, so
+  // the current week exists whether it falls before, inside, or after the plan.
+  const today = startOfToday();
+  const todayRowStart = startOfCalendarWeek(today);
+  const first = dates[0] < today ? dates[0] : today;
+  const lastDate = dates[dates.length - 1];
+  const last = lastDate > today ? lastDate : today;
+  const gridStart = startOfCalendarWeek(first);
   // Pad forward to the Saturday on or after the final day.
-  const gridEnd = addDays(startOfCalendarWeek(dates[dates.length - 1]), 6);
+  const gridEnd = addDays(startOfCalendarWeek(last), 6);
 
   const rows: CalendarRow[] = [];
   for (
@@ -109,7 +120,8 @@ export function buildCalendar(
     const weeks = Array.from(
       new Set(rowCells.filter(Boolean).map((c) => c!.week))
     ).sort((a, b) => a - b);
-    if (weeks.length === 0 && !hasExtra) continue;
+    const isTodayRow = rowStart.getTime() === todayRowStart.getTime();
+    if (weeks.length === 0 && !hasExtra && !isTodayRow) continue;
     rows.push({ start: rowStart, cells: rowCells, weeks });
   }
   return rows;

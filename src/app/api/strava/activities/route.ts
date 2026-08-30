@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { countsAsRunning } from "@/lib/activities";
 import { currentUserId } from "@/lib/session";
 import { getFreshTokens, hasActivityScope } from "@/lib/strava";
+import { stravaErrorResponse } from "@/lib/strava-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,7 +67,7 @@ export async function GET() {
     }
   );
   if (!res.ok) {
-    return NextResponse.json({ error: "Strava API error" }, { status: 502 });
+    return stravaErrorResponse(res);
   }
   const activities: StravaActivity[] = await res.json();
 

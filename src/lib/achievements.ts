@@ -12,7 +12,13 @@ import { planCells } from "@/lib/calendar";
 import { startOfToday, toLocalISO } from "@/lib/dates";
 import { Program, programs } from "@/lib/programs";
 import { formatDuration } from "@/lib/pace";
-import { Plan, RunnerState, activePlan, logSeconds } from "@/lib/store";
+import {
+  Plan,
+  RunnerState,
+  activePlan,
+  isPausedOn,
+  logSeconds,
+} from "@/lib/store";
 
 export interface Achievement {
   id: string;
@@ -129,6 +135,12 @@ function bestEffort(
  * The longest run of consecutive plan days kept, up through today. A day is
  * kept when its scheduled workout is completed (rest days are free); today
  * doesn't break a streak until it's missed, it just doesn't extend it yet.
+ *
+ * A stood-down day carrying an unmet workout is stepped over: an injury joins
+ * the days either side rather than breaking them apart. Rest days inside the
+ * pause still count, exactly as they did before it was marked — they were
+ * never failures, and skipping them too would mean marking a pause could
+ * *lower* the streak, which is precisely backwards.
  */
 function walkStreak(
   plan: Plan,
@@ -144,6 +156,9 @@ function walkStreak(
   for (const cell of planCells(program, plan)) {
     if (cell.iso > todayIso) break;
     const done = plan.logs[cell.key]?.completed ?? false;
+    if (!done && cell.workout.type !== "rest" && isPausedOn(plan, cell.iso)) {
+      continue;
+    }
     const kept = cell.workout.type === "rest" || done;
     if (kept) {
       if (current === 0) fromIso = cell.iso;

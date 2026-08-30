@@ -32,11 +32,47 @@ export interface SessionUser {
 
 export interface SyncResult {
   ok: boolean;
-  error?: "not_connected" | "missing_scope" | "failed";
+  error?: "not_connected" | "missing_scope" | "rate_limited" | "failed";
   /** Runs newly added to the run log. */
   added: number;
   /** Runs matched to a slot of the active plan. */
   matched: number;
+  /** True when a sync was skipped as too recent to be worth spending a call. */
+  skipped?: boolean;
+}
+
+/**
+ * How long an automatic sync will trust the last one.
+ *
+ * Strava's rate limit is shared by every athlete signed into this app, so an
+ * automatic call on every page load is the one piece of traffic guaranteed to
+ * be mostly waste — the same list, re-fetched because somebody hit reload.
+ * Activities take a little while to reach Strava anyway, so nothing is lost by
+ * waiting. Pressing Sync in settings ignores this entirely.
+ */
+const AUTO_SYNC_COOLDOWN_MS = 5 * 60 * 1000;
+
+const lastSyncKey = (userId: string) => `poodle-pacer:last-sync:${userId}`;
+
+function syncedRecently(userId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(lastSyncKey(userId));
+    if (!raw) return false;
+    const at = Number(raw);
+    // A clock that has gone backwards should retry, not lock syncing out.
+    return Number.isFinite(at) && Date.now() - at < AUTO_SYNC_COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
+
+function markSynced(userId: string) {
+  try {
+    window.localStorage.setItem(lastSyncKey(userId), String(Date.now()));
+  } catch {
+    /* private browsing: the cooldown just never applies */
+  }
 }
 
 interface AppContextValue {
@@ -49,8 +85,11 @@ interface AppContextValue {
   plan: Plan;
   updatePlan: (updater: (prev: Plan) => Plan) => void;
   program: Program;
-  /** Pull runs from Strava into the run log and the active plan. */
-  syncStrava: () => Promise<SyncResult>;
+  /**
+   * Pull runs from Strava into the run log and the active plan. Pass
+   * `{ auto: true }` to skip when the last sync is recent enough.
+   */
+  syncStrava: (options?: { auto?: boolean }) => Promise<SyncResult>;
   /** Rate a synced activity; passing the current feel clears it. */
   setRunFeel: (activityId: number, feel: Feel) => void;
 }
@@ -150,18 +189,28 @@ export function AppProvider({
     [update]
   );
 
-  const syncStrava = useCallback(async (): Promise<SyncResult> => {
+  const syncStrava = useCallback(
+    async (options?: { auto?: boolean }): Promise<SyncResult> => {
     const none = { added: 0, matched: 0 };
+    // An automatic sync that would only re-fetch what it fetched minutes ago
+    // spends a request out of a budget the whole pack shares. Skip it.
+    if (options?.auto && syncedRecently(user.id)) {
+      return { ok: true, skipped: true, ...none };
+    }
     let runs: FetchedRun[];
     try {
       const res = await fetch("/api/strava/activities");
       if (res.status === 401) return { ok: false, error: "not_connected", ...none };
       if (res.status === 403) return { ok: false, error: "missing_scope", ...none };
+      if (res.status === 429) return { ok: false, error: "rate_limited", ...none };
       if (!res.ok) return { ok: false, error: "failed", ...none };
       runs = ((await res.json()) as { runs: FetchedRun[] }).runs;
     } catch {
       return { ok: false, error: "failed", ...none };
     }
+    // Only a call that actually reached Strava resets the clock, so a failure
+    // is never mistaken for a fresh sync and left uncorrected for five minutes.
+    markSynced(user.id);
     const current = stateRef.current;
     const program =
       programs.find((p) => p.id === activePlan(current).programId) ??
@@ -171,15 +220,17 @@ export function AppProvider({
       update(() => outcome.state);
     }
     return { ok: true, added: outcome.added, matched: outcome.matched };
-  }, [update]);
+    },
+    [update, user.id]
+  );
 
-  // Runs sync themselves whenever the app is opened; the Settings button is
-  // just a way to force one without reloading.
+  // Runs sync themselves whenever the app is opened, subject to the cooldown;
+  // the Settings button is a way to force one regardless.
   const autoSynced = useRef(false);
   useEffect(() => {
     if (!loaded || autoSynced.current) return;
     autoSynced.current = true;
-    syncStrava().catch(() => {});
+    syncStrava({ auto: true }).catch(() => {});
   }, [loaded, syncStrava]);
 
   const plan = useMemo(() => activePlan(state), [state]);
