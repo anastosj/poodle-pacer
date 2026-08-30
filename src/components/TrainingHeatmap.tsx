@@ -158,10 +158,16 @@ export default function TrainingHeatmap({
     for (const cell of planCells(program, plan)) {
       const log = plan.logs[cell.key];
       if (!log?.completed) continue;
-      // What actually filled the slot, falling back to what was prescribed.
-      const kind = activityKind(
-        log.sportType ?? workoutSportType(cell.workout)
-      );
+      /*
+       * What actually filled the slot, falling back to what was prescribed.
+       * `activityKind` reads a missing sport as running, which is right for
+       * activities synced before the field existed but wrong here: a cross
+       * slot is explicitly not a run, and a pool session logged into one was
+       * being reported as a 60 minute run. With nothing recorded, "session"
+       * is the honest answer.
+       */
+      const sport = log.sportType ?? workoutSportType(cell.workout);
+      const kind: ActivityKind = sport ? activityKind(sport) : "other";
       add(
         cell.iso,
         kind,
