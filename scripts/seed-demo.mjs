@@ -263,6 +263,9 @@ function buildLogs(runner) {
         miles: 0,
         seconds: 3600,
         feel: "good",
+        // Without this the swim is indistinguishable from a run logged with
+        // no distance, and anything reading the log has to guess.
+        sportType: "Swim",
         stravaName: "Pool session",
       };
     }
