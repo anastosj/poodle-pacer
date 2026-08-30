@@ -33,6 +33,17 @@ const config: Config = {
         lilac: "var(--lilac)",
         periwinkle: "var(--periwinkle)",
         "pale-cyan": "var(--pale-cyan)",
+        /*
+         * Tailwind v3 has no auto-generated utilities for CSS vars, and the
+         * Bklit chart components ship v4-style class names. These four are the
+         * only ones they actually use; without them the tooltip renders unstyled.
+         */
+        chart: {
+          label: "var(--chart-label)",
+          "tooltip-background": "var(--chart-tooltip-background)",
+          "tooltip-foreground": "var(--chart-tooltip-foreground)",
+          "tooltip-muted": "var(--chart-tooltip-muted)",
+        },
         mood: {
           good: "var(--mood-good)",
           okay: "var(--mood-okay)",

@@ -6,6 +6,7 @@ import InsightsPanel from "@/components/InsightsPanel";
 import RacePredictorCard from "@/components/RacePredictorCard";
 import MileageChart from "@/components/MileageChart";
 import PoodleProgressBar from "@/components/PoodleProgressBar";
+import TrainingHeatmap from "@/components/TrainingHeatmap";
 import { useApp } from "@/components/AppContext";
 import { beginWeekOf, logKey } from "@/lib/store";
 
@@ -46,6 +47,8 @@ export default function ProgressPage() {
       <AchievementsPanel state={state} />
 
       <MileageChart plan={plan} program={program} />
+
+      <TrainingHeatmap plan={plan} program={program} runs={state.runs ?? []} />
 
       <p className="mt-6 text-center text-meta text-ink-soft">
         <Link href="/" className="font-bold text-primary underline">

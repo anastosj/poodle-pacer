@@ -5,7 +5,6 @@ import {
   MetricScope,
   PeriodStats,
   SCOPE_LABELS,
-  TrendPoint,
   computeInsights,
   consistencyOf,
 } from "@/lib/insights";
@@ -22,12 +21,8 @@ import {
   speedLabel,
   tracksDistance,
 } from "@/lib/activities";
-import {
-  formatDuration,
-  formatPace,
-  formatPacePerMile,
-  paceDelta,
-} from "@/lib/pace";
+import { formatDuration, formatPace, paceDelta } from "@/lib/pace";
+import PaceTrendChart from "@/components/PaceTrendChart";
 import { planCells } from "@/lib/calendar";
 import { Program, programSports } from "@/lib/programs";
 
@@ -67,165 +62,6 @@ function Tile({
       {sub && (
         <div className="mt-0.5 text-meta font-medium text-ink-soft">
           {sub}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Miles as bars with average pace overlaid as a line. */
-function TrendChart({
-  points,
-  kind,
-}: {
-  points: TrendPoint[];
-  kind: ActivityKind;
-}) {
-  /*
-   * Pace used to be readable only from a <title> on the 3.5px dots, which is
-   * not a hit target anyone finds. The whole column is now hoverable, and
-   * focusable so the numbers are reachable from the keyboard too.
-   */
-  const [active, setActive] = useState<number | null>(null);
-  const width = 640;
-  const height = 150;
-  const padX = 8;
-  const padTop = 12;
-  const padBottom = 22;
-
-  const maxMiles = Math.max(...points.map((p) => p.miles), 1);
-  const paced = points.filter((p) => p.pace !== undefined);
-  const minPace = Math.min(...paced.map((p) => p.pace!));
-  const maxPace = Math.max(...paced.map((p) => p.pace!));
-  const paceRange = Math.max(maxPace - minPace, 1);
-
-  const slot = (width - padX * 2) / points.length;
-  const barW = Math.min(slot * 0.6, 46);
-  const plotH = height - padTop - padBottom;
-
-  const x = (i: number) => padX + slot * i + slot / 2;
-  const yMiles = (m: number) => padTop + plotH - (m / maxMiles) * plotH;
-  // Faster pace (fewer seconds) sits higher.
-  const yPace = (p: number) =>
-    padTop + ((p - minPace) / paceRange) * plotH * 0.75 + plotH * 0.1;
-
-  const paceLine = paced
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${x(points.indexOf(p))} ${yPace(p.pace!)}`)
-    .join(" ");
-
-  return (
-    <div className="relative overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-[150px] w-full min-w-[420px]"
-        role="img"
-        aria-label="Mileage bars with average pace trend"
-      >
-        {points.map((p, i) => (
-          <g key={`${p.label}-${i}`}>
-            <rect
-              x={x(i) - barW / 2}
-              y={yMiles(p.miles)}
-              width={barW}
-              height={Math.max(padTop + plotH - yMiles(p.miles), 0)}
-              rx="5"
-              fill="var(--periwinkle)"
-            />
-            <text
-              x={x(i)}
-              y={height - 8}
-              textAnchor="middle"
-              fontSize="10"
-              fill="currentColor"
-              opacity="0.5"
-            >
-              {p.label}
-            </text>
-            {p.miles > 0 && (
-              <text
-                x={x(i)}
-                y={yMiles(p.miles) - 3}
-                textAnchor="middle"
-                fontSize="9"
-                fontWeight="700"
-                fill="var(--primary-dark)"
-                opacity="0.75"
-              >
-                {p.miles}
-              </text>
-            )}
-          </g>
-        ))}
-
-        {paced.length > 1 && (
-          <path
-            d={paceLine}
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-        {paced.map((p, i) => (
-          <circle
-            key={`pace-${i}`}
-            cx={x(points.indexOf(p))}
-            cy={yPace(p.pace!)}
-            r={active === points.indexOf(p) ? 5 : 3.5}
-            fill="var(--surface)"
-            stroke="var(--primary)"
-            strokeWidth="2"
-          />
-        ))}
-
-        {/* Full-height hit targets, so the whole column answers the hover. */}
-        {points.map((p, i) => (
-          <rect
-            key={`hit-${p.label}-${i}`}
-            x={x(i) - slot / 2}
-            y={0}
-            width={slot}
-            height={height}
-            fill={active === i ? "var(--primary)" : "transparent"}
-            opacity={active === i ? 0.07 : 1}
-            tabIndex={0}
-            role="button"
-            aria-label={`${p.label}: ${p.miles} miles${
-              p.pace !== undefined
-                ? `, ${formatSpeed(kind, 1, p.pace) ?? formatPacePerMile(p.pace)}`
-                : ""
-            }${p.avgHeartRate ? `, ${p.avgHeartRate} bpm average` : ""}`}
-            onMouseEnter={() => setActive(i)}
-            onMouseLeave={() => setActive((a) => (a === i ? null : a))}
-            onFocus={() => setActive(i)}
-            onBlur={() => setActive((a) => (a === i ? null : a))}
-            className="cursor-pointer focus:outline-none"
-          />
-        ))}
-      </svg>
-
-      {active !== null && (
-        <div
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-sm border-2 border-outline bg-surface px-2 py-1 text-meta shadow-card"
-          style={{ left: `${(x(active) / width) * 100}%` }}
-        >
-          <div className="font-bold text-ink">{points[active].label}</div>
-          <div className="tabular-nums text-ink-soft">
-            {points[active].miles} mi
-            {points[active].pace !== undefined && (
-              <>
-                {" · "}
-                {formatSpeed(kind, 1, points[active].pace) ??
-                  formatPacePerMile(points[active].pace)}
-              </>
-            )}
-          </div>
-          {points[active].avgHeartRate && (
-            <div className="tabular-nums text-ink-soft">
-              {points[active].avgHeartRate} bpm
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -343,6 +179,10 @@ export default function InsightsPanel({
   }
 
   const { current, previous, trend } = insights;
+
+  // The trend chart drops points with no recorded duration, so the "not enough
+  // data yet" message has to count the same points the chart will actually draw.
+  const pacedPoints = trend.filter((p) => p.pace !== undefined).length;
   const delta = paceDelta(current.avgPace, previous?.avgPace);
 
   const hasHeartRate = current.avgHeartRate !== undefined;
@@ -478,19 +318,19 @@ export default function InsightsPanel({
         {expanded ? "Fewer metrics" : `More metrics (${extraCount})`}
       </button>
 
-      {trend.length > 1 ? (
+      {pacedPoints > 1 ? (
         <div className="mt-4">
           <div className="flex items-center gap-4 text-meta font-medium text-ink-soft">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-3 border-2 border-outline bg-periwinkle" />
-              Miles
-            </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-0.5 w-3 bg-primary" />
               {speedLabel(kind)} (higher = faster)
             </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-0.5 w-3 bg-accent" />
+              {distanceLabel(kind)}
+            </span>
           </div>
-          <TrendChart points={trend} kind={kind} />
+          <PaceTrendChart points={trend} kind={kind} />
         </div>
       ) : (
         <p className="mt-4 text-meta text-ink-soft">

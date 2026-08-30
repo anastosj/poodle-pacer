@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Bar } from "@/components/charts/bar";
+import { BarChart } from "@/components/charts/bar-chart";
+import { BarXAxis } from "@/components/charts/bar-x-axis";
+import { Grid } from "@/components/charts/grid";
+import { ChartTooltip } from "@/components/charts/tooltip";
 import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { formatPacePerMile, paceSecondsPerMile } from "@/lib/pace";
 import { Plan, beginWeekOf, logKey, logSeconds } from "@/lib/store";
@@ -21,7 +25,6 @@ export default function MileageChart({
   plan: Plan;
   program: Program;
 }) {
-  const [active, setActive] = useState<number | null>(null);
   const nowWeek = currentWeek(plan, program);
   const weeks = program.schedule
     .filter((week) => week.week >= beginWeekOf(plan))
@@ -47,19 +50,17 @@ export default function MileageChart({
       });
       return {
         week: week.week,
-        planned,
-        logged,
+        /* The band key. Categorical, so it has to be a string. */
+        name: String(week.week),
+        planned: Math.round(planned * 10) / 10,
+        logged: Math.round(logged * 10) / 10,
         pace: paceSecondsPerMile(seconds, logged),
       };
     });
-  const max = Math.max(...weeks.map((w) => Math.max(w.planned, w.logged)), 1);
-
   return (
     <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="type-overline text-ink-soft">
-          Weekly running miles
-        </h2>
+        <h2 className="type-overline text-ink-soft">Weekly running miles</h2>
         <div className="flex items-center gap-3 text-meta text-ink-soft">
           <span className="flex items-center gap-1">
             <span className="inline-block h-2.5 w-2.5 border-2 border-outline bg-lilac" />
@@ -71,64 +72,75 @@ export default function MileageChart({
           </span>
         </div>
       </div>
-      <div className="mt-3 flex items-end gap-1.5">
-        {weeks.map((w) => (
-          <div
-            key={w.week}
-            className="relative flex flex-1 flex-col items-center gap-1"
-            onMouseEnter={() => setActive(w.week)}
-            onMouseLeave={() => setActive((a) => (a === w.week ? null : a))}
-          >
-            {/* The column is the hit target, so the numbers are reachable
-                without having to land on a bar a few pixels wide. */}
-            <button
-              type="button"
-              className="absolute inset-0 z-10 cursor-default"
-              aria-label={`Week ${w.week}: ${
-                Math.round(w.logged * 10) / 10
-              } miles run of ~${Math.round(w.planned)} planned${
-                w.pace ? `, averaging ${formatPacePerMile(w.pace)}` : ""
-              }`}
-              onFocus={() => setActive(w.week)}
-              onBlur={() => setActive((a) => (a === w.week ? null : a))}
-            />
-            <div className="relative flex h-24 w-full items-end justify-center">
-              <div
-                className="w-full border-2 border-outline bg-lilac"
-                style={{ height: `${(w.planned / max) * 100}%` }}
-              />
-              {w.logged > 0 && (
-                <div
-                  className="absolute inset-x-[18%] bottom-0 border-2 border-outline bg-primary"
-                  style={{ height: `${(w.logged / max) * 100}%` }}
-                />
-              )}
-            </div>
-            <span
-              className={`text-meta ${
-                w.week === nowWeek
-                  ? "font-bold text-primary-dark"
-                  : "text-ink-soft"
-              }`}
-            >
-              {w.week}
-            </span>
 
-            {active === w.week && (
-              <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 w-max -translate-x-1/2 rounded-sm border-2 border-outline bg-surface px-2 py-1 text-left text-meta shadow-card">
-                <div className="font-bold text-ink">Week {w.week}</div>
-                <div className="tabular-nums text-ink-soft">
-                  {Math.round(w.logged * 10) / 10} mi run · ~
-                  {Math.round(w.planned)} planned
+      {/*
+       * The bars are pointer-driven, so the per-column buttons that used to
+       * carry this to a screen reader are gone. The same numbers stay
+       * reachable as text.
+       */}
+      <p className="sr-only">
+        {weeks
+          .map(
+            (w) =>
+              `Week ${w.week}: ${w.logged} miles run of ${Math.round(
+                w.planned
+              )} planned${w.pace ? `, averaging ${formatPacePerMile(w.pace)}` : ""}.`
+          )
+          .join(" ")}
+      </p>
+
+      <div className="mt-3">
+        <BarChart
+          data={weeks}
+          xDataKey="name"
+          aspectRatio="5 / 2"
+          barGap={0.25}
+          margin={{ top: 16, right: 8, bottom: 28, left: 8 }}
+        >
+          <Grid horizontal strokeDasharray="3,4" />
+          {/* Square ends, to sit with the hard edges everything else wears. */}
+          <Bar
+            dataKey="planned"
+            fill="var(--chart-5)"
+            lineCap="butt"
+            groupGap={2}
+          />
+          <Bar
+            dataKey="logged"
+            fill="var(--chart-line-primary)"
+            lineCap="butt"
+            groupGap={2}
+          />
+          <BarXAxis maxLabels={program.weeks} />
+          <ChartTooltip
+            showDatePill={false}
+            content={({ point }) => (
+              <div className="px-3 py-2 text-left">
+                <div className="font-bold text-chart-tooltip-foreground">
+                  Week {String(point.name)}
                 </div>
-                <div className="tabular-nums text-ink-soft">
-                  {w.pace ? formatPacePerMile(w.pace) : "no pace logged"}
+                <div className="tabular-nums text-chart-tooltip-muted">
+                  {Number(point.logged)} mi run · ~{Math.round(Number(point.planned))}{" "}
+                  planned
+                </div>
+                <div className="tabular-nums text-chart-tooltip-muted">
+                  {point.pace
+                    ? formatPacePerMile(Number(point.pace))
+                    : "no pace logged"}
                 </div>
               </div>
             )}
-          </div>
-        ))}
+          />
+        </BarChart>
       </div>
+
+      {/* The old chart bolded the current week's tick; the axis labels are the
+          library's now, so the marker moves down here instead. */}
+      {nowWeek !== null && (
+        <p className="mt-1 text-center text-meta text-ink-soft">
+          You are in week {nowWeek} of {program.weeks}.
+        </p>
+      )}
     </section>
   );
 }
