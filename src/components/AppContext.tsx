@@ -19,8 +19,10 @@ import {
   defaultState,
   loadState,
   normalizeState,
+  readSyncMark,
   saveState,
   updateActivePlan,
+  writeSyncMark,
 } from "@/lib/store";
 import { FetchedRun, applySyncedRuns } from "@/lib/sync";
 
@@ -113,36 +115,93 @@ export function AppProvider({
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const pushRemote = useCallback((s: RunnerState) => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      fetch("/api/state", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: s }),
-      }).catch(() => {});
-    }, 600);
-  }, []);
+  /*
+   * Bumped on every push. Only the newest one may declare the cache clean: an
+   * earlier request completing late would otherwise mark edits it never
+   * carried as saved, and the next load would discard them.
+   */
+  const revision = useRef(0);
+
+  const pushRemote = useCallback(
+    (s: RunnerState) => {
+      const rev = (revision.current += 1);
+      // Flag before the request, not after. A tab closed inside the debounce
+      // window has to come back knowing the cache was never confirmed.
+      writeSyncMark(user.id, {
+        syncedAt: readSyncMark(user.id).syncedAt,
+        pending: true,
+      });
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(async () => {
+        try {
+          const res = await fetch("/api/state", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ state: s }),
+          });
+          if (!res.ok) return;
+          const json = (await res.json()) as { updatedAt?: string };
+          if (rev !== revision.current) return;
+          writeSyncMark(user.id, {
+            syncedAt: json.updatedAt ?? null,
+            pending: false,
+          });
+        } catch {
+          // Offline. The mark stays pending, which is what protects the edit.
+        }
+      }, 600);
+    },
+    [user.id]
+  );
 
   useEffect(() => {
     let cancelled = false;
     const local = loadState(user.id);
+    const mark = readSyncMark(user.id);
     setState(local);
 
     (async () => {
       try {
         const res = await fetch("/api/state");
         if (!res.ok || cancelled) return;
-        const json = (await res.json()) as { state?: unknown };
+        const json = (await res.json()) as {
+          state?: unknown;
+          updatedAt?: string | null;
+        };
         if (cancelled) return;
-        if (json.state) {
-          const remote = normalizeState(json.state);
-          setState(remote);
-          saveState(user.id, remote);
-        } else {
+        if (!json.state) {
           // First sign-in on this account, so seed the server from local.
           pushRemote(local);
+          return;
         }
+        if (mark.pending) {
+          /*
+           * The cache holds edits the server never acknowledged — runs logged
+           * with no signal, most likely. Taking the server copy here would
+           * delete them, so local stays in charge and is pushed instead.
+           */
+          if (json.updatedAt && json.updatedAt !== mark.syncedAt) {
+            /*
+             * Both sides moved since this device last synced, and state is
+             * stored as one document with no per-field merge, so pushing local
+             * will drop whatever the other device wrote. Losing runs recorded
+             * offline is the worse of the two, but this is the case a real
+             * merge would need to handle.
+             */
+            console.warn(
+              "[poodle-pacer] local edits and a newer server copy both exist; keeping local"
+            );
+          }
+          pushRemote(local);
+          return;
+        }
+        const remote = normalizeState(json.state);
+        setState(remote);
+        saveState(user.id, remote);
+        writeSyncMark(user.id, {
+          syncedAt: json.updatedAt ?? null,
+          pending: false,
+        });
       } catch {
         // Offline, so the cached copy stays in charge.
       } finally {

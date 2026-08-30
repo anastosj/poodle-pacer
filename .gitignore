@@ -38,3 +38,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*
+
+# Claude Code — machine-local only. Shared project config (.claude/settings.json,
+# agents, skills) is deliberately left committable; widen this to `.claude/` if
+# you would rather none of it be tracked.
+.claude/launch.json
+.claude/settings.local.json
