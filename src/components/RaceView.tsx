@@ -5,6 +5,8 @@ import GroupBoard from "@/components/GroupBoard";
 import { RunnerSummary } from "@/lib/group";
 import type { RaceMemberRecord, RaceRecord } from "@/lib/db";
 import { useApp } from "@/components/AppContext";
+import { fromISO } from "@/lib/dates";
+import { programs } from "@/lib/programs";
 
 export default function RaceView({
   race,
@@ -27,6 +29,20 @@ export default function RaceView({
   const invitePath = `/join/${race.inviteCode}`;
   const [invite, setInvite] = useState(invitePath);
   const isOwner = race.ownerUserId === currentUserId;
+
+  // Mirrors what the join page offers, so the owner sees exactly what they are
+  // sending people. Null whenever the invite has no plan attached.
+  const packProgram = programs.find((p) => p.id === race.programId);
+  const packPlanLabel =
+    packProgram && race.startDate
+      ? `${packProgram.author}'s ${packProgram.name}, starting ${fromISO(
+          race.startDate
+        ).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}.`
+      : null;
 
   useEffect(() => {
     setInvite(`${window.location.origin}${invitePath}`);
@@ -105,6 +121,33 @@ export default function RaceView({
             </div>
           )}
         </div>
+        {/* What an invitee is offered when they open the link. Owner-only,
+            because only the owner can change it. */}
+        {isOwner && (
+          <div className="mt-3 rounded-xl bg-white/60 p-3 ring-1 ring-poodle-fur">
+            <div className="text-xs font-bold uppercase tracking-wide text-foreground/60">
+              The pack&apos;s plan
+            </div>
+            <p className="mt-1 text-sm text-foreground/70">
+              {packPlanLabel ??
+                "Not set yet, so an invite just adds people to the pack. Set your own race date, then point the pack at it."}
+            </p>
+            <button
+              onClick={async () => {
+                const response = await fetch(`/api/races/${race.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ syncPackPlan: true }),
+                });
+                if (response.ok) window.location.reload();
+              }}
+              className="mt-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-poodle-fur"
+            >
+              Use my current plan
+            </button>
+          </div>
+        )}
+
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input

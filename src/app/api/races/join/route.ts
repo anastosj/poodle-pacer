@@ -10,7 +10,13 @@ import {
 import { allowRequest } from "@/lib/rate-limit";
 import { currentUserId } from "@/lib/session";
 import { readBoundedJson } from "@/lib/request";
-import { activePlan, normalizeState } from "@/lib/store";
+import { programs } from "@/lib/programs";
+import {
+  activePlan,
+  normalizeState,
+  updateActivePlan,
+} from "@/lib/store";
+import { writeUserState } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +30,10 @@ export async function POST(request: NextRequest) {
   if (!allowRequest(`race-join:${id}`, 20, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
-  const body = await readBoundedJson<{ code?: unknown }>(request, 2000);
+  const body = await readBoundedJson<{ code?: unknown; adoptPlan?: unknown }>(
+    request,
+    2000
+  );
   if (!body) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
@@ -45,6 +54,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "member_limit" }, { status: 409 });
   }
   const state = normalizeState(await readUserState(id));
-  await joinRace(race, id, activePlan(state).id);
-  return NextResponse.json({ race });
+
+  /*
+   * Adopting the pack's plan is the whole point of a shared invite: one link
+   * and everybody is on the same program from the same Monday. Only the
+   * program and the dates are taken — the plan keeps its own name, since
+   * renaming what somebody already set up would be a surprise, not a feature.
+   */
+  const adopt =
+    body.adoptPlan === true &&
+    race.programId !== null &&
+    programs.some((p) => p.id === race.programId);
+
+  const next = adopt
+    ? updateActivePlan(state, (plan) => ({
+        ...plan,
+        programId: race.programId as string,
+        startDate: race.startDate ?? undefined,
+        // The pack's start date is a real start, so everyone runs week 1 of
+        // the program from it, including anyone joining a few days late.
+        beginWeek: undefined,
+      }))
+    : state;
+
+  await joinRace(race, id, activePlan(next).id);
+  if (adopt) await writeUserState(id, next);
+  return NextResponse.json({ race, adopted: adopt });
 }

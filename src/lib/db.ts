@@ -74,7 +74,9 @@ function getSqlite(): Database.Database {
       name TEXT NOT NULL,
       owner_user_id TEXT NOT NULL,
       invite_code TEXT NOT NULL UNIQUE,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      program_id TEXT,
+      start_date TEXT
     );
     CREATE TABLE IF NOT EXISTS race_members (
       race_id TEXT NOT NULL,
@@ -85,7 +87,26 @@ function getSqlite(): Database.Database {
       PRIMARY KEY (race_id, user_id)
     );
   `);
+  addSqliteColumn(sqlite, "races", "program_id", "TEXT");
+  addSqliteColumn(sqlite, "races", "start_date", "TEXT");
   return sqlite;
+}
+
+/**
+ * SQLite has no ADD COLUMN IF NOT EXISTS, and re-adding throws, so ask the
+ * table what it already has. Postgres gets the IF NOT EXISTS form below.
+ */
+function addSqliteColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  type: string
+): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
+  if (columns.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 function getPg(): NeonQueryFunction<false, false> {
@@ -136,10 +157,14 @@ function getPg(): NeonQueryFunction<false, false> {
       await sql`CREATE TABLE IF NOT EXISTS races (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        program_id TEXT,
+        start_date TEXT,
         owner_user_id TEXT NOT NULL,
         invite_code TEXT NOT NULL UNIQUE,
         created_at TEXT NOT NULL
       )`;
+      await sql`ALTER TABLE races ADD COLUMN IF NOT EXISTS program_id TEXT`;
+      await sql`ALTER TABLE races ADD COLUMN IF NOT EXISTS start_date TEXT`;
       await sql`CREATE TABLE IF NOT EXISTS race_members (
         race_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
@@ -159,6 +184,13 @@ export interface RaceRecord {
   ownerUserId: string;
   inviteCode: string;
   createdAt: string;
+  /**
+   * The plan the pack is training on together, offered to anyone who joins.
+   * Null on packs made before this existed, and on any whose owner had not
+   * picked a race date yet — the join page simply doesn't offer one then.
+   */
+  programId: string | null;
+  startDate: string | null;
 }
 
 export interface RaceMemberRecord {
@@ -180,6 +212,8 @@ interface RaceRow {
   owner_user_id: string;
   invite_code: string;
   created_at: string;
+  program_id: string | null;
+  start_date: string | null;
 }
 
 interface MemberRow extends UserRow {
@@ -198,6 +232,8 @@ function toRace(row: RaceRow): RaceRecord {
     ownerUserId: row.owner_user_id,
     inviteCode: row.invite_code,
     createdAt: row.created_at,
+    programId: row.program_id ?? null,
+    startDate: row.start_date ?? null,
   };
 }
 
@@ -352,7 +388,7 @@ export async function listRacesForUser(userId: string): Promise<RaceRecord[]> {
     const sql = getPg();
     const rows = (await sql`SELECT r.id, r.name, r.owner_user_id,
       CASE WHEN r.owner_user_id = ${userId} THEN r.invite_code ELSE '' END AS invite_code,
-      r.created_at
+      r.created_at, r.program_id, r.start_date
       FROM races r INNER JOIN race_members m ON m.race_id = r.id
       WHERE m.user_id = ${userId} ORDER BY r.created_at ASC`) as RaceRow[];
     return rows.map(toRace);
@@ -360,7 +396,7 @@ export async function listRacesForUser(userId: string): Promise<RaceRecord[]> {
   return (getSqlite().prepare(
     `SELECT r.id, r.name, r.owner_user_id,
      CASE WHEN r.owner_user_id = ? THEN r.invite_code ELSE '' END AS invite_code,
-     r.created_at
+     r.created_at, r.program_id, r.start_date
      FROM races r INNER JOIN race_members m ON m.race_id = r.id
      WHERE m.user_id = ? ORDER BY r.created_at ASC`
   ).all(userId, userId) as RaceRow[]).map(toRace);
@@ -408,12 +444,12 @@ export async function findRaceById(raceId: string): Promise<RaceRecord | null> {
   await ready();
   if (usingPg()) {
     const sql = getPg();
-    const rows = (await sql`SELECT id, name, owner_user_id, invite_code, created_at
+    const rows = (await sql`SELECT id, name, owner_user_id, invite_code, created_at, program_id, start_date
       FROM races WHERE id = ${raceId}`) as RaceRow[];
     return rows[0] ? toRace(rows[0]) : null;
   }
   const row = getSqlite().prepare(
-    "SELECT id, name, owner_user_id, invite_code, created_at FROM races WHERE id = ?"
+    "SELECT id, name, owner_user_id, invite_code, created_at, program_id, start_date FROM races WHERE id = ?"
   ).get(raceId) as RaceRow | undefined;
   return row ? toRace(row) : null;
 }
@@ -423,12 +459,12 @@ export async function findRaceByInviteCode(code: string): Promise<RaceRecord | n
   await ready();
   if (usingPg()) {
     const sql = getPg();
-    const rows = (await sql`SELECT id, name, owner_user_id, invite_code, created_at
+    const rows = (await sql`SELECT id, name, owner_user_id, invite_code, created_at, program_id, start_date
       FROM races WHERE invite_code = ${normalized}`) as RaceRow[];
     return rows[0] ? toRace(rows[0]) : null;
   }
   const row = getSqlite().prepare(
-    "SELECT id, name, owner_user_id, invite_code, created_at FROM races WHERE invite_code = ?"
+    "SELECT id, name, owner_user_id, invite_code, created_at, program_id, start_date FROM races WHERE invite_code = ?"
   ).get(normalized) as RaceRow | undefined;
   return row ? toRace(row) : null;
 }
@@ -498,29 +534,64 @@ export async function listRaceMembersWithState(
 export async function createRace(
   userId: string,
   name: string,
-  planId: string
+  planId: string,
+  /** The plan the pack trains on, taken from the creator's own. */
+  packPlan: { programId: string | null; startDate: string | null } = {
+    programId: null,
+    startDate: null,
+  }
 ): Promise<RaceRecord> {
   await ready();
   const id = `race-${randomBytes(12).toString("hex")}`;
   const now = new Date().toISOString();
   const invite = newInviteCode();
+  const { programId, startDate } = packPlan;
   if (usingPg()) {
     const sql = getPg();
-    await sql`INSERT INTO races (id, name, owner_user_id, invite_code, created_at)
-      VALUES (${id}, ${name}, ${userId}, ${invite}, ${now})`;
+    await sql`INSERT INTO races (id, name, owner_user_id, invite_code, created_at, program_id, start_date)
+      VALUES (${id}, ${name}, ${userId}, ${invite}, ${now}, ${programId}, ${startDate})`;
     await sql`INSERT INTO race_members (race_id, user_id, plan_id, share_stats, joined_at)
       VALUES (${id}, ${userId}, ${planId}, TRUE, ${now})`;
   } else {
     const db = getSqlite();
     const tx = db.transaction(() => {
-      db.prepare("INSERT INTO races (id, name, owner_user_id, invite_code, created_at) VALUES (?, ?, ?, ?, ?)")
-        .run(id, name, userId, invite, now);
+      db.prepare("INSERT INTO races (id, name, owner_user_id, invite_code, created_at, program_id, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(id, name, userId, invite, now, programId, startDate);
       db.prepare("INSERT INTO race_members (race_id, user_id, plan_id, share_stats, joined_at) VALUES (?, ?, ?, 1, ?)")
         .run(id, userId, planId, now);
     });
     tx();
   }
-  return { id, name, ownerUserId: userId, inviteCode: invite, createdAt: now };
+  return {
+    id,
+    name,
+    ownerUserId: userId,
+    inviteCode: invite,
+    createdAt: now,
+    programId,
+    startDate,
+  };
+}
+
+/**
+ * Point the pack at a different plan. Owner-only, and enforced in the query
+ * itself so a member cannot re-aim a pack they merely belong to.
+ */
+export async function setRacePlan(
+  raceId: string,
+  ownerUserId: string,
+  packPlan: { programId: string | null; startDate: string | null }
+): Promise<void> {
+  await ready();
+  const { programId, startDate } = packPlan;
+  if (usingPg()) {
+    await getPg()`UPDATE races SET program_id = ${programId}, start_date = ${startDate}
+      WHERE id = ${raceId} AND owner_user_id = ${ownerUserId}`;
+    return;
+  }
+  getSqlite()
+    .prepare("UPDATE races SET program_id = ?, start_date = ? WHERE id = ? AND owner_user_id = ?")
+    .run(programId, startDate, raceId, ownerUserId);
 }
 
 export async function joinRace(

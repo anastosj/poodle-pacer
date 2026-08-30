@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { findRaceByInviteCode, getRaceMember } from "@/lib/db";
 import { currentUserId } from "@/lib/session";
+import { fromISO } from "@/lib/dates";
+import { programs } from "@/lib/programs";
 import JoinConfirm from "@/components/JoinConfirm";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,22 @@ export default async function JoinPage({
     redirect(`/login?next=${encodeURIComponent(`/join/${params.code}`)}`);
   }
   const member = await getRaceMember(race.id, userId);
+
+  // Only offer the pack's plan when it is a program we still ship and the
+  // owner actually set dates; otherwise the invite is just an invite.
+  const program = programs.find((p) => p.id === race.programId);
+  const packPlan =
+    program && race.startDate
+      ? {
+          programName: `${program.author}'s ${program.name}`,
+          startLabel: fromISO(race.startDate).toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          }),
+        }
+      : null;
+
   return (
     <main className="mx-auto max-w-md px-4 py-10">
       <div className="rounded-pouf bg-poodle-white p-6 text-center ring-1 ring-poodle-fur pouf-shadow">
@@ -43,7 +61,7 @@ export default async function JoinPage({
             Open the pack
           </Link>
         ) : (
-          <JoinConfirm code={params.code} />
+          <JoinConfirm code={params.code} packPlan={packPlan} />
         )}
       </div>
     </main>

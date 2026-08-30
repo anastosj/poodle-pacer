@@ -42,6 +42,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "race_limit" }, { status: 409 });
   }
   const state = normalizeState(await readUserState(id));
-  const race = await createRace(id, name, activePlan(state).id);
+  const plan = activePlan(state);
+  // The pack trains on whatever the creator has already set up, so an invite
+  // can offer it without them filling the same form a second time.
+  const race = await createRace(id, name, plan.id, {
+    programId: plan.programId ?? null,
+    startDate: plan.startDate ?? null,
+  });
   return NextResponse.json({ race }, { status: 201 });
 }

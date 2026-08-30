@@ -4,13 +4,14 @@ import {
   getRaceMember,
   leaveRace,
   readUserState,
+  setRacePlan,
   updateRaceMember,
 } from "@/lib/db";
 import { raceLeaderboard } from "@/lib/group";
 import { allowRequest } from "@/lib/rate-limit";
 import { currentUserId } from "@/lib/session";
 import { readBoundedJson } from "@/lib/request";
-import { normalizeState } from "@/lib/store";
+import { activePlan, normalizeState } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,10 +44,11 @@ export async function PATCH(
   if (!allowRequest(`race-member:${id}`, 30, 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
-  const body = await readBoundedJson<{ shareStats?: unknown; planId?: unknown }>(
-    request,
-    2000
-  );
+  const body = await readBoundedJson<{
+    shareStats?: unknown;
+    planId?: unknown;
+    syncPackPlan?: unknown;
+  }>(request, 2000);
   if (!body) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
@@ -64,13 +66,37 @@ export async function PATCH(
       return NextResponse.json({ error: "invalid_plan" }, { status: 400 });
     }
   }
-  if (shareStats === undefined && planId === undefined) {
+  /*
+   * Point the pack at the owner's current plan. Useful when a pack was made
+   * before its owner had picked a race date, which is the common order:
+   * gather everyone first, sort out the dates after.
+   */
+  if (body.syncPackPlan === true) {
+    const race = await findRaceById(params.raceId);
+    if (!race) return notFound();
+    if (race.ownerUserId !== id) {
+      return NextResponse.json({ error: "not_owner" }, { status: 403 });
+    }
+    const plan = activePlan(normalizeState(await readUserState(id)));
+    await setRacePlan(params.raceId, id, {
+      programId: plan.programId ?? null,
+      startDate: plan.startDate ?? null,
+    });
+  }
+
+  if (
+    shareStats === undefined &&
+    planId === undefined &&
+    body.syncPackPlan !== true
+  ) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
-  await updateRaceMember(params.raceId, id, {
-    ...(shareStats === undefined ? {} : { shareStats }),
-    ...(planId === undefined ? {} : { planId }),
-  });
+  if (shareStats !== undefined || planId !== undefined) {
+    await updateRaceMember(params.raceId, id, {
+      ...(shareStats === undefined ? {} : { shareStats }),
+      ...(planId === undefined ? {} : { planId }),
+    });
+  }
   return NextResponse.json({ ok: true });
 }
 
