@@ -11,6 +11,7 @@ import {
   CheckIcon,
   ChevronIcon,
   MoodIcon,
+  PoodleFaceIcon,
   RunIcon,
   SwimIcon,
 } from "@/components/Icons";
@@ -60,13 +61,23 @@ import {
   Plan,
   RunLog,
   SyncedRun,
+  daysUntilStart,
+  isPausedOn,
   logSeconds,
   matchedActivityIds,
   runAsLog,
 } from "@/lib/store";
 import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
-type ViewMode = "week" | "program" | "month";
+/**
+ * Two scopes only. A full-program list sounds useful and reads as a wall: with
+ * synced history it scrolled back through months of activity nobody was
+ * looking for. Month view covers the same ground a month at a time, forwards
+ * into the plan as well as back over what was done.
+ */
+type ViewMode = "week" | "month";
+
+const MODES = ["week", "month"] as const;
 
 /**
  * Written out rather than built from the value, so Tailwind's scanner sees
@@ -83,45 +94,82 @@ function shiftMonth(d: Date, by: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + by, 1);
 }
 
-/** "4 activities · 12.3 mi run" for the month shown, or a nudge when empty. */
+/**
+ * "6/8 done · 12.3 mi run" for the month shown, or a nudge when it is empty.
+ *
+ * Counted a day at a time rather than a row at a time: calendar rows straddle
+ * month boundaries, so summing the rows this month renders would fold in a
+ * handful of days belonging to the month either side.
+ */
 function monthSummary(
   monthStart: Date,
+  rows: CalendarRow[],
+  plan: Plan,
   extraByIso: Map<string, SyncedRun[]>
 ): string {
-  let count = 0;
+  const inMonth = (d: Date) =>
+    d.getFullYear() === monthStart.getFullYear() &&
+    d.getMonth() === monthStart.getMonth();
+
+  let done = 0;
+  let total = 0;
+  let extras = 0;
   let miles = 0;
-  extraByIso.forEach((list, iso) => {
-    const d = fromISO(iso);
-    if (
-      d.getFullYear() !== monthStart.getFullYear() ||
-      d.getMonth() !== monthStart.getMonth()
-    ) {
-      return;
-    }
-    for (const run of list) {
-      count += 1;
-      // Only running miles are quoted, matching every other total in the app.
-      if (countsAsRunning(run.sportType)) miles += run.miles;
-    }
-  });
-  if (count === 0) return "Nothing logged";
-  const activities = `${count} ${count === 1 ? "activity" : "activities"}`;
-  return miles > 0
-    ? `${activities} · ${Math.round(miles * 10) / 10} mi run`
-    : activities;
+
+  for (const row of rows) {
+    row.cells.forEach((cell, i) => {
+      const date = addDays(row.start, i);
+      if (!inMonth(date)) return;
+      if (cell && cell.workout.type !== "rest") {
+        total += 1;
+        const log = plan.logs[cell.key];
+        if (log?.completed) {
+          done += 1;
+          // Only running miles are quoted, matching every other total in the app.
+          miles += workoutTracksRunningMiles(cell.workout)
+            ? log.miles ??
+              (cell.workout.type === "run-or-cross" ? 0 : cell.workout.miles ?? 0)
+            : 0;
+        }
+      }
+      for (const run of extraByIso.get(toLocalISO(date)) ?? []) {
+        extras += 1;
+        if (countsAsRunning(run.sportType)) miles += run.miles;
+      }
+    });
+  }
+
+  const parts: string[] = [];
+  if (total > 0) parts.push(`${done}/${total} done`);
+  // Off-plan activity is only worth naming when there is no plan tally to
+  // read it against; otherwise it is already inside the mileage.
+  else if (extras > 0)
+    parts.push(`${extras} ${extras === 1 ? "activity" : "activities"}`);
+  if (miles > 0) parts.push(`${Math.round(miles * 10) / 10} mi run`);
+  return parts.length > 0 ? parts.join(" · ") : "Nothing logged";
 }
 
-/** Past days read as either done or missed; upcoming days stay neutral. */
-type CellStatus = "rest" | "done" | "missed" | "today" | "upcoming";
+/**
+ * Past days read as either done or missed; upcoming days stay neutral. A day
+ * inside a stood-down stretch is neither — it is a day the runner already
+ * accounted for, and saying "missed" over the top of that is the wall of red
+ * pausing exists to remove. Work that was logged still shows as done, since
+ * standing the plan down never erases a run that happened.
+ */
+type CellStatus = "rest" | "done" | "paused" | "missed" | "today" | "upcoming";
 
 function cellStatus(
   workout: Workout,
   log: RunLog | undefined,
   isPast: boolean,
-  isToday: boolean
+  isToday: boolean,
+  isPaused: boolean
 ): CellStatus {
-  if (workout.type === "rest") return "rest";
   if (log?.completed) return "done";
+  // Rest days were never a reproach, so pausing has nothing to soften on them;
+  // marking them too would only spread dashes across days that read fine.
+  if (workout.type === "rest") return "rest";
+  if (isPaused) return "paused";
   if (isPast) return "missed";
   return isToday ? "today" : "upcoming";
 }
@@ -129,6 +177,7 @@ function cellStatus(
 const STATUS_STYLES: Record<CellStatus, string> = {
   rest: "border-outline bg-surface-tinted",
   done: "border-outline bg-periwinkle",
+  paused: "border-dashed border-ink-soft bg-surface-tinted opacity-80",
   missed: "border-outline bg-lilac opacity-70",
   today: "border-outline bg-highlight",
   upcoming: "border-outline bg-surface",
@@ -139,6 +188,7 @@ function DayCell({
   log,
   isToday,
   isPast,
+  isPaused,
   onToggle,
   onLog,
   onFeel,
@@ -148,6 +198,8 @@ function DayCell({
   log: RunLog | undefined;
   isToday: boolean;
   isPast: boolean;
+  /** Inside a stretch the runner stood the plan down for. */
+  isPaused: boolean;
   onToggle: () => void;
   onLog: (miles?: number, seconds?: number, sportType?: string) => void;
   onFeel: (feel: Feel) => void;
@@ -164,7 +216,7 @@ function DayCell({
 
   const { workout } = cell;
   const distanceUnit = loggableDistanceUnit(workout);
-  const status = cellStatus(workout, log, isPast, isToday);
+  const status = cellStatus(workout, log, isPast, isToday, isPaused);
   const isRest = status === "rest";
   const done = status === "done";
 
@@ -266,7 +318,11 @@ function DayCell({
   );
 
   const statusChip =
-    status === "missed" ? (
+    status === "paused" ? (
+      <span className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-ink-soft bg-surface px-1.5 py-0.5 text-meta font-bold text-ink-soft">
+        Paused
+      </span>
+    ) : status === "missed" ? (
         <span className="inline-flex items-center gap-1 rounded-full border-2 border-outline bg-surface px-1.5 py-0.5 text-meta font-bold text-ink-soft">
         <span className="h-1.5 w-1.5 rounded-full border border-outline" />
         Missed
@@ -505,6 +561,9 @@ function rowSummary(
   let miles = 0;
   for (const cell of row.cells) {
     if (!cell || cell.workout.type === "rest") continue;
+    // Stood-down days are not owed, so they stay out of the tally rather than
+    // sitting in it permanently unmet.
+    if (isPausedOn(plan, cell.iso) && !plan.logs[cell.key]?.completed) continue;
     total += 1;
     const log = plan.logs[cell.key];
     if (log?.completed) {
@@ -640,6 +699,49 @@ function ExtraRunCard({
   );
 }
 
+/**
+ * Today, on a day that has no workout and no logged activity — before the plan
+ * begins, after it ends, or off the plan entirely. `buildCalendar` keeps this
+ * week for exactly this card's sake, so it has to stand on its own without a
+ * workout to hang off. Carries the same tilt and Today badge as a DayCell, so
+ * the eye finds the current day the same way in either case.
+ */
+function TodayPlaceholder({ date, note }: { date: Date; note: string }) {
+  return (
+    <div className="relative flex rotate-[-1.5deg] gap-3 rounded-sm border-3 border-dashed border-primary bg-highlight p-2.5 text-body shadow-card md:min-h-[112px] md:flex-col md:gap-0 md:p-2">
+      <span className="absolute -top-5 right-2 z-10 hidden rounded-full border-2 border-outline bg-ink px-2 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:inline-block">
+        Today
+      </span>
+
+      <div className="flex shrink-0 items-start pt-0.5 md:hidden">
+        <PoodleFaceIcon size={44} />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 text-meta font-bold uppercase tracking-wide text-ink">
+            <span className="md:hidden">
+              {date.toLocaleDateString(undefined, { weekday: "short" })}{" "}
+            </span>
+            {date.toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          {/* The floating badge above is desktop-only; on a phone there is no
+              room over the card, so it sits on the meta line instead. */}
+          <span className="z-10 ml-auto shrink-0 rounded-full border-2 border-outline bg-ink px-1.5 py-0.5 text-meta font-bold uppercase tracking-wide text-background md:hidden">
+            Today
+          </span>
+        </div>
+        <p className="mt-1 font-display uppercase leading-tight text-ink">
+          {note}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function WeekdayHeader() {
   return (
     <div className="hidden grid-cols-7 gap-2 px-1 md:grid">
@@ -672,17 +774,16 @@ export default function CalendarGrid({
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   /**
-   * Which month the month view is showing. Only used when there is no plan:
-   * with nothing scheduled, flipping back through months is the only way to
-   * look over what has actually been done.
+   * Which month the month view is showing. Steps both ways: back over what was
+   * actually done, forward into the weeks still to come.
    */
   const [monthAnchor, setMonthAnchor] = useState(() =>
     startOfMonth(startOfToday())
   );
   /**
-   * Per-row open/closed overrides in full-program view. Absent means "use the
-   * default", which folds weeks that have already finished so a twelve week
-   * plan opens as a readable list rather than a wall of cells.
+   * Per-row open/closed overrides in month view. Absent means "use the
+   * default", which is open — a month is short enough to read whole, and
+   * folding a week away is the exception rather than the starting state.
    */
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   /** The completed day or synced run whose detail sheet is showing, if any. */
@@ -726,9 +827,38 @@ export default function CalendarGrid({
     idx < rows.length && addDays(rows[idx].start, 6) < today;
 
   /**
-   * Month view is the same expanding week rows as the full-program list, just
-   * scoped to one month. Original indices are carried along so the open/closed
-   * state and "this week" marker keep pointing at the right row.
+   * What an empty today should say. Before the plan begins the countdown is
+   * the whole answer; after that it is simply a day off the schedule.
+   */
+  const untilStart = daysUntilStart(plan);
+  const emptyTodayNote =
+    untilStart === 1
+      ? "Training starts tomorrow"
+      : untilStart > 1
+        ? `Training starts in ${untilStart} days`
+        : "Nothing planned today";
+
+  /**
+   * How far the month stepper can travel. The calendar spans the plan, every
+   * synced activity, and today, so its own ends are the only months worth
+   * reaching — past either one there is nothing but empty weeks.
+   */
+  const monthBounds = useMemo(() => {
+    const fallback = startOfMonth(startOfToday());
+    if (rows.length === 0) return { first: fallback, last: fallback };
+    return {
+      first: startOfMonth(rows[0].start),
+      last: startOfMonth(addDays(rows[rows.length - 1].start, 6)),
+    };
+  }, [rows]);
+
+  const isThisMonth =
+    monthAnchor.getTime() === startOfMonth(startOfToday()).getTime();
+
+  /**
+   * Month view is a list of expanding week rows scoped to one month. Original
+   * indices are carried along so the open/closed state and "this week" marker
+   * keep pointing at the right row.
    */
   const listRows = useMemo(() => {
     const all = rows.map((r, idx) => ({ r, idx }));
@@ -742,18 +872,10 @@ export default function CalendarGrid({
     });
   }, [rows, mode, monthAnchor]);
 
-  const isRowOpen = (idx: number, isCurrent: boolean) =>
-    openRows[idx] ?? (mode === "month" || isCurrent || !rowHasPassed(idx));
+  const isRowOpen = (idx: number) => openRows[idx] ?? true;
 
-  const toggleRow = (idx: number, isCurrent: boolean) =>
-    setOpenRows((prev) => ({ ...prev, [idx]: !isRowOpen(idx, isCurrent) }));
-
-  const setAllRows = (open: boolean) =>
-    setOpenRows(Object.fromEntries(rows.map((_, i) => [i, open])));
-
-  const openCount = rows.filter((_, i) =>
-    isRowOpen(i, i === currentRowIndex(rows))
-  ).length;
+  const toggleRow = (idx: number) =>
+    setOpenRows((prev) => ({ ...prev, [idx]: !isRowOpen(idx) }));
 
   const makeHandlers = (cell: CalendarCell) => ({
     onToggle: () => {
@@ -807,6 +929,18 @@ export default function CalendarGrid({
     const date = addDays(r.start, i);
     const extras = extraByIso.get(toLocalISO(date)) ?? [];
     if (!cell && extras.length === 0) {
+      // An empty today still gets a card. It is the one day the runner has to
+      // be able to find, and on a phone the spacer below renders nothing at
+      // all, so without this the current day is simply absent from the grid.
+      if (isSameDay(date, today)) {
+        return (
+          <TodayPlaceholder
+            key={`today-${toLocalISO(date)}`}
+            date={date}
+            note={emptyTodayNote}
+          />
+        );
+      }
       // Nothing on this day: an empty desktop slot, nothing at all when stacked.
       return <div key={`empty-${i}`} className="hidden md:block" aria-hidden />;
     }
@@ -818,6 +952,7 @@ export default function CalendarGrid({
             log={plan.logs[cell.key]}
             isToday={isSameDay(cell.date, today)}
             isPast={cell.date < today}
+            isPaused={isPausedOn(plan, cell.iso)}
             onOpen={() => setDetail({ kind: "cell", cell })}
             {...makeHandlers(cell)}
           />
@@ -901,36 +1036,25 @@ export default function CalendarGrid({
       )}
       {/* Sticky so the way back out of a long plan is always on screen. */}
       <div className="sticky top-14 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 bg-background/90 px-1 py-2 backdrop-blur">
-        {/* With no race date there is no program to lay out, so the second
-            view is a month of what was actually done rather than a plan. */}
+        {/* Month view lays the program over a real month where there is one,
+            and over what was actually done where there isn't. */}
         <SegmentedToggle
-          options={
-            plan.startDate
-              ? (["week", "program"] as const)
-              : (["week", "month"] as const)
-          }
-          value={mode === "program" && !plan.startDate ? "week" : mode}
+          options={MODES}
+          value={mode}
           onChange={(m) => {
             setMode(m);
             if (m === "week") setWeekIndex(currentRowIndex(rows));
             if (m === "month") setMonthAnchor(startOfMonth(startOfToday()));
           }}
-          getLabel={(m) =>
-            m === "week"
-              ? plan.startDate
-                ? "This week"
-                : "Week"
-              : m === "month"
-                ? "Month"
-                : "Full program"
-          }
+          getLabel={(m) => (m === "week" ? "This week" : "This month")}
         />
 
         {mode === "month" && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMonthAnchor((d) => shiftMonth(d, -1))}
-              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac"
+              disabled={monthAnchor <= monthBounds.first}
+              className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac disabled:opacity-30"
               aria-label="Previous month"
             >
               ◂
@@ -943,27 +1067,26 @@ export default function CalendarGrid({
                 })}
               </div>
               <div className="text-meta text-ink-soft">
-                {monthSummary(monthAnchor, extraByIso)}
+                {monthSummary(monthAnchor, rows, plan, extraByIso)}
               </div>
             </div>
             <button
               onClick={() => setMonthAnchor((d) => shiftMonth(d, 1))}
-              disabled={monthAnchor >= startOfMonth(startOfToday())}
+              disabled={monthAnchor >= monthBounds.last}
               className="focus-pouf rounded-full border-2 border-outline px-2 py-1 text-sm text-ink-muted transition hover:bg-lilac disabled:opacity-30"
               aria-label="Next month"
             >
               ▸
             </button>
+            {!isThisMonth && (
+              <button
+                onClick={() => setMonthAnchor(startOfMonth(startOfToday()))}
+                className="focus-pouf rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-primary-dark hover:bg-lilac"
+              >
+                Today
+              </button>
+            )}
           </div>
-        )}
-
-        {mode === "program" && rows.length > 0 && (
-          <button
-            onClick={() => setAllRows(openCount <= rows.length / 2)}
-            className="focus-pouf rounded-full border-2 border-outline px-3 py-1.5 text-meta font-bold text-primary-dark transition hover:bg-lilac"
-          >
-            {openCount > rows.length / 2 ? "Collapse all weeks" : "Expand all weeks"}
-          </button>
         )}
 
         {mode === "week" && row && (
@@ -1051,24 +1174,26 @@ export default function CalendarGrid({
           />
         )}
 
-        {(mode === "program" || mode === "month") && (
+        {mode === "month" && (
           <div className="mt-2 space-y-2">
             {listRows.length === 0 && (
               <p className="rounded-sm border-2 border-outline bg-lilac px-4 py-3 text-meta text-ink-muted">
-                Nothing logged this month.
+                {plan.startDate
+                  ? "Nothing scheduled or logged this month."
+                  : "Nothing logged this month."}
               </p>
             )}
             {listRows.map(({ r, idx }) => {
               const s = rowSummary(r, plan, extraByIso);
               const isCurrent = idx === currentRowIndex(rows);
-              const rowInPast = addDays(r.start, 6) < today;
-              const open = isRowOpen(idx, isCurrent);
+              const rowInPast = rowHasPassed(idx);
+              const open = isRowOpen(idx);
               return (
                 <div key={r.start.toISOString()}>
                   {/* The whole header is the control, so a long plan can be
                       folded down to twelve lines without leaving the view. */}
                   <button
-                    onClick={() => toggleRow(idx, isCurrent)}
+                    onClick={() => toggleRow(idx)}
                     aria-expanded={open}
                     className={`focus-pouf flex w-full items-center gap-2 rounded-sm border-2 border-outline px-2 py-1.5 text-left text-body transition hover:bg-lilac ${
                         open ? "bg-surface" : "bg-lilac"

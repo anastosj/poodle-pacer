@@ -72,6 +72,35 @@ export function logSeconds(log: RunLog | undefined): number | undefined {
   return undefined;
 }
 
+/** Why a stretch of the plan was stood down. Shapes the wording, nothing else. */
+export type PauseReason = "injury" | "illness" | "travel" | "life";
+
+export const PAUSE_REASON_LABEL: Record<PauseReason, string> = {
+  injury: "Injured",
+  illness: "Unwell",
+  travel: "Travelling",
+  life: "Life happened",
+};
+
+export const PAUSE_REASONS = Object.keys(PAUSE_REASON_LABEL) as PauseReason[];
+
+/**
+ * A stretch the runner stood down from, inclusive of both ends.
+ *
+ * Days inside one are not failures: they keep their workout, but they are left
+ * out of consistency, they cannot break a streak, and they read as paused
+ * rather than missed. Nothing about the schedule moves — the plan stays
+ * anchored to race day, which is the whole point of pausing rather than
+ * shifting.
+ */
+export interface PlanPause {
+  /** Local ISO date, inclusive. */
+  fromIso: string;
+  /** Local ISO date, inclusive. */
+  toIso: string;
+  reason?: PauseReason;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -85,6 +114,8 @@ export interface Plan {
    */
   beginWeek?: number;
   logs: Record<string, RunLog>; // key: `${week}-${dayIndex}`
+  /** Stretches the runner stood down from, ascending, never overlapping. */
+  pauses?: PlanPause[];
   raceResult?: { miles?: number; seconds?: number; note?: string };
 }
 
@@ -173,6 +204,7 @@ const MAX_ID_LENGTH = 200;
 const MAX_NAME_LENGTH = 200;
 const MAX_NOTE_LENGTH = 2000;
 const MAX_POLYLINE_LENGTH = 10000;
+const MAX_PAUSES = 100;
 const MAX_PHONE_LENGTH = 50;
 const MAX_TIMEZONE_LENGTH = 100;
 
@@ -287,6 +319,52 @@ function sanitizeLogs(value: unknown): Record<string, RunLog> {
   return logs;
 }
 
+/**
+ * Pauses, in ascending order with overlaps and touching ranges folded together.
+ * Reversed ranges are righted rather than dropped, so a picker that hands back
+ * its ends the other way round still means what the runner intended.
+ */
+function sanitizePauses(value: unknown): PlanPause[] {
+  if (!Array.isArray(value)) return [];
+  const ranges: PlanPause[] = [];
+  for (const raw of value) {
+    if (!isRecord(raw)) continue;
+    if (!isISODate(raw.fromIso) || !isISODate(raw.toIso)) continue;
+    const [fromIso, toIso] =
+      raw.fromIso <= raw.toIso
+        ? [raw.fromIso, raw.toIso]
+        : [raw.toIso, raw.fromIso];
+    const reason =
+      typeof raw.reason === "string" &&
+      (PAUSE_REASONS as string[]).includes(raw.reason)
+        ? (raw.reason as PauseReason)
+        : undefined;
+    ranges.push({ fromIso, toIso, ...(reason ? { reason } : {}) });
+    if (ranges.length >= MAX_PAUSES) break;
+  }
+  return mergePauses(ranges);
+}
+
+/**
+ * Fold a set of ranges into a disjoint ascending list. Ranges that touch end
+ * to end become one: a runner who marks two back-to-back weeks away was away
+ * once, and two adjacent chips would only invite deleting half a gap.
+ */
+export function mergePauses(ranges: PlanPause[]): PlanPause[] {
+  const sorted = [...ranges].sort((a, b) => a.fromIso.localeCompare(b.fromIso));
+  const merged: PlanPause[] = [];
+  for (const range of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && range.fromIso <= addDaysISO(last.toIso, 1)) {
+      if (range.toIso > last.toIso) last.toIso = range.toIso;
+      last.reason = last.reason ?? range.reason;
+      continue;
+    }
+    merged.push({ ...range });
+  }
+  return merged.slice(0, MAX_PAUSES);
+}
+
 function sanitizePlan(value: unknown): Plan | undefined {
   if (!isRecord(value)) return undefined;
   const id = typeof value.id === "string" ? value.id.trim() : "";
@@ -310,6 +388,9 @@ function sanitizePlan(value: unknown): Plan | undefined {
   ) {
     plan.beginWeek = beginWeek;
   }
+
+  const pauses = sanitizePauses(value.pauses);
+  if (pauses.length > 0) plan.pauses = pauses;
 
   if (isISODate(value.startDate)) plan.startDate = value.startDate;
   if (isRecord(value.raceResult)) {
@@ -579,6 +660,43 @@ export function raceDateFromStart(startDate: string, weeks: number): string {
 
 export function startDateFromRace(raceDate: string, weeks: number): string {
   return addDaysISO(raceDate, -(weeks * 7 - 1));
+}
+
+/** Whether a date sits inside a stood-down stretch. */
+export function pauseCovering(
+  plan: Plan,
+  iso: string
+): PlanPause | undefined {
+  return plan.pauses?.find((p) => iso >= p.fromIso && iso <= p.toIso);
+}
+
+export function isPausedOn(plan: Plan, iso: string): boolean {
+  return pauseCovering(plan, iso) !== undefined;
+}
+
+/** Stand down a stretch, folding it into any pause it meets. */
+export function addPause(plan: Plan, pause: PlanPause): Plan {
+  return { ...plan, pauses: mergePauses([...(plan.pauses ?? []), pause]) };
+}
+
+/** Lift the pause covering a date, if there is one. */
+export function removePauseOn(plan: Plan, iso: string): Plan {
+  const pauses = (plan.pauses ?? []).filter(
+    (p) => !(iso >= p.fromIso && iso <= p.toIso)
+  );
+  if (pauses.length === (plan.pauses?.length ?? 0)) return plan;
+  const next = { ...plan };
+  if (pauses.length > 0) next.pauses = pauses;
+  else delete next.pauses;
+  return next;
+}
+
+/** Total days stood down, for the recap line. */
+export function pausedDayCount(plan: Plan): number {
+  return (plan.pauses ?? []).reduce(
+    (sum, p) => sum + daysBetween(fromISO(p.fromIso), fromISO(p.toIso)) + 1,
+    0
+  );
 }
 
 /** The first program week this runner trains. */

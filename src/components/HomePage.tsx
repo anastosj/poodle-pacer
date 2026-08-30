@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import CalendarGrid from "@/components/CalendarGrid";
 import DurationInput from "@/components/DurationInput";
+import LifeHappenedCard from "@/components/LifeHappenedCard";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import StatsBar from "@/components/StatsBar";
 import { useApp } from "@/components/AppContext";
@@ -374,6 +375,8 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      <LifeHappenedCard />
 
       <StatsBar plan={plan} program={program} runs={state.runs ?? []} />
 

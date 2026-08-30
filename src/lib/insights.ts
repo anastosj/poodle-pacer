@@ -17,6 +17,7 @@ import {
   Plan,
   RunLog,
   SyncedRun,
+  isPausedOn,
   logSeconds,
 } from "@/lib/store";
 
@@ -35,9 +36,10 @@ export interface PeriodStats {
   completed: number;
   scheduled: number;
   /**
-   * Scheduled workouts whose day has actually arrived. Consistency measures
-   * against this rather than `scheduled`, so tomorrow's run is not counted as
-   * one you have already missed.
+   * Scheduled workouts whose day has actually arrived, minus any the runner
+   * stood the plan down for. Consistency measures against this rather than
+   * `scheduled`, so neither tomorrow's run nor a week spent injured is counted
+   * as one already missed.
    */
   due: number;
   runCount: number;
@@ -55,6 +57,12 @@ export interface PeriodStats {
 
 export interface TrendPoint {
   label: string;
+  /**
+   * The point's real date: the run's own day in "week" scope, the bucket's
+   * Sunday otherwise. Carried so time-series charts can scale an axis by it
+   * rather than treating `label` as an evenly spaced category.
+   */
+  date: Date;
   miles: number;
   pace?: number;
   avgHeartRate?: number;
@@ -119,7 +127,9 @@ function summarize(
   runs: SyncedRun[],
   start: Date,
   end: Date,
-  kind: ActivityKind
+  kind: ActivityKind,
+  /** Days the runner stood down; they are neither owed nor missed. */
+  paused: (iso: string) => boolean = () => false
 ): PeriodStats {
   const stats = EMPTY(start, end);
 
@@ -136,7 +146,7 @@ function summarize(
   for (const cell of cells) {
     if (cell.workout.type === "rest") continue;
     stats.scheduled += 1;
-    if (cell.date <= today) stats.due += 1;
+    if (cell.date <= today && !paused(cell.iso)) stats.due += 1;
     if (workoutTracksRunningMiles(cell.workout)) {
       stats.plannedMiles += cell.workout.miles ?? 0;
     }
@@ -257,7 +267,8 @@ function buildTrend(
   logs: Record<string, RunLog>,
   runs: SyncedRun[],
   window: { start: Date; end: Date },
-  kind: ActivityKind
+  kind: ActivityKind,
+  paused: (iso: string) => boolean
 ): TrendPoint[] {
   const inWindow = within(cells, window.start, window.end);
   // The trend plots distance and speed, so only the chosen sport belongs.
@@ -282,6 +293,7 @@ function buildTrend(
               label: cell.date.toLocaleDateString(undefined, {
                 weekday: "short",
               }),
+              date: cell.date,
               miles: Math.round(miles * 10) / 10,
               pace: paceSecondsPerMile(logSeconds(log), miles),
               avgHeartRate: log?.avgHeartRate,
@@ -294,6 +306,7 @@ function buildTrend(
           date,
           point: {
             label: date.toLocaleDateString(undefined, { weekday: "short" }),
+            date,
             miles: Math.round(run.miles * 10) / 10,
             pace: paceSecondsPerMile(run.seconds, run.miles),
             avgHeartRate: run.avgHeartRate,
@@ -316,12 +329,21 @@ function buildTrend(
     const bucket = within(inWindow, weekStart, weekEnd);
     const bucketRuns = runsWithin(runsInWindow, weekStart, weekEnd);
     if (bucket.length === 0 && bucketRuns.length === 0) continue;
-    const s = summarize(bucket, logs, bucketRuns, weekStart, weekEnd, kind);
+    const s = summarize(
+      bucket,
+      logs,
+      bucketRuns,
+      weekStart,
+      weekEnd,
+      kind,
+      paused
+    );
     points.push({
       label: weekStart.toLocaleDateString(undefined, {
         month: "numeric",
         day: "numeric",
       }),
+      date: weekStart,
       miles: s.miles,
       pace: s.avgPace,
       avgHeartRate: s.avgHeartRate,
@@ -374,6 +396,8 @@ export function computeInsights(
     ...extraRuns.map((r) => fromISO(r.date)),
   ].sort((a, b) => a.getTime() - b.getTime());
 
+  const paused = (iso: string) => isPausedOn(plan, iso);
+
   const window = scopeWindow(scope, dates);
   const current = summarize(
     within(cells, window.start, window.end),
@@ -381,7 +405,8 @@ export function computeInsights(
     runsWithin(extraRuns, window.start, window.end),
     window.start,
     window.end,
-    kind
+    kind,
+    paused
   );
 
   let previous: PeriodStats | undefined;
@@ -393,13 +418,21 @@ export function computeInsights(
     const prevCells = within(cells, prevStart, prevEnd);
     const prevRuns = runsWithin(extraRuns, prevStart, prevEnd);
     if (prevCells.length > 0 || prevRuns.length > 0) {
-      previous = summarize(prevCells, logs, prevRuns, prevStart, prevEnd, kind);
+      previous = summarize(
+        prevCells,
+        logs,
+        prevRuns,
+        prevStart,
+        prevEnd,
+        kind,
+        paused
+      );
     }
   }
 
   return {
     current,
     previous,
-    trend: buildTrend(scope, cells, logs, extraRuns, window, kind),
+    trend: buildTrend(scope, cells, logs, extraRuns, window, kind, paused),
   };
 }

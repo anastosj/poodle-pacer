@@ -4,6 +4,7 @@ import { programs } from "@/lib/programs";
 import { useApp } from "@/components/AppContext";
 import { BoneIcon, PawIcon } from "@/components/Icons";
 import {
+  PAUSE_REASON_LABEL,
   Plan,
   beginWeekOf,
   daysUntilStart,
@@ -11,7 +12,10 @@ import {
   makePlan,
   planFromRaceDate,
   raceDateFromStart,
+  removePauseOn,
 } from "@/lib/store";
+import { formatShortDate } from "@/lib/calendar";
+import { daysBetween, fromISO } from "@/lib/dates";
 
 /** Plain-language read of what the chosen dates mean for this runner. */
 function describeSchedule(
@@ -223,6 +227,49 @@ export default function GoalsPage() {
           </p>
         )}
       </section>
+
+      {/* Only worth a section once there is something in it: a runner who has
+          never stood the plan down does not need to be told they could. */}
+      {(plan.pauses?.length ?? 0) > 0 && (
+        <section className="mt-4 rounded-sm border-3 border-outline bg-surface p-5 shadow-card">
+          <h2 className="type-overline text-ink-soft">Paused stretches</h2>
+          <p className="mt-1 text-meta text-ink-soft">
+            These days sit out of your consistency and can&apos;t break a
+            streak. Lifting one puts them back on the books as missed.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {plan.pauses?.map((pause) => {
+              const days =
+                daysBetween(fromISO(pause.fromIso), fromISO(pause.toIso)) + 1;
+              return (
+                <li
+                  key={pause.fromIso}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm border-2 border-dashed border-ink-soft bg-surface-tinted px-3 py-2"
+                >
+                  <span className="font-bold text-ink">
+                    {formatShortDate(fromISO(pause.fromIso))} –{" "}
+                    {formatShortDate(fromISO(pause.toIso))}
+                  </span>
+                  <span className="text-meta text-ink-soft">
+                    {days} day{days === 1 ? "" : "s"}
+                    {pause.reason
+                      ? ` · ${PAUSE_REASON_LABEL[pause.reason]}`
+                      : ""}
+                  </span>
+                  <button
+                    onClick={() =>
+                      updatePlan((p) => removePauseOn(p, pause.fromIso))
+                    }
+                    className="focus-pouf ml-auto rounded-full border-2 border-outline px-3 py-1 text-meta font-bold text-ink transition hover:bg-lilac"
+                  >
+                    Lift
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
