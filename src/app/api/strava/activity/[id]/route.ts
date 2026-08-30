@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUserId } from "@/lib/session";
 import { getFreshTokens, hasActivityScope } from "@/lib/strava";
+import { stravaErrorResponse } from "@/lib/strava-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
   if (!res.ok) {
-    return NextResponse.json({ error: "strava_error" }, { status: 502 });
+    return stravaErrorResponse(res);
   }
 
   const a: StravaActivityDetail = await res.json();

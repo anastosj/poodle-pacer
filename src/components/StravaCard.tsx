@@ -32,7 +32,11 @@ export default function StravaCard() {
       setSyncMessage(
         result.error === "missing_scope"
           ? "Poodle Pacer needs permission to read your activities. Re-authorize below."
-          : "Couldn't reach Strava. Try again in a moment."
+          : result.error === "rate_limited"
+            ? // Strava answered fine; the app is simply over its shared quota,
+              // so "couldn't reach Strava" would be both wrong and alarming.
+              "Strava's limit is used up for the moment — everyone signed in shares it. It resets within about 15 minutes, and nothing you've logged is affected."
+            : "Couldn't reach Strava. Try again in a moment."
       );
       return;
     }
@@ -82,9 +86,10 @@ export default function StravaCard() {
           {status.canSync ? (
             <div className="space-y-2">
               <p className="type-body text-ink-muted">
-                Every activity syncs automatically each time you open the app
-                and lands on your calendar, whether or not it&apos;s part of a
-                training plan. Only runs count towards mileage and pace.
+                Every activity syncs automatically when you open the app and
+                lands on your calendar, whether or not it&apos;s part of a
+                training plan. Only runs count towards mileage and pace. Sync
+                now checks again straight away.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
