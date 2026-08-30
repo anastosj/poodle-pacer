@@ -281,3 +281,55 @@ body {
     transform: none;
   }
 }
+
+/*
+ * Palette bridge for the Bklit chart components in src/components/charts.
+ * They read a --chart-* contract that shadcn seeded in greyscale; every value
+ * below re-points it at the poodle palette above, so the charts inherit the
+ * app's blues rather than shipping their own neutral theme. No dark block:
+ * the app is light-only, so the .dark half of the seed was dropped.
+ */
+@layer base {
+  :root {
+    /* The chart components read this name directly for axis and label text. */
+    --muted-foreground: var(--ink-soft);
+
+    --chart-1: var(--primary);
+    --chart-2: var(--accent);
+    --chart-3: var(--headband);
+    --chart-4: var(--periwinkle);
+    --chart-5: var(--lilac);
+
+    --chart-background: var(--surface);
+    --chart-foreground: var(--ink);
+    --chart-foreground-muted: var(--ink-soft);
+    --chart-label: var(--ink-soft);
+
+    --chart-line-primary: var(--chart-1);
+    --chart-line-secondary: var(--chart-2);
+    --chart-crosshair: var(--primary);
+    --chart-grid: var(--grid);
+    --chart-brush-border: var(--outline);
+
+    /* Tooltips are surfaces like every other card: white, dark ink, hard edge. */
+    --chart-tooltip-background: var(--surface);
+    --chart-tooltip-foreground: var(--ink);
+    --chart-tooltip-muted: var(--ink-soft);
+
+    --chart-marker-background: var(--surface);
+    --chart-marker-border: var(--outline);
+    --chart-marker-foreground: var(--ink);
+
+    /*
+     * Heatmap ramp, palest to deepest. Held on one hue so the grid reads as a
+     * single quantity getting heavier, and ending near --primary-dark so the
+     * biggest weeks still separate from the near-black cell outline.
+     */
+    --chart-scale-01: #eaf0ff;
+    --chart-scale-02: #cfe0ff;
+    --chart-scale-03: #93b4f7;
+    --chart-scale-04: #2f6fed;
+    --chart-scale-05: #1b1f52;
+    --chart-scale-pattern-color: #eaf0ff;
+  }
+}
