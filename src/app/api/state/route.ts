@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readUserState, writeUserState } from "@/lib/db";
+import { readUserStateRecord, writeUserState } from "@/lib/db";
 import { allowRequest } from "@/lib/rate-limit";
 import { currentUserId } from "@/lib/session";
 import { MAX_STATE_BYTES } from "@/lib/state-limits";
@@ -51,7 +51,10 @@ async function readBoundedText(
 export async function GET() {
   const userId = currentUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json({ state: await readUserState(userId) });
+  const { state, updatedAt } = await readUserStateRecord(userId);
+  // `updatedAt` lets the client tell a server copy it has already seen from
+  // one written by another device since.
+  return NextResponse.json({ state, updatedAt });
 }
 
 export async function PUT(request: NextRequest) {
@@ -77,6 +80,8 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
 
-  await writeUserState(userId, normalizeState(body.state));
-  return NextResponse.json({ ok: true });
+  const updatedAt = await writeUserState(userId, normalizeState(body.state));
+  // Handing the stored timestamp back means the client records what the server
+  // actually wrote, rather than trusting its own clock to agree.
+  return NextResponse.json({ ok: true, updatedAt });
 }

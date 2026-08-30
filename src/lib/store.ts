@@ -576,6 +576,59 @@ export function saveState(userId: string, state: RunnerState) {
   );
 }
 
+/** What this device knows about how its cache relates to the server's copy. */
+export interface SyncMark {
+  /**
+   * Server timestamp of the last copy this device successfully exchanged with
+   * the server, ISO 8601. Null before the first exchange.
+   */
+  syncedAt: string | null;
+  /**
+   * True when a local edit has not yet been acknowledged by the server — the
+   * runner logged something on a train, or a save is still in flight.
+   */
+  pending: boolean;
+}
+
+const CLEAN: SyncMark = { syncedAt: null, pending: false };
+
+function syncKey(userId: string) {
+  return `poodle-pacer:sync:${userId}`;
+}
+
+/**
+ * Whether the cache holds work the server has not seen.
+ *
+ * This is deliberately a flag set by the writer rather than a comparison of
+ * two timestamps: the local clock and the server clock are different clocks,
+ * and a device a few minutes behind would otherwise conclude its own unsaved
+ * runs were the stale copy and discard them.
+ */
+export function readSyncMark(userId: string): SyncMark {
+  if (typeof window === "undefined") return CLEAN;
+  try {
+    const raw = window.localStorage.getItem(syncKey(userId));
+    if (!raw) return CLEAN;
+    const parsed = JSON.parse(raw) as Partial<SyncMark>;
+    return {
+      syncedAt:
+        typeof parsed.syncedAt === "string" ? parsed.syncedAt : null,
+      pending: parsed.pending === true,
+    };
+  } catch {
+    return CLEAN;
+  }
+}
+
+export function writeSyncMark(userId: string, mark: SyncMark) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(syncKey(userId), JSON.stringify(mark));
+  } catch {
+    /* private browsing: the guard just never engages */
+  }
+}
+
 export function activePlan(state: RunnerState): Plan {
   return state.plans.find((p) => p.id === state.activePlanId) ?? state.plans[0];
 }

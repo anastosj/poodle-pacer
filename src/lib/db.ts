@@ -788,33 +788,50 @@ export async function deleteStravaTokens(userId: string): Promise<void> {
 
 /* ----------------------------- plan state -------------------------------- */
 
-export async function readUserState(userId: string): Promise<unknown> {
+export interface UserStateRecord {
+  state: unknown;
+  /** When the server last accepted a write, ISO 8601. Null when never written. */
+  updatedAt: string | null;
+}
+
+/**
+ * The stored state together with the time it was written. The timestamp is on
+ * the server's clock, so it is comparable across a runner's devices in a way
+ * that two browser clocks are not.
+ */
+export async function readUserStateRecord(
+  userId: string
+): Promise<UserStateRecord> {
   await ready();
-  let data: string | undefined;
+  let row: { data: string; updated_at: string } | undefined;
   if (usingPg()) {
     const sql = getPg();
-    const rows = (await sql`SELECT data FROM user_state WHERE user_id = ${userId}`) as {
+    const rows = (await sql`SELECT data, updated_at FROM user_state WHERE user_id = ${userId}`) as {
       data: string;
+      updated_at: string;
     }[];
-    data = rows[0]?.data;
+    row = rows[0];
   } else {
-    const row = getSqlite()
-      .prepare("SELECT data FROM user_state WHERE user_id = ?")
-      .get(userId) as { data: string } | undefined;
-    data = row?.data;
+    row = getSqlite()
+      .prepare("SELECT data, updated_at FROM user_state WHERE user_id = ?")
+      .get(userId) as { data: string; updated_at: string } | undefined;
   }
-  if (!data) return null;
+  if (!row?.data) return { state: null, updatedAt: null };
   try {
-    return JSON.parse(data);
+    return { state: JSON.parse(row.data), updatedAt: row.updated_at ?? null };
   } catch {
-    return null;
+    return { state: null, updatedAt: null };
   }
+}
+
+export async function readUserState(userId: string): Promise<unknown> {
+  return (await readUserStateRecord(userId)).state;
 }
 
 export async function writeUserState(
   userId: string,
   state: unknown
-): Promise<void> {
+): Promise<string> {
   await ready();
   const data = JSON.stringify(state);
   // Callers validate first; this is the storage backstop.
@@ -826,7 +843,7 @@ export async function writeUserState(
     const sql = getPg();
     await sql`INSERT INTO user_state (user_id, data, updated_at) VALUES (${userId}, ${data}, ${now})
       ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
-    return;
+    return now;
   }
   getSqlite()
     .prepare(
@@ -834,6 +851,7 @@ export async function writeUserState(
        ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
     )
     .run(userId, data, now);
+  return now;
 }
 
 /* ------------------------------ sms sends -------------------------------- */
