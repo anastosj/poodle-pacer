@@ -8,6 +8,8 @@ A white-poodle-themed (blue headband, naturally) running and triathlon training 
 - **Multiple races** — track separate programs, start dates, and logs.
 - **Training grid** — view the full schedule, including runs, cross-training, swims, rides, bricks, and races.
 - **Strava sync** — connect Strava and auto-log running activities into the matching training day; other sports can be completed manually.
+- **Life happened** — mark a stretch you missed as paused, and it sits out of your consistency and can't break your streak. Race day never moves.
+- **Notifications** — browser push each morning there's a workout, plus a race-eve pep talk and a race-day good luck. Texts are available too.
 - **Progress stats** — workouts done, miles logged, current week, and days to race.
 
 ## Getting started
@@ -27,3 +29,19 @@ Open http://localhost:3000.
 3. Put the Client ID and Client Secret in `.env.local` as `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET`.
 
 The app works without Strava — workouts can be completed and running details logged manually.
+
+## Notifications
+
+Browser push is the default alert channel: it is free to send and needs no phone
+number. Generate a VAPID key pair and put it in `.env.local`:
+
+```bash
+node -e "console.log(require('web-push').generateVAPIDKeys())"
+```
+
+Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT`,
+then turn notifications on from Settings. Push requires HTTPS, except on
+`localhost`; on iOS the app must be added to the Home Screen first.
+
+SMS stays available for anyone who wants it — see the Twilio variables in
+`.env.example`. The scheduler sends on whichever channels are configured.

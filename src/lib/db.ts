@@ -60,6 +60,15 @@ function getSqlite(): Database.Database {
       sent_at TEXT NOT NULL,
       PRIMARY KEY (user_id, send_key)
     );
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS push_subscriptions_user
+      ON push_subscriptions (user_id);
     CREATE TABLE IF NOT EXISTS races (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -115,6 +124,15 @@ function getPg(): NeonQueryFunction<false, false> {
         sent_at TEXT NOT NULL,
         PRIMARY KEY (user_id, send_key)
       )`;
+      await sql`CREATE TABLE IF NOT EXISTS push_subscriptions (
+        endpoint TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )`;
+      await sql`CREATE INDEX IF NOT EXISTS push_subscriptions_user
+        ON push_subscriptions (user_id)`;
       await sql`CREATE TABLE IF NOT EXISTS races (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -753,6 +771,94 @@ export async function writeUserState(
  * Record that an alert is being sent. Returns false if this (user, key) pair
  * was already recorded, so overlapping cron ticks never text twice.
  */
+/**
+ * One browser's push registration. The endpoint is the identity: re-subscribing
+ * the same browser returns the same endpoint, so an upsert keeps a device from
+ * accumulating duplicate rows and being notified twice.
+ */
+export interface PushSubscriptionRecord {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export async function savePushSubscription(
+  userId: string,
+  sub: PushSubscriptionRecord
+): Promise<void> {
+  await ready();
+  const now = new Date().toISOString();
+  if (usingPg()) {
+    await getPg()`INSERT INTO push_subscriptions
+      (endpoint, user_id, p256dh, auth, created_at)
+      VALUES (${sub.endpoint}, ${userId}, ${sub.p256dh}, ${sub.auth}, ${now})
+      ON CONFLICT (endpoint) DO UPDATE SET
+        user_id = excluded.user_id,
+        p256dh = excluded.p256dh,
+        auth = excluded.auth`;
+    return;
+  }
+  getSqlite()
+    .prepare(
+      `INSERT INTO push_subscriptions
+         (endpoint, user_id, p256dh, auth, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET
+         user_id = excluded.user_id,
+         p256dh = excluded.p256dh,
+         auth = excluded.auth`
+    )
+    .run(sub.endpoint, userId, sub.p256dh, sub.auth, now);
+}
+
+/**
+ * Drop one registration. Scoped by user as well as endpoint so a request can
+ * only ever unsubscribe a device belonging to the caller.
+ */
+export async function deletePushSubscription(
+  userId: string,
+  endpoint: string
+): Promise<void> {
+  await ready();
+  if (usingPg()) {
+    await getPg()`DELETE FROM push_subscriptions
+      WHERE endpoint = ${endpoint} AND user_id = ${userId}`;
+    return;
+  }
+  getSqlite()
+    .prepare(`DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?`)
+    .run(endpoint, userId);
+}
+
+/** Every browser this runner has enabled notifications on. */
+export async function listPushSubscriptions(
+  userId: string
+): Promise<PushSubscriptionRecord[]> {
+  await ready();
+  if (usingPg()) {
+    return (await getPg()`SELECT endpoint, p256dh, auth
+      FROM push_subscriptions WHERE user_id = ${userId}`) as PushSubscriptionRecord[];
+  }
+  return getSqlite()
+    .prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`)
+    .all(userId) as PushSubscriptionRecord[];
+}
+
+/**
+ * Forget an endpoint the push service has rejected as gone (410/404), so a
+ * browser that cleared its registration stops being retried every tick.
+ */
+export async function deletePushEndpoint(endpoint: string): Promise<void> {
+  await ready();
+  if (usingPg()) {
+    await getPg()`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
+    return;
+  }
+  getSqlite()
+    .prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`)
+    .run(endpoint);
+}
+
 export async function claimSmsSend(
   userId: string,
   sendKey: string

@@ -1,6 +1,7 @@
 "use client";
 
 import AlertsCard from "@/components/AlertsCard";
+import PushCard from "@/components/PushCard";
 import StravaCard from "@/components/StravaCard";
 import { PawIcon, PoodleFaceIcon } from "@/components/Icons";
 import { useApp } from "@/components/AppContext";
@@ -49,6 +50,8 @@ export default function SettingsPage() {
           </button>
         </form>
       </section>
+
+      <PushCard />
 
       <AlertsCard state={state} update={update} plan={plan} program={program} />
 
