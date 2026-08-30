@@ -5,6 +5,7 @@ import { Grid } from "@/components/charts/grid";
 import { Line, LineChart } from "@/components/charts/line-chart";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { XAxis } from "@/components/charts/x-axis";
+import { YAxis } from "@/components/charts/y-axis";
 import {
   ActivityKind,
   distanceLabel,
@@ -13,6 +14,11 @@ import {
 } from "@/lib/activities";
 import { TrendPoint } from "@/lib/insights";
 import { formatPacePerMile } from "@/lib/pace";
+
+/** Speed phrased the way each sport phrases it, with a pace fallback. */
+function speedLabelFor(kind: ActivityKind, seconds: number): string {
+  return formatSpeed(kind, 1, seconds) ?? formatPacePerMile(seconds);
+}
 
 /**
  * Speed and distance over time, on two independent y-scales.
@@ -50,18 +56,46 @@ export default function PaceTrendChart({
 
   if (data.length < 2) return null;
 
-  const speedOf = (seconds: number) =>
-    formatSpeed(kind, 1, seconds) ?? formatPacePerMile(seconds);
-
+  /*
+   * No border on this wrapper. The first and last markers sit exactly on the
+   * plot's edge, and a border drawn there cut straight through them — which
+   * read as a rendering fault rather than as a frame. The section around this
+   * already supplies the card edge.
+   */
   return (
-    <div className="mt-2 rounded-sm border-2 border-outline bg-surface">
+    <div className="mt-2">
       <LineChart
         data={data}
-        aspectRatio="5 / 2"
-        margin={{ top: 24, right: 20, bottom: 28, left: 20 }}
+        aspectRatio="2 / 1"
+        /*
+         * The side margins carry the two axes and, just as importantly, the
+         * end markers: at the old 20px the first and last rings were drawn
+         * half outside the plot and clipped against the card border.
+         */
+        margin={{ top: 20, right: 52, bottom: 30, left: 60 }}
       >
         <Grid horizontal strokeDasharray="3,4" />
-        <XAxis numTicks={5} />
+        <XAxis numTicks={5} tickMode="data" />
+        {/*
+          * Pace ticks are un-negated back to real times here, so the axis
+          * reads 9:20 / 9:40 / 10:00 upward-is-faster while the scale
+          * underneath stays inverted.
+          */}
+        <YAxis
+          yAxisId="left"
+          numTicks={4}
+          formatValue={(value) => speedLabelFor(kind, -value)}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          numTicks={4}
+          formatValue={(value) =>
+            kind === "swim"
+              ? `${Math.round(value * 1760)}`
+              : `${Math.round(value * 10) / 10}`
+          }
+        />
         {/*
           * fadeEdges is off on both series: the default fades a line to
           * transparent at each end, which reads as missing data next to the
@@ -90,7 +124,7 @@ export default function PaceTrendChart({
             {
               color: "var(--chart-line-primary)",
               label: speedLabel(kind),
-              value: speedOf(point.pace as number),
+              value: speedLabelFor(kind, point.pace as number),
             },
             {
               color: "var(--chart-2)",
