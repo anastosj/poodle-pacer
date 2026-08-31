@@ -12,8 +12,10 @@ import {
   makePlan,
   planFromRaceDate,
   raceDateOf,
+  raceDayIndexOf,
   removePauseOn,
 } from "@/lib/store";
+import { SUNDAY_INDEX } from "@/lib/programs";
 import { formatShortDate } from "@/lib/calendar";
 import { daysBetween, fromISO, weekdayIndex } from "@/lib/dates";
 
@@ -38,14 +40,18 @@ function describeSchedule(
   const countdown = daysUntilStart(plan);
   const startDay = WEEKDAY_LABELS[weekdayIndex(fromISO(plan.startDate))];
   const raceIso = raceDateOf(plan, weeks);
-  const raceDay = raceIso
-    ? WEEKDAY_LABELS[weekdayIndex(fromISO(raceIso))]
-    : null;
   const taper =
-    raceDay && raceDay !== "Sunday"
-      ? ` Your race is on a ${raceDay}, so the final week is short and its taper has been shifted to finish on race day.`
-      : "";
-  const opening = startDay === "Monday" ? "" : ` Training begins on a ${startDay}.`;
+    raceDayIndexOf(plan) === SUNDAY_INDEX || !raceIso
+      ? ""
+      : ` Your race is on a ${
+          WEEKDAY_LABELS[weekdayIndex(fromISO(raceIso))]
+        }, so the final week is short and its taper has been shifted to finish on race day.`;
+  const opening =
+    startDay === "Monday"
+      ? ""
+      : ` Training begins on a ${startDay}, so program weeks run ${startDay} to ${
+          WEEKDAY_LABELS[(weekdayIndex(fromISO(plan.startDate)) + 6) % 7]
+        } rather than Monday to Sunday.`;
 
   if (begin > 1) {
     const remaining = weeks - begin + 1;
