@@ -10,6 +10,7 @@ import {
   daysUntilStart,
   effectiveStartDate,
   logKey,
+  raceDateOf,
 } from "@/lib/store";
 import StatTile from "@/components/ui/StatTile";
 
@@ -55,11 +56,8 @@ export default function StatsBar({
 
   const week = currentWeek(plan, program);
   const countdown = daysUntilStart(plan);
-  const raceDay = plan.startDate
-    ? new Date(
-        fromISO(plan.startDate).getTime() + (program.weeks * 7 - 1) * 86400000
-      )
-    : null;
+  const raceIso = raceDateOf(plan, program.weeks);
+  const raceDay = raceIso ? fromISO(raceIso) : null;
   const daysToRace = raceDay
     ? Math.max(
         0,

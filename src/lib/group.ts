@@ -2,7 +2,12 @@ import { listRaceMembersWithState, UserRecord } from "@/lib/db";
 import { fromISO, startOfToday } from "@/lib/dates";
 import { computeInsights, consistencyOf } from "@/lib/insights";
 import { Program, programs } from "@/lib/programs";
-import { Plan, RunnerState, normalizeState } from "@/lib/store";
+import {
+  Plan,
+  RunnerState,
+  normalizeState,
+  programForPlan,
+} from "@/lib/store";
 
 export interface RunnerSummary {
   userId: string;
@@ -33,7 +38,10 @@ export interface RunnerSummary {
 }
 
 function programFor(plan: Plan): Program {
-  return programs.find((p) => p.id === plan.programId) ?? programs[0];
+  return programForPlan(
+    programs.find((p) => p.id === plan.programId) ?? programs[0],
+    plan
+  );
 }
 
 function placeholder(user: UserRecord): RunnerSummary {

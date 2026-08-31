@@ -8,7 +8,9 @@ import {
   fromISO,
   isISODate,
   startOfToday,
+  weekdayIndex,
 } from "@/lib/dates";
+import { Program, SUNDAY_INDEX, withRaceDayIndex } from "@/lib/programs";
 
 export type Feel = "good" | "medium" | "bad";
 
@@ -107,6 +109,11 @@ export interface Plan {
   programId: string;
   /** ISO date of program week 1, day 0 (Monday). May sit in the past. */
   startDate?: string;
+  /**
+   * Which day of the final program week the race falls on, Monday = 0. Absent
+   * means Sunday, which is how the programs are published.
+   */
+  raceDayIndex?: number;
   /**
    * First program week the runner actually trains. Greater than 1 when the
    * race is closer than the full program length, so they join partway in and
@@ -393,6 +400,15 @@ function sanitizePlan(value: unknown): Plan | undefined {
   if (pauses.length > 0) plan.pauses = pauses;
 
   if (isISODate(value.startDate)) plan.startDate = value.startDate;
+  const raceDayIndex = finiteNumber(value.raceDayIndex);
+  if (
+    raceDayIndex !== undefined &&
+    Number.isInteger(raceDayIndex) &&
+    raceDayIndex >= 0 &&
+    raceDayIndex <= SUNDAY_INDEX
+  ) {
+    plan.raceDayIndex = raceDayIndex;
+  }
   if (isRecord(value.raceResult)) {
     const miles = finiteNumber(value.raceResult.miles);
     const seconds = finiteNumber(value.raceResult.seconds);
@@ -706,13 +722,42 @@ export function runAsLog(run: SyncedRun): RunLog {
   };
 }
 
-/** Race day is the last day (Sunday) of the final week. */
-export function raceDateFromStart(startDate: string, weeks: number): string {
-  return addDaysISO(startDate, weeks * 7 - 1);
+/** Which day of its program week the race sits on, Monday = 0. */
+export function raceDayIndexOf(plan: Plan): number {
+  const index = plan.raceDayIndex;
+  if (index === undefined || !Number.isInteger(index)) return SUNDAY_INDEX;
+  return Math.min(Math.max(index, 0), SUNDAY_INDEX);
 }
 
-export function startDateFromRace(raceDate: string, weeks: number): string {
-  return addDaysISO(raceDate, -(weeks * 7 - 1));
+/** Race day: the chosen weekday of the final program week. */
+export function raceDateFromStart(
+  startDate: string,
+  weeks: number,
+  raceDayIndex: number = SUNDAY_INDEX
+): string {
+  return addDaysISO(startDate, (weeks - 1) * 7 + raceDayIndex);
+}
+
+export function startDateFromRace(
+  raceDate: string,
+  weeks: number,
+  raceDayIndex: number = SUNDAY_INDEX
+): string {
+  return addDaysISO(raceDate, -((weeks - 1) * 7 + raceDayIndex));
+}
+
+/** The plan's race date, or nothing until it has a start date. */
+export function raceDateOf(plan: Plan, weeks: number): string | undefined {
+  if (!plan.startDate) return undefined;
+  return raceDateFromStart(plan.startDate, weeks, raceDayIndexOf(plan));
+}
+
+/**
+ * The program as this runner will actually run it: the published schedule with
+ * its taper re-anchored to a race that may not be on a Sunday.
+ */
+export function programForPlan(program: Program, plan: Plan): Program {
+  return withRaceDayIndex(program, raceDayIndexOf(plan));
 }
 
 /** Whether a date sits inside a stood-down stretch. */
@@ -764,21 +809,26 @@ export function effectiveStartDate(plan: Plan): string | undefined {
 }
 
 /**
- * Anchor a plan to race day. If the full program no longer fits before the
- * race, begin at the week that covers today and taper from there. Picking a
- * race four weeks out should start you at week 9 of 12, not bury you under
- * eight weeks of missed workouts.
+ * Anchor a plan to race day. Race day sets the weekday the plan finishes on,
+ * and week 1 still opens on the Monday that many weeks earlier, so training
+ * always begins at the top of a week however the race falls.
+ *
+ * If the full program no longer fits before the race, begin at the week that
+ * covers today and taper from there. Picking a race four weeks out should
+ * start you at week 9 of 12, not bury you under eight weeks of missed
+ * workouts.
  */
 export function planFromRaceDate(
   raceDate: string,
   weeks: number,
   today: Date = startOfToday()
-): { startDate: string; beginWeek: number } {
-  const startDate = startDateFromRace(raceDate, weeks);
+): { startDate: string; beginWeek: number; raceDayIndex: number } {
+  const raceDayIndex = weekdayIndex(fromISO(raceDate));
+  const startDate = startDateFromRace(raceDate, weeks, raceDayIndex);
   const elapsed = daysBetween(fromISO(startDate), today);
   const beginWeek =
     elapsed <= 0 ? 1 : Math.min(Math.floor(elapsed / 7) + 1, weeks);
-  return { startDate, beginWeek };
+  return { startDate, beginWeek, raceDayIndex };
 }
 
 /** Whole days until training begins. Zero once it has started. */

@@ -6,7 +6,7 @@ import { claimSmsSend, listUsersForAlerts } from "@/lib/db";
 import { programs } from "@/lib/programs";
 import { pushConfigured, sendPushToUser } from "@/lib/push";
 import { sendSms, smsConfigured } from "@/lib/sms";
-import { activePlan, normalizeState } from "@/lib/store";
+import { activePlan, normalizeState, programForPlan } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,8 +67,10 @@ export async function GET(request: NextRequest) {
     if (!push && !wantsSms) continue;
 
     const plan = activePlan(state);
-    const program =
-      programs.find((p) => p.id === plan.programId) ?? programs[0];
+    const program = programForPlan(
+      programs.find((p) => p.id === plan.programId) ?? programs[0],
+      plan
+    );
     const now = localNow(alerts.timezone || DEFAULT_TIMEZONE);
 
     const pending = dueAlert(plan, program, alerts, now);
