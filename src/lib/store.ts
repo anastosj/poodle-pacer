@@ -10,7 +10,12 @@ import {
   startOfToday,
   weekdayIndex,
 } from "@/lib/dates";
-import { Program, SUNDAY_INDEX, withRaceDayIndex } from "@/lib/programs";
+import {
+  Program,
+  SUNDAY_INDEX,
+  getProgram,
+  withRaceDayIndex,
+} from "@/lib/programs";
 
 export type Feel = "good" | "medium" | "bad";
 
@@ -372,6 +377,24 @@ export function mergePauses(ranges: PlanPause[]): PlanPause[] {
   return merged.slice(0, MAX_PAUSES);
 }
 
+/**
+ * Plans saved before race day could be any weekday were anchored at
+ * `race - (weeks * 7 - 1)`, which lands mid-week whenever the race is not a
+ * Sunday. Re-anchor those to the Monday of that week and record the weekday the
+ * race is actually on, keeping race day exactly where the runner put it, so
+ * program weeks line up with calendar weeks and the taper finishes on the race.
+ */
+function realignLegacyStart(plan: Plan): void {
+  if (!plan.startDate || plan.raceDayIndex !== undefined) return;
+  if (weekdayIndex(fromISO(plan.startDate)) === 0) return;
+
+  const { weeks } = getProgram(plan.programId);
+  const raceDate = addDaysISO(plan.startDate, weeks * 7 - 1);
+  const raceDayIndex = weekdayIndex(fromISO(raceDate));
+  plan.raceDayIndex = raceDayIndex;
+  plan.startDate = startDateFromRace(raceDate, weeks, raceDayIndex);
+}
+
 function sanitizePlan(value: unknown): Plan | undefined {
   if (!isRecord(value)) return undefined;
   const id = typeof value.id === "string" ? value.id.trim() : "";
@@ -409,6 +432,7 @@ function sanitizePlan(value: unknown): Plan | undefined {
   ) {
     plan.raceDayIndex = raceDayIndex;
   }
+  realignLegacyStart(plan);
   if (isRecord(value.raceResult)) {
     const miles = finiteNumber(value.raceResult.miles);
     const seconds = finiteNumber(value.raceResult.seconds);
