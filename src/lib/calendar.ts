@@ -82,6 +82,26 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
 }
 
 /**
+ * Whether a day's workout can be picked up and moved elsewhere in its program
+ * week — and, because a move is a swap, equally whether another day's workout
+ * can be dropped onto it.
+ *
+ * Race day is the fixed point the whole plan is anchored to, so it never moves
+ * and nothing is ever moved onto it. A workout already done is pinned for the
+ * same reason in miniature: the log is written against the workout and travels
+ * with it, so moving one would put a session the runner completed on a day
+ * they did not train. Rearranging is for the week ahead; the week behind is a
+ * record. Unticking a workout makes it movable again.
+ */
+export function isMovableCell(plan: Plan, cell: CalendarCell): boolean {
+  return (
+    Boolean(plan.startDate) &&
+    cell.workout.type !== "race" &&
+    !plan.logs[cell.key]?.completed
+  );
+}
+
+/**
  * Lay the plan out on a real calendar: rows are Sunday → Saturday, and each
  * workout sits on its actual date. A program week (Mon → Sun) therefore
  * straddles two rows, which is what makes the grid line up with a wall calendar.

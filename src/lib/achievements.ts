@@ -117,7 +117,9 @@ function bestEffort(
       consider((seconds / log.miles) * targetMiles, {
         planId: plan.id,
         logKey: cell.key,
-        iso: cell.iso,
+        // The day the effort actually happened, which is not the slot's own
+        // day when the run was matched back from elsewhere in the week.
+        iso: log.loggedDate ?? cell.iso,
         label: log.stravaName ?? cell.workout.label,
       });
     }

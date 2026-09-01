@@ -9,7 +9,10 @@
  *  - a HIIT class or a spin session can complete a cross-training day, and
  *    contributes exactly zero running miles when it does.
  */
-import { planCells } from "../src/lib/calendar";
+import { bestStreak } from "../src/lib/achievements";
+import { isMovableCell, planCells } from "../src/lib/calendar";
+import { toLocalISO } from "../src/lib/dates";
+import { computeInsights, consistencyOf } from "../src/lib/insights";
 import { runningMilesFor } from "../src/lib/mileage";
 import { applySyncedRuns, workoutAcceptsActivity } from "../src/lib/sync";
 import type { FetchedRun } from "../src/lib/sync";
@@ -19,7 +22,15 @@ import {
   isWeekReordered,
   resetWeekOrder,
   swapWorkoutDays,
+  unmatchedRuns,
 } from "../src/lib/store";
+
+/** A plan start date `daysAgo` back, for the checks that must read as "past". */
+const relativeStart = (daysAgo: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return toLocalISO(d);
+};
 
 let fails = 0;
 const eq = (label: string, got: unknown, want: unknown) => {
@@ -123,6 +134,52 @@ const logged = swapWorkoutDays(
 eq("the log follows its workout", dayOf(logged, "2025-01-09")?.key, "1-1");
 eq("and Tuesday is clear again", logged.logs[dayOf(logged, "2025-01-07")!.key], undefined);
 
+/*
+ * Which days may be moved at all. `swapWorkoutDays` stays a pure permutation
+ * and enforces none of this — the calendar decides what the runner is offered,
+ * and the assertion just above is why: a swap carries the log with it, so a
+ * completed workout would land, still ticked, on a day nothing was done.
+ */
+const withRace = planWith({
+  logs: { "1-1": { completed: true, miles: 5.2 } },
+});
+const movable = (iso: string) =>
+  isMovableCell(withRace, dayOf(withRace, iso)!);
+
+eq("an upcoming workout can be moved", movable("2025-01-06"), true);
+eq("a rest day can be moved", movable("2025-01-09"), true);
+eq("a completed workout is pinned", movable("2025-01-07"), false);
+eq(
+  "unticking it hands the grip back",
+  isMovableCell(planWith(), dayOf(planWith(), "2025-01-07")!),
+  true
+);
+
+// Race day anchors the plan, so it neither moves nor receives.
+const raceProgram: Program = {
+  ...program,
+  schedule: program.schedule.map((week) =>
+    week.week === 4
+      ? {
+          ...week,
+          days: [...week.days.slice(0, 6), { type: "race", label: "Race day" }],
+        }
+      : week
+  ),
+};
+const raceCell = planCells(raceProgram, planWith()).find(
+  (c) => c.workout.type === "race"
+);
+eq("race day is found where the program puts it", raceCell?.iso, "2025-02-02");
+eq("and is pinned", isMovableCell(planWith(), raceCell!), false);
+
+// Nothing to rearrange before a race date is set.
+eq(
+  "a plan with no dates offers no moves",
+  isMovableCell({ ...planWith(), startDate: undefined }, dayOf(base, "2025-01-06")!),
+  false
+);
+
 eq("resetting puts the week back", isWeekReordered(resetWeekOrder(moved, 1), 1), false);
 eq(
   "and the workout with it",
@@ -179,6 +236,61 @@ const nextWeek = applySyncedRuns(stateWith(planWith()), program, [
 ]);
 eq("week 2 slots take week 2 activities", nextWeek.state.plans[0].logs["2-1"]?.stravaActivityId, 7);
 eq("week 1 is untouched", nextWeek.state.plans[0].logs["1-1"], undefined);
+
+/* ------------------------------- a workout done on the following rest day -- */
+
+/*
+ * The case this all has to add up to: Monday has the workout, Tuesday is rest,
+ * and the athlete misses Monday and runs it on the Tuesday instead. Nothing
+ * about the plan has gone wrong — the week's work is being done — so the app
+ * has to read it that way: the slot completed, consistency intact, the streak
+ * unbroken, and no red "missed" sitting on the Monday.
+ */
+const mondayProgram: Program = {
+  ...program,
+  weeks: 2,
+  schedule: [1, 2].map((week) => ({
+    week,
+    // Mon 5 mi · Tue rest · the rest of the week rest, to isolate the case.
+    days: [run(5), rest, rest, rest, rest, rest, rest],
+  })),
+};
+
+// Monday 6 Jan is the workout; the run happens on Tuesday 7 Jan.
+const onRestDay = applySyncedRuns(
+  stateWith(planWith({ programId: "t" })),
+  mondayProgram,
+  [activity(20, "2025-01-07", 5.05)]
+);
+const restDayPlan = onRestDay.state.plans[0];
+
+eq("the Tuesday run completes Monday's workout", restDayPlan.logs["1-0"]?.completed, true);
+eq("carrying its real numbers", restDayPlan.logs["1-0"]?.miles, 5.05);
+eq("and the day it was actually run", restDayPlan.logs["1-0"]?.loggedDate, "2025-01-07");
+eq("Tuesday's rest day stays a rest day", restDayPlan.logs["1-1"], undefined);
+eq("reported as a reordered match", onRestDay.reordered, 1);
+eq(
+  "and it is not left sitting in the loose activity log",
+  unmatchedRuns(onRestDay.state, restDayPlan).length,
+  0
+);
+
+/*
+ * Read as of the Friday of that week, so Monday and Tuesday are both in the
+ * past and the plan has had time to call them missed if it were going to.
+ */
+const asOfFriday: Plan = { ...restDayPlan, startDate: relativeStart(4) };
+const progress = computeInsights(
+  asOfFriday,
+  { ...mondayProgram, id: asOfFriday.programId },
+  "plan",
+  onRestDay.state.runs ?? []
+);
+eq("the workout counts as completed", progress?.current.completed, 1);
+eq("nothing is outstanding", progress?.current.due, 1);
+eq("so consistency is whole", consistencyOf(progress!.current), 1);
+eq("the miles are credited", progress?.current.miles, 5.05);
+eq("and the streak is unbroken", bestStreak(asOfFriday, mondayProgram), 5);
 
 /* --------------------------------------------- cross-training and mileage -- */
 

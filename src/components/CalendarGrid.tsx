@@ -33,6 +33,7 @@ import {
   buildUndatedRows,
   currentRowIndex,
   formatRowLabel,
+  isMovableCell,
   planCells,
 } from "@/lib/calendar";
 import {
@@ -317,7 +318,7 @@ function DayCell({
    * positioned either way, so opening it never reflows the card.
    */
   const renderActions = (menuRef: RefObject<HTMLDivElement>) =>
-    isRest && !movable ? null : (
+    isRest && !movable && !weekReordered ? null : (
     <div className="flex items-center gap-0.5 md:w-full">
       {movable && (
         // `touch-action: none` is what lets a drag begin on a phone: without
@@ -416,7 +417,10 @@ function DayCell({
               </>
             )}
 
-            {movable && weekReordered && (
+            {/* Not gated on `movable`: a week whose workouts are all done or
+              all pinned still has to offer the way back to its program
+              order. */}
+          {weekReordered && (
               <button
                 role="menuitem"
                 onClick={() => {
@@ -976,13 +980,6 @@ export default function CalendarGrid({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, plan.startDate, plan.beginWeek, plan.dayOrder]);
 
-  /**
-   * Race day is the fixed point the whole plan is anchored to, so it is the
-   * one workout that cannot be shuffled — or shuffled onto.
-   */
-  const canMove = (cell: CalendarCell) =>
-    Boolean(plan.startDate) && cell.workout.type !== "race";
-
   /*
    * Only days of the same program week can trade places. That is what keeps
    * the week's shape — its load, its rest days, its long run — intact while
@@ -999,7 +996,7 @@ export default function CalendarGrid({
 
   const moveOptionsFor = (cell: CalendarCell): MoveOption[] =>
     (weekDays.get(cell.week) ?? [])
-      .filter((other) => other.position !== cell.position && canMove(other))
+      .filter((other) => other.position !== cell.position && isMovableCell(plan, other))
       .map((other) => ({
         position: other.position,
         dayLabel: other.date.toLocaleDateString(undefined, {
@@ -1142,6 +1139,9 @@ export default function CalendarGrid({
       // Nothing on this day: an empty desktop slot, nothing at all when stacked.
       return <div key={`empty-${i}`} className="hidden md:block" aria-hidden />;
     }
+    const moveOptions = cell && isMovableCell(plan, cell) ? moveOptionsFor(cell) : [];
+    const movable = moveOptions.length > 0;
+
     return (
       <div key={cell?.key ?? `runs-${toLocalISO(date)}`} className="space-y-2">
         {cell && (
@@ -1151,8 +1151,11 @@ export default function CalendarGrid({
             isToday={isSameDay(cell.date, today)}
             isPast={cell.date < today}
             isPaused={isPausedOn(plan, cell.iso)}
-            movable={canMove(cell)}
-            moveOptions={canMove(cell) ? moveOptionsFor(cell) : []}
+            // A day with nowhere to go is not movable either: its own options
+            // are exactly the other days that could be dropped on it, so an
+            // empty list means it is the only free day left in the week.
+            movable={movable}
+            moveOptions={moveOptions}
             weekReordered={isWeekReordered(plan, cell.week)}
             dragging={drag?.from.key === cell.key}
             isDropTarget={Boolean(
@@ -1160,7 +1163,7 @@ export default function CalendarGrid({
                 drag.moved &&
                 drag.from.key !== cell.key &&
                 drag.from.week === cell.week &&
-                canMove(cell)
+                movable
             )}
             isOver={drag?.over?.key === cell.key}
             gripProps={gripProps(
