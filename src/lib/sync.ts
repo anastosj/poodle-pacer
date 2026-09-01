@@ -12,6 +12,7 @@ import {
   RunnerState,
   SyncedRun,
   activePlan,
+  beginWeekOf,
   dayIndexAt,
   logKey,
   mergeRuns,
@@ -72,43 +73,67 @@ function toSyncedRun(run: FetchedRun): SyncedRun {
   };
 }
 
-/** Where a date falls in the plan: which program week, and which day of it. */
-interface Position {
-  week: number;
-  /** Day of the program week the date lands on, 0 = Monday. */
-  position: number;
+/**
+ * How far out of order a session may be credited, in days either side of the
+ * day it was actually done.
+ *
+ * Three days rather than the rest of the calendar week, because the window has
+ * to be about how late a workout can plausibly be and still be that workout —
+ * and a week boundary is the wrong shape for that. A Sunday long run finished
+ * on the Monday is one day late; that it lands in the next program week is an
+ * accident of where the plan happens to be cut. Meanwhile a Monday run and the
+ * Sunday six days after it are in the same week and have nothing to do with
+ * each other.
+ */
+const MATCH_WINDOW_DAYS = 3;
+
+/**
+ * The first and last day of the plan the runner actually trains, as offsets
+ * from the plan's start date.
+ *
+ * The lower bound is `beginWeek`, not day zero. Weeks before it are not on the
+ * calendar at all — a runner who joined a 12 week program four weeks out never
+ * sees weeks 1 to 8 — so an activity filed into one would be counted as
+ * matched, vanish from the loose activity log, and then have no cell to render
+ * in. It would simply disappear.
+ */
+function trainingDayBounds(
+  plan: Plan,
+  weeks: number
+): { first: number; last: number } {
+  return { first: (beginWeekOf(plan) - 1) * 7, last: weeks * 7 - 1 };
 }
 
 /**
- * Which program week and weekday a calendar date falls on, both dates taken as
- * local midnight.
+ * Which day of the plan a calendar date falls on, counted from the start date,
+ * or null for a date outside the weeks the runner trains. Both dates are taken
+ * as local midnight.
  *
  * Rounding rather than flooring the day count matters across a daylight saving
  * change, where two local midnights are 23 or 25 hours apart and a floor would
  * put the whole rest of the plan out by a day.
  */
-function positionFor(
+function planDayFor(
   iso: string,
-  startDate: string,
+  plan: Plan,
   weeks: number
-): Position | null {
-  const start = fromISO(startDate);
-  const diffDays = Math.round(
-    (fromISO(iso).getTime() - start.getTime()) / 86400000
-  );
-  if (diffDays < 0 || diffDays >= weeks * 7) return null;
-  return { week: Math.floor(diffDays / 7) + 1, position: diffDays % 7 };
+): number | null {
+  const start = fromISO(plan.startDate!);
+  const day = Math.round((fromISO(iso).getTime() - start.getTime()) / 86400000);
+  const { first, last } = trainingDayBounds(plan, weeks);
+  return day < first || day > last ? null : day;
 }
 
-/** The workout on a given day of a week, honouring any days the runner moved. */
-function workoutAt(
+/** The workout on a given day of the plan, honouring any days the runner moved. */
+function workoutOn(
   program: Program,
   plan: Plan,
-  { week, position }: Position
+  day: number
 ): { workout: Workout; key: string } | null {
+  const week = Math.floor(day / 7) + 1;
   const days = program.schedule.find((w) => w.week === week)?.days;
   if (!days) return null;
-  const dayIndex = dayIndexAt(plan, week, position);
+  const dayIndex = dayIndexAt(plan, week, day % 7);
   const workout = days[dayIndex];
   if (!workout) return null;
   return { workout, key: logKey(week, dayIndex) };
@@ -152,9 +177,11 @@ function plannedMiles(workout: Workout): number {
  * How well an activity fits a slot it did not land on. Lower is better.
  *
  * Distance decides it where there is one on both sides — a 4 mile run belongs
- * in the week's 3 mile slot, not its 10 mile long run — and the gap in days
+ * in the 3 mile slot nearby, not the 10 mile long run — and the gap in days
  * settles everything else, so a session slides to the nearest day it could
- * plausibly have been.
+ * plausibly have been. Weighting distance an order of magnitude above the day
+ * gap is what stops a stray run being swallowed by whichever empty slot merely
+ * sits closest.
  */
 function fitCost(
   workout: Workout,
@@ -198,10 +225,11 @@ function logFor(run: FetchedRun, existing: RunLog | undefined): RunLog {
  *
  * Two passes, because training weeks are not done in the order they are
  * written. The first credits activities to the day they actually happened on.
- * The second offers whatever is left the rest of its own program week: a
- * Tuesday tempo run finally done on Thursday still completes Tuesday's slot,
- * as long as nothing else has claimed it. The log remembers the real date so
- * the calendar can say so.
+ * The second offers whatever is left the days within `MATCH_WINDOW_DAYS`
+ * either side: a Tuesday tempo run finally done on Thursday still completes
+ * Tuesday's slot, and a Sunday long run finished on the Monday still completes
+ * Sunday's, as long as nothing else has claimed it. The log remembers the real
+ * date so the calendar can say so.
  */
 export function applySyncedRuns(
   state: RunnerState,
@@ -221,7 +249,7 @@ export function applySyncedRuns(
     const ordered = [...fetched].sort((a, b) =>
       localDateOf(a).localeCompare(localDateOf(b))
     );
-    const leftover: { run: FetchedRun; iso: string; at: Position }[] = [];
+    const leftover: { run: FetchedRun; iso: string; day: number }[] = [];
     // Which activities already sit in some slot, so the second pass never
     // files one twice and never has to walk the whole log to find out.
     const claimed = new Set<number>();
@@ -231,12 +259,12 @@ export function applySyncedRuns(
 
     for (const run of ordered) {
       const iso = localDateOf(run);
-      const at = positionFor(iso, plan.startDate, program.weeks);
-      if (!at) continue;
-      const slot = workoutAt(program, plan, at);
+      const day = planDayFor(iso, plan, program.weeks);
+      if (day === null) continue;
+      const slot = workoutOn(program, plan, day);
       const kind = activityKind(run.sportType);
       if (!slot || !workoutAcceptsActivity(slot.workout, kind)) {
-        leftover.push({ run, iso, at });
+        leftover.push({ run, iso, day });
         continue;
       }
       const existing = logs[slot.key];
@@ -244,7 +272,7 @@ export function applySyncedRuns(
       // A slot already holding a different activity is taken; a slot merely
       // ticked off by hand is not, and syncing is how it gets its numbers.
       if (existing?.stravaActivityId !== undefined) {
-        leftover.push({ run, iso, at });
+        leftover.push({ run, iso, day });
         continue;
       }
       logs[slot.key] = logFor(run, existing);
@@ -252,27 +280,34 @@ export function applySyncedRuns(
       matched += 1;
     }
 
-    for (const { run, iso, at } of leftover) {
+    const bounds = trainingDayBounds(plan, program.weeks);
+
+    for (const { run, iso, day } of leftover) {
       const kind = activityKind(run.sportType);
       // Already sitting in some slot of the plan from an earlier sync: leave
       // it where the runner has it rather than shuffling it every refresh.
       if (claimed.has(run.id)) continue;
 
       let best: { key: string; cost: number } | null = null;
-      for (let position = 0; position < 7; position += 1) {
-        if (position === at.position) continue;
-        const slot = workoutAt(program, plan, { week: at.week, position });
+      /*
+       * Earliest candidate first, and only a strictly better fit displaces it,
+       * so an exact tie resolves backwards — to the workout that was missed
+       * and made up rather than to the one done early. Falling behind and
+       * catching up is much the commoner story.
+       */
+      for (
+        let candidate = Math.max(bounds.first, day - MATCH_WINDOW_DAYS);
+        candidate <= Math.min(bounds.last, day + MATCH_WINDOW_DAYS);
+        candidate += 1
+      ) {
+        if (candidate === day) continue;
+        const slot = workoutOn(program, plan, candidate);
         if (!slot || !workoutAcceptsActivity(slot.workout, kind)) continue;
         // A race is the fixed point the whole plan is built around, and is
         // never something an ordinary Tuesday session quietly completes.
         if (slot.workout.type === "race") continue;
         if (!slotIsFree(logs[slot.key])) continue;
-        const cost = fitCost(
-          slot.workout,
-          run,
-          kind,
-          Math.abs(position - at.position)
-        );
+        const cost = fitCost(slot.workout, run, kind, Math.abs(candidate - day));
         if (!best || cost < best.cost) best = { key: slot.key, cost };
       }
       if (!best) continue;

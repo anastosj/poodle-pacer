@@ -8,7 +8,7 @@ A white-poodle-themed (blue headband, naturally) running and triathlon training 
 - **Multiple races** — track separate programs, start dates, and logs.
 - **Training grid** — view the full schedule, including runs, cross-training, swims, rides, bricks, and races.
 - **Move a workout** — drag a day's tile onto another day of the same training week (or use *Move to…* on the tile's menu) to trade the two around. The week keeps its shape and its total load. Race day and anything already completed stay put.
-- **Strava sync** — connect Strava and auto-log activities into the matching training day. Miss Monday's run and do it on Tuesday's rest day and it still completes Monday's workout — your consistency and streak carry on. Weights and HIIT classes complete cross-training days, and only running ever counts as mileage.
+- **Strava sync** — connect Strava and auto-log activities into the matching training day. A session done up to three days off still finds the workout it was meant for, across a week boundary if that is where it falls: miss Monday's run and do it on Tuesday's rest day, or finish Sunday's long run on the Monday, and your consistency and streak carry on. Weights and HIIT classes complete cross-training days, and only running ever counts as mileage.
 - **Life happened** — mark a stretch you missed as paused, and it sits out of your consistency and can't break your streak. Race day never moves.
 - **Notifications** — browser push each morning there's a workout, plus a race-eve pep talk and a race-day good luck. Texts are available too.
 - **Progress stats** — workouts done, miles logged, current week, and days to race, over this week, this month, the last six months, or the plan from its first day to race day.

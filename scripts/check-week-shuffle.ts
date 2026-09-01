@@ -229,13 +229,92 @@ const resync = applySyncedRuns(twoInADay.state, program, [
 ]);
 eq("a taken slot is left alone", resync.state.plans[0].logs["1-1"]?.stravaActivityId, 4);
 
-// Nothing to match against outside its own week: a run in week 2 never
-// completes a week 1 slot.
+// A run on its own day still takes its own slot rather than being pulled to a
+// neighbour, whichever week that neighbour is in.
 const nextWeek = applySyncedRuns(stateWith(planWith()), program, [
   activity(7, "2025-01-15", 5.0),
 ]);
 eq("week 2 slots take week 2 activities", nextWeek.state.plans[0].logs["2-1"]?.stravaActivityId, 7);
 eq("week 1 is untouched", nextWeek.state.plans[0].logs["1-1"], undefined);
+
+/* ------------------------------------- matching across a week boundary -- */
+
+/*
+ * The case the window exists for, isolated: one long run on the Sunday of week
+ * 1 and nothing else scheduled at all, so only the reach is under test.
+ */
+const longRunProgram: Program = {
+  ...program,
+  weeks: 2,
+  schedule: [
+    { week: 1, days: [rest, rest, rest, rest, rest, rest, run(8)] },
+    { week: 2, days: Array.from({ length: 7 }, () => rest) },
+  ],
+};
+
+// Sunday 12 Jan's long run finished on Monday the 13th — one day late, and on
+// the far side of a week boundary that has nothing to do with anything.
+const longRunOnMonday = applySyncedRuns(
+  stateWith(planWith()),
+  longRunProgram,
+  [activity(10, "2025-01-13", 8.2)]
+);
+eq(
+  "a Sunday long run done on Monday completes Sunday's slot",
+  longRunOnMonday.state.plans[0].logs["1-6"]?.stravaActivityId,
+  10
+);
+eq("counted as reordered", longRunOnMonday.reordered, 1);
+eq(
+  "recorded against the day it was run",
+  longRunOnMonday.state.plans[0].logs["1-6"]?.loggedDate,
+  "2025-01-13"
+);
+
+// Three days is the reach: the Thursday is four days past that Sunday.
+const tooLate = applySyncedRuns(stateWith(planWith()), longRunProgram, [
+  activity(11, "2025-01-16", 8.2),
+]);
+eq("four days late is out of reach", tooLate.state.plans[0].logs["1-6"], undefined);
+eq(
+  "so it stays in the loose activity log",
+  unmatchedRuns(tooLate.state, tooLate.state.plans[0]).length,
+  1
+);
+
+// A run on a day that has its own eligible slot is never pulled to a
+// neighbour, however much better the neighbour's distance would fit.
+const ownDayWins = applySyncedRuns(stateWith(planWith()), program, [
+  activity(13, "2025-01-13", 8.2),
+]);
+eq(
+  "the day it was actually done always wins",
+  ownDayWins.state.plans[0].logs["2-0"]?.stravaActivityId,
+  13
+);
+eq("with no reordering involved", ownDayWins.reordered, 0);
+
+/*
+ * Weeks before `beginWeek` are not on the calendar, so a slot in one has no
+ * cell to render in: an activity filed there would count as matched, drop out
+ * of the loose activity log, and disappear from the app entirely. The same
+ * Monday run, for a runner who joined at week 2, has to stay loose.
+ */
+const joinedLate = applySyncedRuns(
+  stateWith(planWith({ beginWeek: 2 })),
+  longRunProgram,
+  [activity(12, "2025-01-13", 8.2)]
+);
+eq(
+  "nothing is filed into a week the runner never trains",
+  joinedLate.state.plans[0].logs["1-6"],
+  undefined
+);
+eq(
+  "it stays visible as a loose activity instead",
+  unmatchedRuns(joinedLate.state, joinedLate.state.plans[0]).length,
+  1
+);
 
 /* ------------------------------- a workout done on the following rest day -- */
 
