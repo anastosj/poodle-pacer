@@ -8,6 +8,7 @@
  * days rested. Today only joins the streak once its workout is logged.
  */
 import { countsAsRunning } from "@/lib/activities";
+import { isRunningEffort } from "@/lib/mileage";
 import { planCells } from "@/lib/calendar";
 import { startOfToday, toLocalISO } from "@/lib/dates";
 import { Program, programs } from "@/lib/programs";
@@ -106,7 +107,11 @@ function bestEffort(
       programs.find((p) => p.id === plan.programId) ?? programs[0];
     for (const cell of planCells(program, plan)) {
       const log = plan.logs[cell.key];
-      if (!log?.completed || !log.miles || log.miles < targetMiles) continue;
+      // Same rule as the loose activities below: only running sets a running
+      // record, whatever slot of the plan the effort happened to fill.
+      if (!isRunningEffort(log) || !log?.miles || log.miles < targetMiles) {
+        continue;
+      }
       const seconds = logSeconds(log);
       if (!seconds) continue;
       consider((seconds / log.miles) * targetMiles, {

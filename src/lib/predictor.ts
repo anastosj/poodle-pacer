@@ -6,6 +6,7 @@
  */
 import { CalendarCell, planCells } from "@/lib/calendar";
 import { daysBetween, fromISO, startOfToday } from "@/lib/dates";
+import { isRunningEffort } from "@/lib/mileage";
 import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { Plan, logSeconds } from "@/lib/store";
 
@@ -50,7 +51,11 @@ function effortOf(
 ): Effort | null {
   if (!workoutTracksRunningMiles(cell.workout)) return null;
   const log = plan.logs[cell.key];
-  if (!log?.completed || !log.miles || log.miles < MIN_BASIS_MILES) return null;
+  // A 20 mile ride logged against a run-or-cross day would otherwise predict
+  // a startling half marathon.
+  if (!isRunningEffort(log) || !log?.miles || log.miles < MIN_BASIS_MILES) {
+    return null;
+  }
   const seconds = logSeconds(log);
   if (!seconds) return null;
   return {

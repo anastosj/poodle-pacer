@@ -43,6 +43,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#2f6fed",
+  /*
+   * Lets the page draw under the notch and the home indicator, which is also
+   * the only thing that makes `env(safe-area-inset-bottom)` report anything
+   * but zero — the tab bar's padding depends on it.
+   */
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

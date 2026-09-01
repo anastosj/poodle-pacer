@@ -24,7 +24,9 @@ export default function BottomNav() {
   const { raceCount } = useApp();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t-3 border-outline bg-primary-dark pb-[env(safe-area-inset-bottom)] sm:hidden">
+    // `bottom-nav` carries the fixed positioning, the safe-area padding, and
+    // the compositing rules that keep it still while the page scrolls.
+    <nav className="bottom-nav inset-x-0 bottom-0 z-20 border-t-3 border-outline bg-primary-dark sm:hidden">
       <div className="flex">
         {LINKS.filter(
           ({ href }) => href !== "/group" || raceCount > 0

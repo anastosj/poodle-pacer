@@ -55,3 +55,22 @@ export function isSameDay(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
+
+/**
+ * The same day of the month `months` away, clamped to the target month's
+ * length. Plain `setMonth` rolls a 31st into the next month, which turns
+ * "six months back from August 31st" into March.
+ */
+export function addMonths(d: Date, months: number): Date {
+  const target = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const lastDay = new Date(
+    target.getFullYear(),
+    target.getMonth() + 1,
+    0
+  ).getDate();
+  return new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    Math.min(d.getDate(), lastDay)
+  );
+}

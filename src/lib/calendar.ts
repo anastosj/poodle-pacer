@@ -6,7 +6,7 @@ import {
   toLocalISO,
 } from "@/lib/dates";
 import { Program, Workout } from "@/lib/programs";
-import { Plan, beginWeekOf, logKey } from "@/lib/store";
+import { Plan, beginWeekOf, dayIndexAt, logKey } from "@/lib/store";
 
 /** Calendar columns always run Sunday → Saturday. */
 export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -17,8 +17,17 @@ export interface CalendarCell {
   iso: string;
   /** Program week (1-based) this workout belongs to. */
   week: number;
-  /** Index within the program week (0 = Monday … 6 = Sunday). */
+  /**
+   * The workout's own index in its program week (0 = Monday … 6 = Sunday).
+   * This is its identity — the log key is built from it — and it does not
+   * change when the runner moves the workout to another day.
+   */
   dayIndex: number;
+  /**
+   * Where in the week the workout actually falls now, 0 = Monday. Equal to
+   * `dayIndex` until the runner rearranges the week.
+   */
+  position: number;
   /** Absolute day of the plan, 0-based. Display as `Day ${dayNumber + 1}`. */
   dayNumber: number;
   workout: Workout;
@@ -47,8 +56,14 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
   const cells: CalendarCell[] = [];
   for (const week of program.schedule) {
     if (week.week < beginWeek) continue;
-    week.days.forEach((workout, dayIndex) => {
-      const absoluteDay = (week.week - 1) * 7 + dayIndex;
+    // Walk the week by position, not by the program's own order: a runner who
+    // moved Tuesday's tempo run to Wednesday should see it on Wednesday, still
+    // carrying whatever was logged against it.
+    week.days.forEach((_, position) => {
+      const dayIndex = dayIndexAt(plan, week.week, position);
+      const workout = week.days[dayIndex];
+      if (!workout) return;
+      const absoluteDay = (week.week - 1) * 7 + position;
       const date = addDays(start, absoluteDay);
       cells.push({
         // "Day 1" is the runner's first training day, not the program's.
@@ -57,6 +72,7 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
         iso: toLocalISO(date),
         week: week.week,
         dayIndex,
+        position,
         workout,
         key: logKey(week.week, dayIndex),
       });
@@ -132,16 +148,22 @@ export function buildCalendar(
  * Sunday → Saturday by placing each workout on its intrinsic weekday, so the
  * layout doesn't jump around once a date is set.
  */
-export function buildUndatedRows(program: Program): {
+export function buildUndatedRows(
+  program: Program,
+  plan?: Plan
+): {
   week: number;
   cells: ({ workout: Workout; dayIndex: number; key: string } | null)[];
 }[] {
-  // Program day 0 = Monday, so weekday column = (dayIndex + 1) % 7.
+  // Position 0 = Monday, so weekday column = (position + 1) % 7.
   return program.schedule.map((week) => {
     const cells: ({ workout: Workout; dayIndex: number; key: string } | null)[] =
       Array(7).fill(null);
-    week.days.forEach((workout, dayIndex) => {
-      cells[(dayIndex + 1) % 7] = {
+    week.days.forEach((_, position) => {
+      const dayIndex = plan ? dayIndexAt(plan, week.week, position) : position;
+      const workout = week.days[dayIndex];
+      if (!workout) return;
+      cells[(position + 1) % 7] = {
         workout,
         dayIndex,
         key: logKey(week.week, dayIndex),
