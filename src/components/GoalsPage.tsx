@@ -11,11 +11,23 @@ import {
   effectiveStartDate,
   makePlan,
   planFromRaceDate,
-  raceDateFromStart,
+  raceDateOf,
+  raceDayIndexOf,
   removePauseOn,
 } from "@/lib/store";
+import { SUNDAY_INDEX } from "@/lib/programs";
 import { formatShortDate } from "@/lib/calendar";
-import { daysBetween, fromISO } from "@/lib/dates";
+import { daysBetween, fromISO, weekdayIndex } from "@/lib/dates";
+
+const WEEKDAY_LABELS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
 /** Plain-language read of what the chosen dates mean for this runner. */
 function describeSchedule(
@@ -26,6 +38,20 @@ function describeSchedule(
 
   const begin = beginWeekOf(plan);
   const countdown = daysUntilStart(plan);
+  const startDay = WEEKDAY_LABELS[weekdayIndex(fromISO(plan.startDate))];
+  const raceIso = raceDateOf(plan, weeks);
+  const taper =
+    raceDayIndexOf(plan) === SUNDAY_INDEX || !raceIso
+      ? ""
+      : ` Your race is on a ${
+          WEEKDAY_LABELS[weekdayIndex(fromISO(raceIso))]
+        }, so the final week is short and its taper has been shifted to finish on race day.`;
+  const opening =
+    startDay === "Monday"
+      ? ""
+      : ` Training begins on a ${startDay}, so program weeks run ${startDay} to ${
+          WEEKDAY_LABELS[(weekdayIndex(fromISO(plan.startDate)) + 6) % 7]
+        } rather than Monday to Sunday.`;
 
   if (begin > 1) {
     const remaining = weeks - begin + 1;
@@ -33,7 +59,7 @@ function describeSchedule(
       tone: "warn",
       message: `Your race is sooner than the full ${weeks} week program, so you are joining at week ${begin} and training for the final ${remaining} week${
         remaining === 1 ? "" : "s"
-      }. The schedule works backwards from race day, so you get the taper and key workouts that matter most.`,
+      }. The schedule works backwards from race day, so you get the taper and key workouts that matter most.${taper}`,
     };
   }
 
@@ -42,22 +68,20 @@ function describeSchedule(
       tone: "info",
       message: `All set. Training begins in ${countdown} day${
         countdown === 1 ? "" : "s"
-      }, and you will complete the full ${weeks} week program.`,
+      }, and you will complete the full ${weeks} week program.${opening}${taper}`,
     };
   }
 
   return {
     tone: "info",
-    message: `You are completing the full ${weeks} week program.`,
+    message: `You are completing the full ${weeks} week program.${opening}${taper}`,
   };
 }
 
 export default function GoalsPage() {
   const { state, update, plan, updatePlan, program } = useApp();
 
-  const raceDate = plan.startDate
-    ? raceDateFromStart(plan.startDate, program.weeks)
-    : "";
+  const raceDate = raceDateOf(plan, program.weeks) ?? "";
   const schedule = describeSchedule(plan, program.weeks);
 
   return (
@@ -150,6 +174,7 @@ export default function GoalsPage() {
                 programId: e.target.value,
                 startDate: next.startDate,
                 beginWeek: next.beginWeek,
+                raceDayIndex: next.raceDayIndex,
               };
             });
           }}
@@ -173,7 +198,7 @@ export default function GoalsPage() {
         </a>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-sm font-medium">
-            Race day (Sunday):
+            Race day (any day of the week):
             <input
               type="date"
               value={raceDate}
@@ -181,13 +206,19 @@ export default function GoalsPage() {
                 const value = e.target.value;
                 updatePlan((p) => {
                   if (!value) {
-                    return { ...p, startDate: undefined, beginWeek: undefined };
+                    return {
+                      ...p,
+                      startDate: undefined,
+                      beginWeek: undefined,
+                      raceDayIndex: undefined,
+                    };
                   }
                   const next = planFromRaceDate(value, program.weeks);
                   return {
                     ...p,
                     startDate: next.startDate,
                     beginWeek: next.beginWeek,
+                    raceDayIndex: next.raceDayIndex,
                   };
                 });
               }}
@@ -195,7 +226,7 @@ export default function GoalsPage() {
             />
           </label>
           <label className="block text-sm font-medium">
-            or training starts (Monday):
+            or training starts (a Monday, unless you pick another day):
             <input
               type="date"
               value={effectiveStartDate(plan) ?? ""}

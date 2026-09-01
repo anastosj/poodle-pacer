@@ -631,6 +631,45 @@ export function getProgram(id: string): Program {
   return programs.find((program) => program.id === id) ?? halHigdonHalfNovice1;
 }
 
+/** Index of race day within its program week, Monday = 0. */
+export const SUNDAY_INDEX = 6;
+
+/**
+ * Move race day off Sunday.
+ *
+ * Programs are written to finish on the Sunday of the final week, but races
+ * happen on every day of the week. Training still begins on a Monday, so the
+ * final week is short: the taper sequence slides earlier by the same number of
+ * days as the race, keeping the workouts that lead into it — the shakeouts and
+ * the rest days — exactly as many days out as their author intended. The days
+ * it slides over are dropped from the end of the penultimate week, which
+ * during a taper is the one place volume can come out without consequence.
+ */
+export function withRaceDayIndex(
+  program: Program,
+  raceDayIndex: number
+): Program {
+  const shift = SUNDAY_INDEX - raceDayIndex;
+  if (shift <= 0 || program.schedule.length === 0) return program;
+
+  const schedule = program.schedule.map((programWeek) => ({
+    ...programWeek,
+    days: [...programWeek.days],
+  }));
+  const final = schedule[schedule.length - 1];
+  const carried = final.days.slice(0, shift);
+  final.days = final.days.slice(shift);
+
+  const penultimate = schedule[schedule.length - 2];
+  if (penultimate) {
+    penultimate.days = [
+      ...penultimate.days.slice(0, Math.max(0, penultimate.days.length - shift)),
+      ...carried,
+    ];
+  }
+  return { ...program, schedule };
+}
+
 export function totalPlannedMiles(program: Program): number {
   return program.schedule.reduce(
     (sum, programWeek) =>

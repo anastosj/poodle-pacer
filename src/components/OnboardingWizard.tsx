@@ -30,13 +30,14 @@ export default function OnboardingWizard() {
         const schedule =
           dateMode === "race"
             ? planFromRaceDate(date, chosenProgram.weeks)
-            : { startDate: date, beginWeek: 1 };
+            : { startDate: date, beginWeek: 1, raceDayIndex: undefined };
         return {
           ...p,
           name: name.trim() || p.name,
           programId,
           startDate: schedule.startDate,
           beginWeek: schedule.beginWeek > 1 ? schedule.beginWeek : undefined,
+          raceDayIndex: schedule.raceDayIndex,
         };
       }),
       onboarded: true,
@@ -135,8 +136,8 @@ export default function OnboardingWizard() {
             />
             <p className="mt-2 text-meta text-ink-soft">
               {dateMode === "race"
-                ? `Week 1 starts ${chosenProgram.weeks} weeks before race day.`
-                : `Race day lands ${chosenProgram.weeks} weeks after Week 1 starts (a Sunday).`}
+                ? `Race day can be any day of the week. Week 1 starts on the Monday ${chosenProgram.weeks} weeks before it, and the taper shifts to land on the day you race.`
+                : `Race day lands at the end of week ${chosenProgram.weeks}. Start on a Monday and that is a Sunday.`}
             </p>
           </div>
         )}

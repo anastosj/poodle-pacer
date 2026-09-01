@@ -971,7 +971,7 @@ export default function CalendarGrid({
     );
   };
 
-  // No start date yet, so show the program shape, still Sunday-first. Synced
+  // No start date yet, so show the program shape, still Monday-first. Synced
   // runs still get a real dated calendar above it once any exist.
   if (!plan.startDate && rows.length === 0) {
     const undated = buildUndatedRows(program);

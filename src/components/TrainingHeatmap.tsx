@@ -120,9 +120,10 @@ export default function TrainingHeatmap({
 }) {
   const year = startOfToday().getFullYear();
   /*
-   * Columns are Sun–Sat, so the grid opens on the Sunday at or before Jan 1
-   * and closes on the Saturday at or after Dec 31. That makes the first and
-   * last columns straddle the year boundary — see the count rule below.
+   * Columns are built Sun-first and rotated to read Mon–Sun, so the grid opens
+   * on the Sunday at or before Jan 1 and closes on the Saturday at or after
+   * Dec 31. That makes the first and last columns straddle the year boundary
+   * — see the count rule below.
    */
   const gridStart = useMemo(
     () => getHeatmapWeekStartSunday(new Date(year, 0, 1)),
@@ -271,7 +272,7 @@ export default function TrainingHeatmap({
           <HeatmapChart
             data={columns}
             layout="fluid"
-            weekStartDay={0}
+            weekStartDay={1}
             binSize={CELL}
             gap={GAP}
             levelColors={RAMP}

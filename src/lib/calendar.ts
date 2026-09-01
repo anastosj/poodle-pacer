@@ -8,8 +8,8 @@ import {
 import { Program, Workout } from "@/lib/programs";
 import { Plan, beginWeekOf, logKey } from "@/lib/store";
 
-/** Calendar columns always run Sunday → Saturday. */
-export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Calendar columns always run Monday → Sunday. */
+export const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** One scheduled workout, resolved to a real date. */
 export interface CalendarCell {
@@ -25,11 +25,11 @@ export interface CalendarCell {
   key: string;
 }
 
-/** One calendar week: seven columns, Sunday → Saturday. */
+/** One calendar week: seven columns, Monday → Sunday. */
 export interface CalendarRow {
-  /** The Sunday that starts this row. */
+  /** The Monday that starts this row. */
   start: Date;
-  /** Length 7, Sun → Sat. `null` = outside the training plan. */
+  /** Length 7, Mon → Sun. `null` = outside the training plan. */
   cells: (CalendarCell | null)[];
   /** Program weeks that appear in this row, ascending. */
   weeks: number[];
@@ -66,9 +66,9 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
 }
 
 /**
- * Lay the plan out on a real calendar: rows are Sunday → Saturday, and each
- * workout sits on its actual date. A program week (Mon → Sun) therefore
- * straddles two rows, which is what makes the grid line up with a wall calendar.
+ * Lay the plan out on a real calendar: rows are Monday → Sunday, and each
+ * workout sits on its actual date. A plan that starts on a Monday therefore
+ * has one row per program week, and one that starts mid-week straddles two.
  *
  * `extraDates` are ISO dates that must be visible even though no workout is
  * scheduled on them — synced runs outside the plan window, or with no plan at
@@ -101,7 +101,7 @@ export function buildCalendar(
   const lastDate = dates[dates.length - 1];
   const last = lastDate > today ? lastDate : today;
   const gridStart = startOfCalendarWeek(first);
-  // Pad forward to the Saturday on or after the final day.
+  // Pad forward to the Sunday on or after the final day.
   const gridEnd = addDays(startOfCalendarWeek(last), 6);
 
   const rows: CalendarRow[] = [];
@@ -129,19 +129,19 @@ export function buildCalendar(
 
 /**
  * Program weeks as rows when there's no start date yet. Columns still read
- * Sunday → Saturday by placing each workout on its intrinsic weekday, so the
+ * Monday → Sunday, which is the order the program itself is written in, so the
  * layout doesn't jump around once a date is set.
  */
 export function buildUndatedRows(program: Program): {
   week: number;
   cells: ({ workout: Workout; dayIndex: number; key: string } | null)[];
 }[] {
-  // Program day 0 = Monday, so weekday column = (dayIndex + 1) % 7.
+  // Program day 0 = Monday, which is column 0.
   return program.schedule.map((week) => {
     const cells: ({ workout: Workout; dayIndex: number; key: string } | null)[] =
       Array(7).fill(null);
     week.days.forEach((workout, dayIndex) => {
-      cells[(dayIndex + 1) % 7] = {
+      cells[dayIndex] = {
         workout,
         dayIndex,
         key: logKey(week.week, dayIndex),
