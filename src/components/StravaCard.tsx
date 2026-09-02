@@ -47,8 +47,12 @@ export default function StravaCard() {
       );
     }
     if (result.matched > 0) {
+      // Say when a match moved, so a workout ticked off on a day it wasn't
+      // scheduled never looks like the app inventing things.
       parts.push(
-        `${result.matched} matched to your plan`
+        `${result.matched} matched to your plan${
+          result.reordered > 0 ? ` (${result.reordered} on another day)` : ""
+        }`
       );
     }
     setSyncMessage(

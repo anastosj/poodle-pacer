@@ -26,7 +26,9 @@ export default async function AppLayout({
       raceCount={races.length}
     >
       <NavBar />
-      <div className="pb-20 sm:pb-0">{children}</div>
+      {/* Clears the fixed tab bar and the home indicator below it, so the
+          last card on a page is never trapped underneath either. */}
+      <div className="pb-bottom-nav">{children}</div>
       <BottomNav />
     </AppProvider>
   );

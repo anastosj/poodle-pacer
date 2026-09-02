@@ -706,3 +706,20 @@ export function PoodleFaceIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * The grip on a movable workout card. Two columns of dots is the shape people
+ * already read as "pick this up and carry it".
+ */
+export function GripIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {[7, 12, 17].map((y) => (
+        <g key={y} fill="currentColor">
+          <circle cx="9" cy={y} r="1.6" />
+          <circle cx="15" cy={y} r="1.6" />
+        </g>
+      ))}
+    </Svg>
+  );
+}

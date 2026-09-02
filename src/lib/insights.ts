@@ -1,7 +1,8 @@
-import { ActivityKind, activityKind, countsAsRunning } from "@/lib/activities";
+import { ActivityKind, activityKind } from "@/lib/activities";
 import { CalendarCell, planCells } from "@/lib/calendar";
 import {
   addDays,
+  addMonths,
   fromISO,
   startOfCalendarWeek,
   startOfMonth,
@@ -12,21 +13,33 @@ import {
   workoutIncludes,
   workoutTracksRunningMiles,
 } from "@/lib/programs";
+import { runningMilesFor } from "@/lib/mileage";
 import { paceSecondsPerMile } from "@/lib/pace";
 import {
   Plan,
   RunLog,
   SyncedRun,
+  effectiveStartDate,
   isPausedOn,
   logSeconds,
+  raceDateOf,
 } from "@/lib/store";
 
-export type MetricScope = "week" | "month" | "plan";
+export type MetricScope = "week" | "month" | "6mo" | "plan";
 
 export const SCOPE_LABELS: Record<MetricScope, string> = {
   week: "This week",
   month: "This month",
+  "6mo": "6 months",
   plan: "Whole plan",
+};
+
+/** What the comparison window is called, for a "vs …" line under a tile. */
+export const SCOPE_PREVIOUS_LABELS: Record<MetricScope, string> = {
+  week: "last week",
+  month: "last month",
+  "6mo": "the 6 months before",
+  plan: "the previous block",
 };
 
 export interface PeriodStats {
@@ -106,21 +119,6 @@ const EMPTY = (start: Date, end: Date): PeriodStats => ({
   elevationGain: 0,
 });
 
-/**
- * Running miles credited for a workout: what was logged, else what was planned.
- *
- * A slot that accepts either a run or a cross-training session can be filled by
- * a ride, and its distance must not be credited as running. Logs written before
- * sports were recorded carry no sport and were all runs.
- */
-function loggedMiles(cell: CalendarCell, log: RunLog | undefined): number {
-  if (!workoutTracksRunningMiles(cell.workout)) return 0;
-  if (log?.sportType && !countsAsRunning(log.sportType)) return 0;
-  if (typeof log?.miles === "number") return log.miles;
-  if (cell.workout.type === "run-or-cross") return 0;
-  return cell.workout.miles ?? 0;
-}
-
 function summarize(
   cells: CalendarCell[],
   logs: Record<string, RunLog>,
@@ -161,7 +159,7 @@ function summarize(
      * only ever what was actually recorded.
      */
     const miles =
-      kind === "run" ? loggedMiles(cell, log) : log.miles ?? 0;
+      kind === "run" ? runningMilesFor(cell.workout, log) : log.miles ?? 0;
     const seconds = logSeconds(log);
     if (miles > 0) {
       stats.miles += miles;
@@ -241,10 +239,21 @@ function runsWithin(runs: SyncedRun[], start: Date, end: Date): SyncedRun[] {
   });
 }
 
-/** The window for a scope, anchored on today. */
+/**
+ * The window for a scope, anchored on today.
+ *
+ * "Whole plan" means the plan and nothing else: from the first day the runner
+ * actually trains through to race day. It used to run from the earliest thing
+ * in the account to the latest, which quietly turned it into "everything you
+ * have ever synced" — years of history for anyone on their second plan, and
+ * a number that could never be compared with the plan it was labelled with.
+ * Only a plan with no dates at all falls back to the span of the data.
+ */
 function scopeWindow(
   scope: MetricScope,
-  dates: Date[]
+  dates: Date[],
+  plan: Plan,
+  program: Program
 ): { start: Date; end: Date } {
   const today = startOfToday();
   if (scope === "week") {
@@ -254,6 +263,17 @@ function scopeWindow(
   if (scope === "month") {
     const start = startOfMonth(today);
     return { start, end: addDays(startOfMonth(addDays(start, 32)), -1) };
+  }
+  if (scope === "6mo") {
+    // A rolling half year ending today: long enough to hold a whole training
+    // block plus the base that led into it, and it does not care whether
+    // there is a plan at all.
+    return { start: addMonths(today, -6), end: today };
+  }
+  const startIso = effectiveStartDate(plan);
+  const raceIso = raceDateOf(plan, program.weeks);
+  if (startIso && raceIso) {
+    return { start: fromISO(startIso), end: fromISO(raceIso) };
   }
   return {
     start: dates[0],
@@ -286,7 +306,7 @@ function buildTrend(
         )
         .map((cell) => {
           const log = logs[cell.key];
-          const miles = loggedMiles(cell, log);
+          const miles = runningMilesFor(cell.workout, log);
           return {
             date: cell.date,
             point: {
@@ -398,7 +418,7 @@ export function computeInsights(
 
   const paused = (iso: string) => isPausedOn(plan, iso);
 
-  const window = scopeWindow(scope, dates);
+  const window = scopeWindow(scope, dates, plan, program);
   const current = summarize(
     within(cells, window.start, window.end),
     logs,

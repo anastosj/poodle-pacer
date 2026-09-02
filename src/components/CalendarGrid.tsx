@@ -10,11 +10,13 @@ import {
   CheckBadgeIcon,
   CheckIcon,
   ChevronIcon,
+  GripIcon,
   MoodIcon,
   PoodleFaceIcon,
   RunIcon,
   SwimIcon,
 } from "@/components/Icons";
+import { GripProps, useWorkoutDrag } from "@/components/useWorkoutDrag";
 import {
   activityKind,
   activityLabel,
@@ -31,6 +33,8 @@ import {
   buildUndatedRows,
   currentRowIndex,
   formatRowLabel,
+  isMovableCell,
+  planCells,
 } from "@/lib/calendar";
 import {
   addDays,
@@ -41,6 +45,7 @@ import {
   toLocalISO,
 } from "@/lib/dates";
 import { celebrate, celebrationKind } from "@/lib/celebrate";
+import { runningMilesFor } from "@/lib/mileage";
 import {
   Program,
   Workout,
@@ -63,9 +68,12 @@ import {
   SyncedRun,
   daysUntilStart,
   isPausedOn,
+  isWeekReordered,
   logSeconds,
   matchedActivityIds,
+  resetWeekOrder,
   runAsLog,
+  swapWorkoutDays,
 } from "@/lib/store";
 import SegmentedToggle from "@/components/ui/SegmentedToggle";
 
@@ -126,10 +134,7 @@ function monthSummary(
         if (log?.completed) {
           done += 1;
           // Only running miles are quoted, matching every other total in the app.
-          miles += workoutTracksRunningMiles(cell.workout)
-            ? log.miles ??
-              (cell.workout.type === "run-or-cross" ? 0 : cell.workout.miles ?? 0)
-            : 0;
+          miles += runningMilesFor(cell.workout, log);
         }
       }
       for (const run of extraByIso.get(toLocalISO(date)) ?? []) {
@@ -183,12 +188,30 @@ const STATUS_STYLES: Record<CellStatus, string> = {
   upcoming: "border-outline bg-surface",
 };
 
+/** Another day of the same program week a workout could be moved onto. */
+interface MoveOption {
+  position: number;
+  /** "Wed 12 Nov", the day being offered. */
+  dayLabel: string;
+  /** What is on that day now, so a swap is never a surprise. */
+  swapsWith: string;
+}
+
 function DayCell({
   cell,
   log,
   isToday,
   isPast,
   isPaused,
+  movable,
+  moveOptions,
+  weekReordered,
+  dragging,
+  isDropTarget,
+  isOver,
+  gripProps,
+  onMove,
+  onResetWeek,
   onToggle,
   onLog,
   onFeel,
@@ -200,6 +223,22 @@ function DayCell({
   isPast: boolean;
   /** Inside a stretch the runner stood the plan down for. */
   isPaused: boolean;
+  /** False for race day, and whenever there is no plan to rearrange. */
+  movable: boolean;
+  /** The other days of this program week, for the keyboard route. */
+  moveOptions: MoveOption[];
+  /** This program week has been shuffled, so there is something to undo. */
+  weekReordered: boolean;
+  /** This card is the one being carried. */
+  dragging: boolean;
+  /** A drag is in flight and this card could receive it. */
+  isDropTarget: boolean;
+  /** …and the pointer is over it right now. */
+  isOver: boolean;
+  /** Pointer handlers for the grip, from `useWorkoutDrag`. */
+  gripProps: GripProps;
+  onMove: (position: number) => void;
+  onResetWeek: () => void;
   onToggle: () => void;
   onLog: (miles?: number, seconds?: number, sportType?: string) => void;
   onFeel: (feel: Feel) => void;
@@ -208,6 +247,8 @@ function DayCell({
   const [editing, setEditing] = useState(false);
   /** Actions sit behind a caret so a cell reads as the workout, not controls. */
   const [menuOpen, setMenuOpen] = useState(false);
+  /** The day list inside that menu — the route to a move without a pointer. */
+  const [movingOpen, setMovingOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const desktopMenuRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -219,6 +260,12 @@ function DayCell({
   const status = cellStatus(workout, log, isPast, isToday, isPaused);
   const isRest = status === "rest";
   const done = status === "done";
+
+  /** The menu and its move list close together, never one over the other. */
+  const closeMenu = () => {
+    setMenuOpen(false);
+    setMovingOpen(false);
+  };
 
   /** One exit for every route out of the editor, so nothing is left half typed. */
   const closeEditor = () => {
@@ -249,10 +296,10 @@ function DayCell({
         !mobileMenuRef.current?.contains(target) &&
         !desktopMenuRef.current?.contains(target)
       ) {
-        setMenuOpen(false);
+        closeMenu();
       }
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeMenu();
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -271,49 +318,123 @@ function DayCell({
    * positioned either way, so opening it never reflows the card.
    */
   const renderActions = (menuRef: RefObject<HTMLDivElement>) =>
-    isRest ? null : (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setMenuOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        aria-label={done ? "Edit this workout" : "Mark done or edit"}
-        className={`focus-pouf flex items-center justify-center rounded-sm px-2 py-0.5 transition hover:bg-lilac md:w-full ${
-          menuOpen
-            ? "bg-lilac text-ink"
-            : "text-ink-soft hover:text-ink"
-        }`}
-      >
-        <ChevronIcon up={menuOpen} size={14} />
-      </button>
-
-      {menuOpen && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-sm border-2 border-outline bg-surface py-1 text-left shadow-soft"
+    isRest && !movable && !weekReordered ? null : (
+    <div className="flex items-center gap-0.5 md:w-full">
+      {movable && (
+        // `touch-action: none` is what lets a drag begin on a phone: without
+        // it the browser claims the gesture as a scroll before the first
+        // pointermove ever arrives. Scoped to the grip alone, so the rest of
+        // the card still scrolls the page normally.
+        <button
+          type="button"
+          {...gripProps}
+          aria-label={`Move ${workout.label} to another day this week`}
+          title="Drag to another day this week"
+          className="focus-pouf shrink-0 cursor-grab touch-none rounded-sm px-1 py-0.5 text-ink-soft transition hover:bg-lilac hover:text-ink active:cursor-grabbing"
         >
-          <button
-            role="menuitem"
-            onClick={() => {
-              onToggle();
-              setMenuOpen(false);
-            }}
-            className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
-          >
-            {done ? "Mark not done" : "Mark done"}
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setEditing(true);
-              setMenuOpen(false);
-            }}
-            className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
-          >
-            {done ? "Edit details" : "Log details"}
-          </button>
-        </div>
+          <GripIcon size={13} />
+        </button>
       )}
+      <div className="relative flex-1" ref={menuRef}>
+        <button
+          onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={done ? "Edit this workout" : "Mark done or edit"}
+          className={`focus-pouf flex items-center justify-center rounded-sm px-2 py-0.5 transition hover:bg-lilac md:w-full ${
+            menuOpen
+              ? "bg-lilac text-ink"
+              : "text-ink-soft hover:text-ink"
+          }`}
+        >
+          <ChevronIcon up={menuOpen} size={14} />
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-sm border-2 border-outline bg-surface py-1 text-left shadow-soft"
+          >
+            {!isRest && (
+              <>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    onToggle();
+                    closeMenu();
+                  }}
+                  className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+                >
+                  {done ? "Mark not done" : "Mark done"}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setEditing(true);
+                    closeMenu();
+                  }}
+                  className="focus-pouf block w-full px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+                >
+                  {done ? "Edit details" : "Log details"}
+                </button>
+              </>
+            )}
+
+            {/* The same move the grip performs, reachable from a keyboard and
+                from a screen reader — dragging is the shortcut, not the only
+                way in. */}
+            {movable && moveOptions.length > 0 && (
+              <>
+                <button
+                  role="menuitem"
+                  aria-expanded={movingOpen}
+                  onClick={() => setMovingOpen((o) => !o)}
+                  className="focus-pouf flex w-full items-center justify-between gap-2 border-t-2 border-outline px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+                >
+                  Move to…
+                  <ChevronIcon up={movingOpen} size={12} />
+                </button>
+                {movingOpen && (
+                  <div className="max-h-52 overflow-y-auto bg-surface-tinted/60">
+                    {moveOptions.map((option) => (
+                      <button
+                        key={option.position}
+                        role="menuitem"
+                        onClick={() => {
+                          onMove(option.position);
+                          closeMenu();
+                        }}
+                        className="focus-pouf block w-full px-3 py-1.5 text-left text-meta text-ink hover:bg-lilac"
+                      >
+                        <span className="font-bold">{option.dayLabel}</span>
+                        <span className="block truncate text-ink-soft">
+                          swaps with {option.swapsWith}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Not gated on `movable`: a week whose workouts are all done or
+              all pinned still has to offer the way back to its program
+              order. */}
+          {weekReordered && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  onResetWeek();
+                  closeMenu();
+                }}
+                className="focus-pouf block w-full border-t-2 border-outline px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+              >
+                Reset this week
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -336,9 +457,29 @@ function DayCell({
 
   return (
     <div
+      // Tagged whenever the day can hold a workout at all, not only while a
+      // drag is in flight: a quick flick fires one pointermove and then
+      // pointerup, and attributes added by that render would arrive too late
+      // for the hit test to ever see them. Which of these a given workout may
+      // land on is the drag's own question, asked through `canDrop`.
+      {...(movable
+        ? {
+            "data-slot-key": cell.key,
+            "data-slot-week": String(cell.week),
+            "data-slot-position": String(cell.position),
+          }
+        : {})}
       className={`relative flex gap-3 rounded-sm border-3 p-2.5 text-body shadow-card transition md:min-h-[112px] md:flex-col md:gap-0 md:p-2 ${
         STATUS_STYLES[status]
-      } ${isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""}`}
+      } ${isToday ? "rotate-[-1.5deg] outline outline-2 outline-offset-2 outline-primary" : ""} ${
+        dragging ? "opacity-40" : ""
+      } ${
+        isOver
+          ? "outline outline-3 outline-offset-2 outline-primary"
+          : isDropTarget
+            ? "outline outline-2 outline-offset-2 outline-dashed outline-primary/50"
+            : ""
+      }`}
     >
       {isToday && (
         // Sits high enough to clear the day number, which is right aligned to
@@ -407,6 +548,18 @@ function DayCell({
         </div>
 
         {statusChip && <div className="mt-1 hidden md:block">{statusChip}</div>}
+
+        {/* Matched to this slot from another day of the same week. Said out
+            loud, because a workout ticked off on a day it plainly was not done
+            otherwise reads as the calendar getting it wrong. */}
+        {log?.loggedDate && log.loggedDate !== cell.iso && (
+          <span className="mt-1 w-fit rounded-full border-2 border-dashed border-ink-soft px-1.5 py-0.5 text-meta font-bold text-ink-soft">
+            Done{" "}
+            {fromISO(log.loggedDate).toLocaleDateString(undefined, {
+              weekday: "short",
+            })}
+          </span>
+        )}
 
         {(log?.stravaName || (done && (log?.miles || seconds))) && (
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -568,12 +721,7 @@ function rowSummary(
     const log = plan.logs[cell.key];
     if (log?.completed) {
       done += 1;
-      miles += workoutTracksRunningMiles(cell.workout)
-        ? log.miles ??
-          (cell.workout.type === "run-or-cross"
-            ? 0
-            : cell.workout.miles ?? 0)
-        : 0;
+      miles += runningMilesFor(cell.workout, log);
     }
   }
   for (let i = 0; i < 7; i++) {
@@ -809,8 +957,55 @@ export default function CalendarGrid({
   const rows = useMemo(
     () => buildCalendar(program, plan, Array.from(extraByIso.keys())),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [program, plan.startDate, plan.beginWeek, extraByIso]
+    [program, plan.startDate, plan.beginWeek, plan.dayOrder, extraByIso]
   );
+
+  /*
+   * Every day of every program week, grouped by week and ordered as the runner
+   * has them. Calendar rows run Sunday to Saturday and program weeks run
+   * Monday to Sunday, so a week's own days are split across two rows: moving a
+   * workout needs the week whole, not the row it happens to be drawn in.
+   */
+  const weekDays = useMemo(() => {
+    const byWeek = new Map<number, CalendarCell[]>();
+    for (const cell of planCells(program, plan)) {
+      const list = byWeek.get(cell.week) ?? [];
+      list.push(cell);
+      byWeek.set(cell.week, list);
+    }
+    for (const list of byWeek.values()) {
+      list.sort((a, b) => a.position - b.position);
+    }
+    return byWeek;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, plan.startDate, plan.beginWeek, plan.dayOrder]);
+
+  /*
+   * Only days of the same program week can trade places. That is what keeps
+   * the week's shape — its load, its rest days, its long run — intact while
+   * its days move around, which is the whole point of moving them rather than
+   * skipping them.
+   */
+  const { drag, gripProps } = useWorkoutDrag(
+    (from, to) => from.week === to.week,
+    (from, to) =>
+      updatePlan((prev) =>
+        swapWorkoutDays(prev, from.week, from.position, to.position)
+      )
+  );
+
+  const moveOptionsFor = (cell: CalendarCell): MoveOption[] =>
+    (weekDays.get(cell.week) ?? [])
+      .filter((other) => other.position !== cell.position && isMovableCell(plan, other))
+      .map((other) => ({
+        position: other.position,
+        dayLabel: other.date.toLocaleDateString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        }),
+        swapsWith: other.workout.label,
+      }));
 
   const [weekIndex, setWeekIndex] = useState(() => currentRowIndex(rows));
   // Re-anchor on the current week whenever the schedule shifts (or synced runs
@@ -944,6 +1139,9 @@ export default function CalendarGrid({
       // Nothing on this day: an empty desktop slot, nothing at all when stacked.
       return <div key={`empty-${i}`} className="hidden md:block" aria-hidden />;
     }
+    const moveOptions = cell && isMovableCell(plan, cell) ? moveOptionsFor(cell) : [];
+    const movable = moveOptions.length > 0;
+
     return (
       <div key={cell?.key ?? `runs-${toLocalISO(date)}`} className="space-y-2">
         {cell && (
@@ -953,6 +1151,33 @@ export default function CalendarGrid({
             isToday={isSameDay(cell.date, today)}
             isPast={cell.date < today}
             isPaused={isPausedOn(plan, cell.iso)}
+            // A day with nowhere to go is not movable either: its own options
+            // are exactly the other days that could be dropped on it, so an
+            // empty list means it is the only free day left in the week.
+            movable={movable}
+            moveOptions={moveOptions}
+            weekReordered={isWeekReordered(plan, cell.week)}
+            dragging={drag?.from.key === cell.key}
+            isDropTarget={Boolean(
+              drag &&
+                drag.moved &&
+                drag.from.key !== cell.key &&
+                drag.from.week === cell.week &&
+                movable
+            )}
+            isOver={drag?.over?.key === cell.key}
+            gripProps={gripProps(
+              { key: cell.key, week: cell.week, position: cell.position },
+              cell.workout.label
+            )}
+            onMove={(position) =>
+              updatePlan((prev) =>
+                swapWorkoutDays(prev, cell.week, cell.position, position)
+              )
+            }
+            onResetWeek={() =>
+              updatePlan((prev) => resetWeekOrder(prev, cell.week))
+            }
             onOpen={() => setDetail({ kind: "cell", cell })}
             {...makeHandlers(cell)}
           />
@@ -974,7 +1199,7 @@ export default function CalendarGrid({
   // No start date yet, so show the program shape, still Monday-first. Synced
   // runs still get a real dated calendar above it once any exist.
   if (!plan.startDate && rows.length === 0) {
-    const undated = buildUndatedRows(program);
+    const undated = buildUndatedRows(program, plan);
     return (
       <div className="mt-6 space-y-4">
         <p className="rounded-sm border-2 border-outline bg-highlight px-4 py-2 text-meta font-bold text-ink">
@@ -1028,6 +1253,16 @@ export default function CalendarGrid({
 
   return (
     <div className="mt-6">
+      {/* The workout in hand. Fixed and inert, so it rides the pointer without
+          ever being what the drop hit test finds under it. */}
+      {drag?.moved && (
+        <div
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 rounded-sm border-3 border-outline bg-highlight px-2 py-1 font-display text-meta uppercase leading-tight text-ink shadow-card"
+          style={{ left: drag.x, top: drag.y }}
+        >
+          {drag.label}
+        </div>
+      )}
       {!plan.startDate && (
         <p className="mb-2 rounded-sm border-2 border-outline bg-highlight px-4 py-2 text-meta font-bold text-ink">
           These are your synced activities. Set a race date on the Goals page to

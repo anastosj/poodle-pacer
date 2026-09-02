@@ -6,7 +6,13 @@ import {
   toLocalISO,
 } from "@/lib/dates";
 import { Program, Workout } from "@/lib/programs";
-import { Plan, beginWeekOf, logKey } from "@/lib/store";
+import {
+  DAYS_PER_WEEK,
+  Plan,
+  beginWeekOf,
+  dayIndexAt,
+  logKey,
+} from "@/lib/store";
 
 /** Calendar columns always run Monday → Sunday. */
 export const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -17,8 +23,23 @@ export interface CalendarCell {
   iso: string;
   /** Program week (1-based) this workout belongs to. */
   week: number;
-  /** Index within the program week (0 = Monday … 6 = Sunday). */
+  /**
+   * The workout's own index in its program week (0 = Monday … 6 = Sunday).
+   * This is its identity — the log key is built from it — and it does not
+   * change when the runner moves the workout to another day.
+   */
   dayIndex: number;
+  /**
+   * Where in the week the workout actually falls now, 0 = Monday. Equal to
+   * `dayIndex` until the runner rearranges the week.
+   */
+  position: number;
+  /**
+   * How many days this program week holds. Seven, except in the final week of
+   * a plan whose race is not on a Sunday, where the taper has been slid
+   * earlier to land on race day.
+   */
+  weekLength: number;
   /** Absolute day of the plan, 0-based. Display as `Day ${dayNumber + 1}`. */
   dayNumber: number;
   workout: Workout;
@@ -47,8 +68,14 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
   const cells: CalendarCell[] = [];
   for (const week of program.schedule) {
     if (week.week < beginWeek) continue;
-    week.days.forEach((workout, dayIndex) => {
-      const absoluteDay = (week.week - 1) * 7 + dayIndex;
+    // Walk the week by position, not by the program's own order: a runner who
+    // moved Tuesday's tempo run to Wednesday should see it on Wednesday, still
+    // carrying whatever was logged against it.
+    week.days.forEach((_, position) => {
+      const dayIndex = dayIndexAt(plan, week.week, position, week.days.length);
+      const workout = week.days[dayIndex];
+      if (!workout) return;
+      const absoluteDay = (week.week - 1) * 7 + position;
       const date = addDays(start, absoluteDay);
       cells.push({
         // "Day 1" is the runner's first training day, not the program's.
@@ -57,12 +84,41 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
         iso: toLocalISO(date),
         week: week.week,
         dayIndex,
+        position,
+        weekLength: week.days.length,
         workout,
         key: logKey(week.week, dayIndex),
       });
     });
   }
   return cells;
+}
+
+/**
+ * Whether a day's workout can be picked up and moved elsewhere in its program
+ * week — and, because a move is a swap, equally whether another day's workout
+ * can be dropped onto it.
+ *
+ * Race day is the fixed point the whole plan is anchored to, so it never moves
+ * and nothing is ever moved onto it. A workout already done is pinned for the
+ * same reason in miniature: the log is written against the workout and travels
+ * with it, so moving one would put a session the runner completed on a day
+ * they did not train. Rearranging is for the week ahead; the week behind is a
+ * record. Unticking a workout makes it movable again.
+ *
+ * The final week of a plan whose race is not on a Sunday is short — the taper
+ * has been slid earlier to land on race day — and its days are the last few
+ * before the race. A stored order is a permutation of a whole week, so it has
+ * no meaning on a short one, and those days are in any case the ones with the
+ * least business being shuffled.
+ */
+export function isMovableCell(plan: Plan, cell: CalendarCell): boolean {
+  return (
+    Boolean(plan.startDate) &&
+    cell.workout.type !== "race" &&
+    cell.weekLength === DAYS_PER_WEEK &&
+    !plan.logs[cell.key]?.completed
+  );
 }
 
 /**
@@ -132,7 +188,10 @@ export function buildCalendar(
  * Monday → Sunday, which is the order the program itself is written in, so the
  * layout doesn't jump around once a date is set.
  */
-export function buildUndatedRows(program: Program): {
+export function buildUndatedRows(
+  program: Program,
+  plan?: Plan
+): {
   week: number;
   cells: ({ workout: Workout; dayIndex: number; key: string } | null)[];
 }[] {
@@ -140,8 +199,13 @@ export function buildUndatedRows(program: Program): {
   return program.schedule.map((week) => {
     const cells: ({ workout: Workout; dayIndex: number; key: string } | null)[] =
       Array(7).fill(null);
-    week.days.forEach((workout, dayIndex) => {
-      cells[dayIndex] = {
+    week.days.forEach((_, position) => {
+      const dayIndex = plan
+        ? dayIndexAt(plan, week.week, position, week.days.length)
+        : position;
+      const workout = week.days[dayIndex];
+      if (!workout) return;
+      cells[position] = {
         workout,
         dayIndex,
         key: logKey(week.week, dayIndex),

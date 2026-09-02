@@ -5,6 +5,7 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { Grid } from "@/components/charts/grid";
 import { ChartTooltip } from "@/components/charts/tooltip";
+import { runningMilesFor } from "@/lib/mileage";
 import { Program, workoutTracksRunningMiles } from "@/lib/programs";
 import { formatPacePerMile, paceSecondsPerMile } from "@/lib/pace";
 import { Plan, beginWeekOf, logKey, logSeconds } from "@/lib/store";
@@ -40,12 +41,13 @@ export default function MileageChart({
           : 0;
         planned += plannedMiles;
         const log = plan.logs[logKey(week.week, i)];
-        if (log?.completed && workoutTracksRunningMiles(day)) {
-          const miles =
-            log.miles ?? (day.type === "run-or-cross" ? 0 : plannedMiles);
+        // A ride or a strength session can fill a run-or-cross day; its
+        // distance is not running mileage, so the bar must not grow for it.
+        const miles = runningMilesFor(day, log);
+        if (miles > 0) {
           logged += miles;
           const s = logSeconds(log);
-          if (s && miles > 0) seconds += s;
+          if (s) seconds += s;
         }
       });
       return {

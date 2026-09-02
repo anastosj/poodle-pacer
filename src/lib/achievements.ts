@@ -8,6 +8,7 @@
  * days rested. Today only joins the streak once its workout is logged.
  */
 import { countsAsRunning } from "@/lib/activities";
+import { isRunningEffort } from "@/lib/mileage";
 import { planCells } from "@/lib/calendar";
 import { startOfToday, toLocalISO } from "@/lib/dates";
 import { Program, programs } from "@/lib/programs";
@@ -109,13 +110,19 @@ function bestEffort(
     );
     for (const cell of planCells(program, plan)) {
       const log = plan.logs[cell.key];
-      if (!log?.completed || !log.miles || log.miles < targetMiles) continue;
+      // Same rule as the loose activities below: only running sets a running
+      // record, whatever slot of the plan the effort happened to fill.
+      if (!isRunningEffort(log) || !log?.miles || log.miles < targetMiles) {
+        continue;
+      }
       const seconds = logSeconds(log);
       if (!seconds) continue;
       consider((seconds / log.miles) * targetMiles, {
         planId: plan.id,
         logKey: cell.key,
-        iso: cell.iso,
+        // The day the effort actually happened, which is not the slot's own
+        // day when the run was matched back from elsewhere in the week.
+        iso: log.loggedDate ?? cell.iso,
         label: log.stravaName ?? cell.workout.label,
       });
     }

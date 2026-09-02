@@ -40,6 +40,8 @@ export interface SyncResult {
   added: number;
   /** Runs matched to a slot of the active plan. */
   matched: number;
+  /** Of those, ones that filled a slot on a different day from the one done. */
+  reordered: number;
   /** True when a sync was skipped as too recent to be worth spending a call. */
   skipped?: boolean;
 }
@@ -251,7 +253,7 @@ export function AppProvider({
 
   const syncStrava = useCallback(
     async (options?: { auto?: boolean }): Promise<SyncResult> => {
-    const none = { added: 0, matched: 0 };
+    const none = { added: 0, matched: 0, reordered: 0 };
     // An automatic sync that would only re-fetch what it fetched minutes ago
     // spends a request out of a budget the whole pack shares. Skip it.
     if (options?.auto && syncedRecently(user.id)) {
@@ -281,7 +283,12 @@ export function AppProvider({
     if (outcome.added > 0 || outcome.matched > 0) {
       update(() => outcome.state);
     }
-    return { ok: true, added: outcome.added, matched: outcome.matched };
+    return {
+      ok: true,
+      added: outcome.added,
+      matched: outcome.matched,
+      reordered: outcome.reordered,
+    };
     },
     [update, user.id]
   );

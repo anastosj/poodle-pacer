@@ -44,6 +44,12 @@ export interface RunLog {
   seconds?: number;
   note?: string;
   feel?: Feel;
+  /**
+   * The date the activity actually happened, when that is not the day the
+   * workout is scheduled on — a Tuesday tempo run finally done on Wednesday
+   * and matched back to its slot. Absent whenever the two agree.
+   */
+  loggedDate?: string;
   stravaActivityId?: number;
   stravaName?: string;
   /** Metrics pulled from Strava (typically originating on an Apple Watch). */
@@ -126,6 +132,17 @@ export interface Plan {
    */
   beginWeek?: number;
   logs: Record<string, RunLog>; // key: `${week}-${dayIndex}`
+  /**
+   * Days the runner has shuffled within a program week, keyed by week number.
+   * Each value is a permutation of 0-6 read as position → program day index:
+   * `dayOrder["3"][2]` is the workout that now falls on the third day of
+   * program week 3. Weeks left alone are simply absent.
+   *
+   * Storing a permutation rather than rewriting the schedule keeps the log
+   * keys — which are program slots — valid, so a workout carries whatever was
+   * logged against it to its new day, and the week's total load is unchanged.
+   */
+  dayOrder?: Record<string, number[]>;
   /** Stretches the runner stood down from, ascending, never overlapping. */
   pauses?: PlanPause[];
   raceResult?: { miles?: number; seconds?: number; note?: string };
@@ -217,6 +234,10 @@ const MAX_NAME_LENGTH = 200;
 const MAX_NOTE_LENGTH = 2000;
 const MAX_POLYLINE_LENGTH = 10000;
 const MAX_PAUSES = 100;
+const MAX_PROGRAM_WEEKS = 100;
+
+/** Days in a whole program week, Monday through Sunday. */
+export const DAYS_PER_WEEK = 7;
 const MAX_PHONE_LENGTH = 50;
 const MAX_TIMEZONE_LENGTH = 100;
 
@@ -299,6 +320,7 @@ function sanitizeLog(value: unknown): RunLog | undefined {
 
   const note = boundedString(value.note, MAX_NOTE_LENGTH);
   if (note !== undefined) log.note = note;
+  if (isISODate(value.loggedDate)) log.loggedDate = value.loggedDate;
   const stravaName = boundedString(value.stravaName, MAX_NAME_LENGTH);
   if (stravaName !== undefined) log.stravaName = stravaName;
   if (value.feel === "good" || value.feel === "medium" || value.feel === "bad") {
@@ -378,6 +400,45 @@ export function mergePauses(ranges: PlanPause[]): PlanPause[] {
 }
 
 /**
+ * Per-week day orders, keeping only real permutations of 0-6. Anything else —
+ * a short list, a repeated index, a week number out of range — is a schedule
+ * that could hide or duplicate a workout, so it is dropped rather than
+ * repaired: the untouched program week is always a safe answer.
+ */
+function sanitizeDayOrder(value: unknown): Record<string, number[]> {
+  if (!isRecord(value)) return {};
+  const orders: Record<string, number[]> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const week = Number(key);
+    if (!Number.isInteger(week) || week < 1 || week > MAX_PROGRAM_WEEKS) {
+      continue;
+    }
+    if (!Array.isArray(raw) || raw.length !== DAYS_PER_WEEK) continue;
+    const seen = new Set<number>();
+    let valid = true;
+    for (const index of raw) {
+      if (
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= DAYS_PER_WEEK ||
+        seen.has(index)
+      ) {
+        valid = false;
+        break;
+      }
+      seen.add(index);
+    }
+    if (!valid) continue;
+    // A week back in its program order is the default, so storing it would
+    // only grow the document every time a move was undone.
+    if (isIdentityOrder(raw)) continue;
+    orders[String(week)] = [...(raw as number[])];
+    if (Object.keys(orders).length >= MAX_PROGRAM_WEEKS) break;
+  }
+  return orders;
+}
+
+/**
  * Plans saved before race day could be any weekday were anchored at
  * `race - (weeks * 7 - 1)`, which lands mid-week whenever the race is not a
  * Sunday. Re-anchor those to the Monday of that week and record the weekday the
@@ -418,6 +479,9 @@ function sanitizePlan(value: unknown): Plan | undefined {
   ) {
     plan.beginWeek = beginWeek;
   }
+
+  const dayOrder = sanitizeDayOrder(value.dayOrder);
+  if (Object.keys(dayOrder).length > 0) plan.dayOrder = dayOrder;
 
   const pauses = sanitizePauses(value.pauses);
   if (pauses.length > 0) plan.pauses = pauses;
@@ -819,6 +883,101 @@ export function pausedDayCount(plan: Plan): number {
     (sum, p) => sum + daysBetween(fromISO(p.fromIso), fromISO(p.toIso)) + 1,
     0
   );
+}
+
+/**
+ * A program week in its published order: position 0 is Monday's workout, and
+ * so on to Sunday. The shared identity used whenever a week has not been
+ * shuffled, so it is frozen rather than rebuilt.
+ */
+const PROGRAM_DAY_ORDER: readonly number[] = Object.freeze([
+  0, 1, 2, 3, 4, 5, 6,
+]);
+
+function isIdentityOrder(order: readonly unknown[]): boolean {
+  return order.every((index, position) => index === position);
+}
+
+/**
+ * Which program day sits in each position of a week, Monday first. Falls back
+ * to the program's own order for any week the runner has not rearranged.
+ */
+function weekDayOrder(plan: Plan, week: number): readonly number[] {
+  const order = plan.dayOrder?.[String(week)];
+  return Array.isArray(order) && order.length === DAYS_PER_WEEK
+    ? order
+    : PROGRAM_DAY_ORDER;
+}
+
+/**
+ * Which program day sits at a position of a week, Monday first.
+ *
+ * `weekLength` is how many days the week actually holds. A stored order is a
+ * permutation of a whole week, so it can only be applied to one: the final
+ * week of a plan whose race is not on a Sunday is short — the taper has been
+ * slid earlier to finish on race day — and there the program's own order is
+ * the only one that means anything.
+ */
+export function dayIndexAt(
+  plan: Plan,
+  week: number,
+  position: number,
+  weekLength: number = DAYS_PER_WEEK
+): number {
+  if (weekLength !== DAYS_PER_WEEK) return position;
+  return weekDayOrder(plan, week)[position] ?? position;
+}
+
+/** Whether a week has been shuffled away from its program order. */
+export function isWeekReordered(plan: Plan, week: number): boolean {
+  return !isIdentityOrder(weekDayOrder(plan, week));
+}
+
+/**
+ * Trade the workouts on two days of one program week.
+ *
+ * A swap rather than an insert, because it is what keeps the promise the
+ * feature makes: the week still contains exactly the sessions the program
+ * prescribed, in the same quantity, just on different days. Sliding a workout
+ * along and pushing the rest down would silently re-space every hard day
+ * against every rest day, which is the part of the framework worth keeping.
+ */
+export function swapWorkoutDays(
+  plan: Plan,
+  week: number,
+  from: number,
+  to: number
+): Plan {
+  if (
+    from === to ||
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    to < 0 ||
+    from >= DAYS_PER_WEEK ||
+    to >= DAYS_PER_WEEK
+  ) {
+    return plan;
+  }
+  const order = [...weekDayOrder(plan, week)];
+  [order[from], order[to]] = [order[to], order[from]];
+  return writeWeekOrder(plan, week, order);
+}
+
+/** Put a week back the way the program wrote it. */
+export function resetWeekOrder(plan: Plan, week: number): Plan {
+  return writeWeekOrder(plan, week, [...PROGRAM_DAY_ORDER]);
+}
+
+function writeWeekOrder(plan: Plan, week: number, order: number[]): Plan {
+  const dayOrder = { ...(plan.dayOrder ?? {}) };
+  if (isIdentityOrder(order)) delete dayOrder[String(week)];
+  else dayOrder[String(week)] = order;
+
+  const next = { ...plan };
+  if (Object.keys(dayOrder).length > 0) next.dayOrder = dayOrder;
+  else delete next.dayOrder;
+  return next;
 }
 
 /** The first program week this runner trains. */

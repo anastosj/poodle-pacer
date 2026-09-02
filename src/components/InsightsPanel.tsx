@@ -5,6 +5,7 @@ import {
   MetricScope,
   PeriodStats,
   SCOPE_LABELS,
+  SCOPE_PREVIOUS_LABELS,
   computeInsights,
   consistencyOf,
 } from "@/lib/insights";
@@ -34,7 +35,7 @@ const SPORT_KIND: Record<"running" | "cycling" | "swimming", ActivityKind> = {
 };
 import { Plan, SyncedRun } from "@/lib/store";
 
-const SCOPES: MetricScope[] = ["week", "month", "plan"];
+const SCOPES: MetricScope[] = ["week", "month", "6mo", "plan"];
 
 function Tile({
   label,
@@ -85,7 +86,7 @@ function paceSub(
   previous?: number
 ) {
   if (!delta || delta.seconds < 1) return undefined;
-  const period = scope === "week" ? "last week" : "last month";
+  const period = SCOPE_PREVIOUS_LABELS[scope];
   const arrow = delta.faster ? "▼" : "▲";
   if (kind === "ride" && current && previous) {
     const mph = Math.abs(3600 / current - 3600 / previous);
@@ -93,6 +94,26 @@ function paceSub(
     return `${arrow} ${mph.toFixed(1)} mph vs ${period}`;
   }
   return `${arrow} ${formatPace(delta.seconds)} vs ${period}`;
+}
+
+/**
+ * The window the numbers actually cover. Stated outright because the scopes no
+ * longer all mean "since you started": "whole plan" is bounded by race day,
+ * and "6 months" ignores the plan entirely.
+ */
+function formatWindow(start: Date, end: Date): string {
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const from = start.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+  const to = end.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${from} – ${to}`;
 }
 
 function completionTone(s: PeriodStats) {
@@ -197,7 +218,7 @@ export default function InsightsPanel({
         <h2 className="type-overline text-ink-soft">
           Performance
         </h2>
-        <div className="inline-flex rounded-full border-2 border-outline bg-lilac p-1">
+        <div className="inline-flex flex-wrap rounded-full border-2 border-outline bg-lilac p-1">
           {SCOPES.map((s) => (
             <button
               key={s}
@@ -234,6 +255,10 @@ export default function InsightsPanel({
           ))}
         </div>
       )}
+
+      <p className="mt-2 text-meta tabular-nums text-ink-soft">
+        {formatWindow(current.start, current.end)}
+      </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {showsDistance && (
