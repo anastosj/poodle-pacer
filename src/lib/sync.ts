@@ -133,7 +133,9 @@ function workoutOn(
   const week = Math.floor(day / 7) + 1;
   const days = program.schedule.find((w) => w.week === week)?.days;
   if (!days) return null;
-  const dayIndex = dayIndexAt(plan, week, day % 7);
+  // A short final week has no day at the later positions, and no order of its
+  // own either; `dayIndexAt` is told its length so both stay true here.
+  const dayIndex = dayIndexAt(plan, week, day % 7, days.length);
   const workout = days[dayIndex];
   if (!workout) return null;
   return { workout, key: logKey(week, dayIndex) };

@@ -20,7 +20,7 @@ import {
   daysUntilStart,
   effectiveStartDate,
   makePlan,
-  raceDateFromStart,
+  raceDateOf,
 } from "@/lib/store";
 
 const CHEERS = [
@@ -62,9 +62,8 @@ export default function HomePage() {
   const countdown = daysUntilStart(plan);
   const effectiveStart = effectiveStartDate(plan);
   const startsOn = effectiveStart ? fromISO(effectiveStart) : null;
-  const raceDate = plan.startDate
-    ? fromISO(raceDateFromStart(plan.startDate, program.weeks))
-    : null;
+  const raceIso = raceDateOf(plan, program.weeks);
+  const raceDate = raceIso ? fromISO(raceIso) : null;
   const today = fromISO(new Date().toISOString().slice(0, 10));
   const isRaceDay = Boolean(raceDate && raceDate.getTime() === today.getTime());
   const isComplete = Boolean(raceDate && raceDate < today);

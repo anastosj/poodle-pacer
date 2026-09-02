@@ -19,6 +19,7 @@ import {
   defaultState,
   loadState,
   normalizeState,
+  programForPlan,
   readSyncMark,
   saveState,
   updateActivePlan,
@@ -273,9 +274,11 @@ export function AppProvider({
     // is never mistaken for a fresh sync and left uncorrected for five minutes.
     markSynced(user.id);
     const current = stateRef.current;
-    const program =
-      programs.find((p) => p.id === activePlan(current).programId) ??
-      programs[0];
+    const activeCurrent = activePlan(current);
+    const program = programForPlan(
+      programs.find((p) => p.id === activeCurrent.programId) ?? programs[0],
+      activeCurrent
+    );
     const outcome = applySyncedRuns(current, program, runs);
     if (outcome.added > 0 || outcome.matched > 0) {
       update(() => outcome.state);
@@ -301,8 +304,12 @@ export function AppProvider({
 
   const plan = useMemo(() => activePlan(state), [state]);
   const program = useMemo(
-    () => programs.find((p) => p.id === plan.programId) ?? programs[0],
-    [plan.programId]
+    () =>
+      programForPlan(
+        programs.find((p) => p.id === plan.programId) ?? programs[0],
+        plan
+      ),
+    [plan]
   );
 
   const value = useMemo(

@@ -6,10 +6,16 @@ import {
   toLocalISO,
 } from "@/lib/dates";
 import { Program, Workout } from "@/lib/programs";
-import { Plan, beginWeekOf, dayIndexAt, logKey } from "@/lib/store";
+import {
+  DAYS_PER_WEEK,
+  Plan,
+  beginWeekOf,
+  dayIndexAt,
+  logKey,
+} from "@/lib/store";
 
-/** Calendar columns always run Sunday → Saturday. */
-export const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Calendar columns always run Monday → Sunday. */
+export const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** One scheduled workout, resolved to a real date. */
 export interface CalendarCell {
@@ -28,17 +34,23 @@ export interface CalendarCell {
    * `dayIndex` until the runner rearranges the week.
    */
   position: number;
+  /**
+   * How many days this program week holds. Seven, except in the final week of
+   * a plan whose race is not on a Sunday, where the taper has been slid
+   * earlier to land on race day.
+   */
+  weekLength: number;
   /** Absolute day of the plan, 0-based. Display as `Day ${dayNumber + 1}`. */
   dayNumber: number;
   workout: Workout;
   key: string;
 }
 
-/** One calendar week: seven columns, Sunday → Saturday. */
+/** One calendar week: seven columns, Monday → Sunday. */
 export interface CalendarRow {
-  /** The Sunday that starts this row. */
+  /** The Monday that starts this row. */
   start: Date;
-  /** Length 7, Sun → Sat. `null` = outside the training plan. */
+  /** Length 7, Mon → Sun. `null` = outside the training plan. */
   cells: (CalendarCell | null)[];
   /** Program weeks that appear in this row, ascending. */
   weeks: number[];
@@ -60,7 +72,7 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
     // moved Tuesday's tempo run to Wednesday should see it on Wednesday, still
     // carrying whatever was logged against it.
     week.days.forEach((_, position) => {
-      const dayIndex = dayIndexAt(plan, week.week, position);
+      const dayIndex = dayIndexAt(plan, week.week, position, week.days.length);
       const workout = week.days[dayIndex];
       if (!workout) return;
       const absoluteDay = (week.week - 1) * 7 + position;
@@ -73,6 +85,7 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
         week: week.week,
         dayIndex,
         position,
+        weekLength: week.days.length,
         workout,
         key: logKey(week.week, dayIndex),
       });
@@ -92,19 +105,26 @@ export function planCells(program: Program, plan: Plan): CalendarCell[] {
  * with it, so moving one would put a session the runner completed on a day
  * they did not train. Rearranging is for the week ahead; the week behind is a
  * record. Unticking a workout makes it movable again.
+ *
+ * The final week of a plan whose race is not on a Sunday is short — the taper
+ * has been slid earlier to land on race day — and its days are the last few
+ * before the race. A stored order is a permutation of a whole week, so it has
+ * no meaning on a short one, and those days are in any case the ones with the
+ * least business being shuffled.
  */
 export function isMovableCell(plan: Plan, cell: CalendarCell): boolean {
   return (
     Boolean(plan.startDate) &&
     cell.workout.type !== "race" &&
+    cell.weekLength === DAYS_PER_WEEK &&
     !plan.logs[cell.key]?.completed
   );
 }
 
 /**
- * Lay the plan out on a real calendar: rows are Sunday → Saturday, and each
- * workout sits on its actual date. A program week (Mon → Sun) therefore
- * straddles two rows, which is what makes the grid line up with a wall calendar.
+ * Lay the plan out on a real calendar: rows are Monday → Sunday, and each
+ * workout sits on its actual date. A plan that starts on a Monday therefore
+ * has one row per program week, and one that starts mid-week straddles two.
  *
  * `extraDates` are ISO dates that must be visible even though no workout is
  * scheduled on them — synced runs outside the plan window, or with no plan at
@@ -137,7 +157,7 @@ export function buildCalendar(
   const lastDate = dates[dates.length - 1];
   const last = lastDate > today ? lastDate : today;
   const gridStart = startOfCalendarWeek(first);
-  // Pad forward to the Saturday on or after the final day.
+  // Pad forward to the Sunday on or after the final day.
   const gridEnd = addDays(startOfCalendarWeek(last), 6);
 
   const rows: CalendarRow[] = [];
@@ -165,7 +185,7 @@ export function buildCalendar(
 
 /**
  * Program weeks as rows when there's no start date yet. Columns still read
- * Sunday → Saturday by placing each workout on its intrinsic weekday, so the
+ * Monday → Sunday, which is the order the program itself is written in, so the
  * layout doesn't jump around once a date is set.
  */
 export function buildUndatedRows(
@@ -175,15 +195,17 @@ export function buildUndatedRows(
   week: number;
   cells: ({ workout: Workout; dayIndex: number; key: string } | null)[];
 }[] {
-  // Position 0 = Monday, so weekday column = (position + 1) % 7.
+  // Program day 0 = Monday, which is column 0.
   return program.schedule.map((week) => {
     const cells: ({ workout: Workout; dayIndex: number; key: string } | null)[] =
       Array(7).fill(null);
     week.days.forEach((_, position) => {
-      const dayIndex = plan ? dayIndexAt(plan, week.week, position) : position;
+      const dayIndex = plan
+        ? dayIndexAt(plan, week.week, position, week.days.length)
+        : position;
       const workout = week.days[dayIndex];
       if (!workout) return;
-      cells[(position + 1) % 7] = {
+      cells[position] = {
         workout,
         dayIndex,
         key: logKey(week.week, dayIndex),

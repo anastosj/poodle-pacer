@@ -22,7 +22,7 @@ import {
   effectiveStartDate,
   isPausedOn,
   logSeconds,
-  raceDateFromStart,
+  raceDateOf,
 } from "@/lib/store";
 
 export type MetricScope = "week" | "month" | "6mo" | "plan";
@@ -271,11 +271,9 @@ function scopeWindow(
     return { start: addMonths(today, -6), end: today };
   }
   const startIso = effectiveStartDate(plan);
-  if (plan.startDate && startIso) {
-    return {
-      start: fromISO(startIso),
-      end: fromISO(raceDateFromStart(plan.startDate, program.weeks)),
-    };
+  const raceIso = raceDateOf(plan, program.weeks);
+  if (startIso && raceIso) {
+    return { start: fromISO(startIso), end: fromISO(raceIso) };
   }
   return {
     start: dates[0],

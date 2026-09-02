@@ -35,9 +35,14 @@ export function startOfToday(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
-/** The Sunday on or before `d`. */
+/** Day of the week with Monday first: 0 = Monday … 6 = Sunday. */
+export function weekdayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+/** The Monday on or before `d`. Weeks run Monday → Sunday everywhere. */
 export function startOfCalendarWeek(d: Date): Date {
-  return addDays(d, -d.getDay());
+  return addDays(d, -weekdayIndex(d));
 }
 
 export function startOfMonth(d: Date): Date {

@@ -19,6 +19,7 @@ import {
   activePlan,
   isPausedOn,
   logSeconds,
+  programForPlan,
 } from "@/lib/store";
 
 export interface Achievement {
@@ -103,8 +104,10 @@ function bestEffort(
   };
 
   for (const plan of state.plans) {
-    const program =
-      programs.find((p) => p.id === plan.programId) ?? programs[0];
+    const program = programForPlan(
+      programs.find((p) => p.id === plan.programId) ?? programs[0],
+      plan
+    );
     for (const cell of planCells(program, plan)) {
       const log = plan.logs[cell.key];
       // Same rule as the loose activities below: only running sets a running
@@ -191,7 +194,10 @@ export function bestStreak(plan: Plan, program: Program): number {
 
 export function computeAchievements(state: RunnerState): Achievement[] {
   const plan = activePlan(state);
-  const program = programs.find((p) => p.id === plan.programId) ?? programs[0];
+  const program = programForPlan(
+    programs.find((p) => p.id === plan.programId) ?? programs[0],
+    plan
+  );
 
   const speed: Achievement[] = SPEED_TARGETS.map((t) => {
     const best = bestEffort(state, t.miles);

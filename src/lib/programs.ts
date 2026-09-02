@@ -58,6 +58,27 @@ const timedRun = (minutes: number, focus = "easy"): Workout => ({
   minutes,
 });
 
+const paceRun = (miles: number): Workout => ({
+  type: "run",
+  label: `${miles} mi @ marathon pace`,
+  miles,
+});
+
+/**
+ * Speed sessions are prescribed as repeats rather than a distance: the mileage
+ * depends on how much warmup and cooldown you wrap around them, so leave the
+ * distance for the log rather than inventing one.
+ */
+const hillRepeats = (reps: number): Workout => ({
+  type: "run",
+  label: `${reps} x hill repeats`,
+});
+
+const intervals = (reps: number, meters: number): Workout => ({
+  type: "run",
+  label: `${reps} x ${meters}m`,
+});
+
 const cross = (minutes?: number): Workout => ({
   type: "cross",
   label: minutes ? `Cross-train ${minutes} min` : "Cross-train",
@@ -367,6 +388,58 @@ const marathonNovice1: Program = {
   ],
 };
 
+const marathonAdvanced1: Program = {
+  id: "hal-higdon-marathon-advanced-1",
+  name: "Marathon Advanced 1",
+  author: "Hal Higdon",
+  weeks: 18,
+  description:
+    "Six running days a week for the hard core: one weekly speed session (hills, 800s, or tempo), Saturdays at marathon pace, and three 20-mile long runs.",
+  available: true,
+  category: "running",
+  raceLabel: "Marathon",
+  raceDistanceMiles: 26.2188,
+  sourceUrl:
+    "https://www.halhigdon.com/training-programs/marathon-training/advanced-1-marathon/",
+  sourceLabel: "Official Hal Higdon schedule",
+  schedule: [
+    week(1, [run(3), run(5), run(3), hillRepeats(3), rest(), paceRun(5), run(10)]),
+    week(2, [run(3), run(5), run(3), timedRun(30, "tempo"), rest(), run(5), run(11)]),
+    week(3, [run(3), run(6), run(3), intervals(4, 800), rest(), paceRun(6), run(8)]),
+    week(4, [run(3), run(6), run(3), hillRepeats(4), rest(), paceRun(6), run(13)]),
+    week(5, [run(3), run(7), run(3), timedRun(35, "tempo"), rest(), run(7), run(14)]),
+    week(6, [run(3), run(7), run(3), intervals(5, 800), rest(), paceRun(7), run(10)]),
+    week(7, [run(3), run(8), run(4), hillRepeats(5), rest(), paceRun(8), run(16)]),
+    week(8, [run(3), run(8), run(4), timedRun(40, "tempo"), rest(), run(8), run(17)]),
+    week(9, [
+      run(3),
+      run(9),
+      run(4),
+      intervals(6, 800),
+      rest(),
+      rest(),
+      runningRace("Half Marathon tune-up", 13.1094),
+    ]),
+    week(10, [run(3), run(9), run(4), hillRepeats(6), rest(), paceRun(9), run(19)]),
+    week(11, [run(4), run(10), run(5), timedRun(45, "tempo"), rest(), run(10), run(20)]),
+    week(12, [run(4), run(6), run(5), intervals(7, 800), rest(), paceRun(6), run(12)]),
+    week(13, [run(4), run(10), run(5), hillRepeats(7), rest(), paceRun(10), run(20)]),
+    week(14, [run(5), run(6), run(5), timedRun(45, "tempo"), rest(), run(6), run(12)]),
+    week(15, [run(5), run(10), run(5), intervals(8, 800), rest(), paceRun(10), run(20)]),
+    week(16, [run(5), run(8), run(5), hillRepeats(6), rest(), paceRun(4), run(12)]),
+    week(17, [run(4), run(6), run(4), timedRun(30, "tempo"), rest(), run(4), run(8)]),
+    week(18, [
+      run(3),
+      intervals(4, 400),
+      run(2),
+      rest(),
+      rest(),
+      run(2),
+      runningRace("Marathon", 26.2188),
+    ]),
+  ],
+};
+
 const sprintTriathlon: Program = {
   id: "triathlete-sprint-beginner",
   name: "Sprint Triathlon Beginner",
@@ -547,6 +620,7 @@ export const programs: Program[] = [
   halfNovice2,
   tenKNovice,
   marathonNovice1,
+  marathonAdvanced1,
   sprintTriathlon,
   olympicTriathlon,
   halfIronman,
@@ -555,6 +629,45 @@ export const programs: Program[] = [
 
 export function getProgram(id: string): Program {
   return programs.find((program) => program.id === id) ?? halHigdonHalfNovice1;
+}
+
+/** Index of race day within its program week, Monday = 0. */
+export const SUNDAY_INDEX = 6;
+
+/**
+ * Move race day off Sunday.
+ *
+ * Programs are written to finish on the Sunday of the final week, but races
+ * happen on every day of the week. Training still begins on a Monday, so the
+ * final week is short: the taper sequence slides earlier by the same number of
+ * days as the race, keeping the workouts that lead into it — the shakeouts and
+ * the rest days — exactly as many days out as their author intended. The days
+ * it slides over are dropped from the end of the penultimate week, which
+ * during a taper is the one place volume can come out without consequence.
+ */
+export function withRaceDayIndex(
+  program: Program,
+  raceDayIndex: number
+): Program {
+  const shift = SUNDAY_INDEX - raceDayIndex;
+  if (shift <= 0 || program.schedule.length === 0) return program;
+
+  const schedule = program.schedule.map((programWeek) => ({
+    ...programWeek,
+    days: [...programWeek.days],
+  }));
+  const final = schedule[schedule.length - 1];
+  const carried = final.days.slice(0, shift);
+  final.days = final.days.slice(shift);
+
+  const penultimate = schedule[schedule.length - 2];
+  if (penultimate) {
+    penultimate.days = [
+      ...penultimate.days.slice(0, Math.max(0, penultimate.days.length - shift)),
+      ...carried,
+    ];
+  }
+  return { ...program, schedule };
 }
 
 export function totalPlannedMiles(program: Program): number {

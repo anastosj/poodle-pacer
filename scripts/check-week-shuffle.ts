@@ -17,6 +17,7 @@ import { runningMilesFor } from "../src/lib/mileage";
 import { applySyncedRuns, workoutAcceptsActivity } from "../src/lib/sync";
 import type { FetchedRun } from "../src/lib/sync";
 import type { Program, Workout } from "../src/lib/programs";
+import { withRaceDayIndex } from "../src/lib/programs";
 import type { Plan, RunnerState } from "../src/lib/store";
 import {
   isWeekReordered,
@@ -236,6 +237,43 @@ const nextWeek = applySyncedRuns(stateWith(planWith()), program, [
 ]);
 eq("week 2 slots take week 2 activities", nextWeek.state.plans[0].logs["2-1"]?.stravaActivityId, 7);
 eq("week 1 is untouched", nextWeek.state.plans[0].logs["1-1"], undefined);
+
+/* --------------------------------------- a race that is not on a Sunday -- */
+
+/*
+ * `withRaceDayIndex` slides the taper earlier so the plan finishes on race
+ * day, which leaves the final program week short. A stored order is a
+ * permutation of a whole week and means nothing on a partial one, so that week
+ * keeps the program's own order and offers no moves — which is right on the
+ * merits too, those being the last few days before a race.
+ */
+const thursdayRace = withRaceDayIndex(program, 3); // Monday = 0
+const finalWeek = thursdayRace.schedule[thursdayRace.schedule.length - 1];
+eq("the final week is short", finalWeek.days.length, 4);
+eq(
+  "and the penultimate week is still whole",
+  thursdayRace.schedule[thursdayRace.schedule.length - 2].days.length,
+  7
+);
+
+// A shuffle stored against that week is ignored rather than dropping a day.
+const shuffledFinal: Plan = { ...planWith(), dayOrder: { "4": [3, 1, 2, 0, 4, 5, 6] } };
+const finalCells = planCells(thursdayRace, shuffledFinal).filter((c) => c.week === 4);
+eq("every day of the short week still renders", finalCells.length, 4);
+eq(
+  "in the program's own order",
+  finalCells.map((c) => c.dayIndex),
+  [0, 1, 2, 3]
+);
+eq(
+  "and none of it can be dragged",
+  finalCells.some((c) => isMovableCell(shuffledFinal, c)),
+  false
+);
+// The weeks before it are untouched by any of that.
+const wholeWeek = planCells(thursdayRace, shuffledFinal).filter((c) => c.week === 3);
+eq("earlier weeks are still whole", wholeWeek.length, 7);
+eq("and still movable", isMovableCell(shuffledFinal, wholeWeek[0]), true);
 
 /* ------------------------------------- matching across a week boundary -- */
 
