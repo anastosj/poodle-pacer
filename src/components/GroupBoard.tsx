@@ -1,6 +1,5 @@
 import { PoodleFaceIcon, RosetteIcon } from "@/components/Icons";
 import { RunnerSummary } from "@/lib/group";
-import { formatPacePerMile } from "@/lib/pace";
 
 function Avatar({ summary }: { summary: RunnerSummary }) {
   if (summary.avatarUrl) {
@@ -28,19 +27,28 @@ function Avatar({ summary }: { summary: RunnerSummary }) {
   );
 }
 
-/** Consistency bar: the headline number, since plans differ in length. */
-function ConsistencyBar({ value }: { value: number }) {
+/**
+ * The pack's one ranking number: how much of this week's plan is done. Weekly
+ * rather than whole-plan, so a rough week costs a week and not a season, and
+ * everyone starts level again on Monday.
+ */
+function ConsistencyBar({ value, due }: { value: number; due: number }) {
   const pct = Math.round(value * 100);
+  const nothingDue = due === 0;
   return (
     <div>
       <div className="flex items-baseline justify-between text-meta">
-        <span className="font-medium text-ink-soft">Consistency</span>
-        <span className="font-bold tabular-nums text-primary-dark">{pct}%</span>
+        <span className="font-medium text-ink-soft">
+          This week&apos;s consistency
+        </span>
+        <span className="font-bold tabular-nums text-primary-dark">
+          {nothingDue ? "Nothing due yet" : `${pct}%`}
+        </span>
       </div>
       <div className="mt-1 h-4 overflow-hidden border-2 border-outline bg-lilac">
         <div
           className="h-full border-r-2 border-outline bg-primary transition-all"
-          style={{ width: `${Math.min(100, pct)}%` }}
+          style={{ width: `${nothingDue ? 0 : Math.min(100, pct)}%` }}
         />
       </div>
     </div>
@@ -67,7 +75,12 @@ function RunnerCard({
   rank: number;
   isMe: boolean;
 }) {
-  const place = summary.started && rank < 3 ? ((rank + 1) as 1 | 2 | 3) : null;
+  // Ranking is weekly, so early in the week everyone sits at zero. A rosette
+  // for having run nothing yet is worth less than no rosette at all.
+  const place =
+    summary.started && summary.weekCompleted > 0 && rank < 3
+      ? ((rank + 1) as 1 | 2 | 3)
+      : null;
 
   return (
     <li
@@ -121,21 +134,17 @@ function RunnerCard({
       ) : summary.started ? (
         <>
           <div className="mt-3">
-            <ConsistencyBar value={summary.consistency} />
+            <ConsistencyBar
+              value={summary.weekConsistency}
+              due={summary.weekDue}
+            />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <Stat label="Miles this week" value={`${summary.weekMiles}`} />
+            <Stat label="Plan miles" value={`${summary.miles}`} />
             <Stat
-              label="This week"
-              value={`${summary.weekMiles} mi`}
-            />
-            <Stat label="Total miles" value={`${summary.miles}`} />
-            <Stat
-              label="Workouts"
+              label="Plan workouts"
               value={`${summary.completed}/${summary.scheduled}`}
-            />
-            <Stat
-              label="Avg pace"
-              value={formatPacePerMile(summary.avgPace)}
             />
           </div>
         </>
@@ -195,7 +204,7 @@ export default function GroupBoard({
             {totalMiles}
           </div>
           <div className="text-meta font-medium text-ink-soft">
-            miles together
+            total miles
           </div>
         </div>
       </div>
