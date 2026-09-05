@@ -24,15 +24,21 @@ export interface RunnerSummary {
   scheduled: number;
   /** Workouts whose day has arrived, the denominator for consistency. */
   due: number;
-  consistency: number;
   miles: number;
   plannedMiles: number;
-  avgPace?: number;
   longestRun: number;
   /** This calendar week, the number people actually care about day to day. */
   weekMiles: number;
   weekCompleted: number;
   weekScheduled: number;
+  /** Workouts due so far this week. Zero early on, before anything is owed. */
+  weekDue: number;
+  /**
+   * Completed over due for this calendar week, and the only thing the pack
+   * ranks on. A whole-plan ratio carries one rough week forward for months;
+   * this one resets every Monday, so a bad week costs a week and not a season.
+   */
+  weekConsistency: number;
   started: boolean;
   followingAlong: boolean;
 }
@@ -57,13 +63,14 @@ function placeholder(user: UserRecord): RunnerSummary {
     completed: 0,
     scheduled: 0,
     due: 0,
-    consistency: 0,
     miles: 0,
     plannedMiles: 0,
     longestRun: 0,
     weekMiles: 0,
     weekCompleted: 0,
     weekScheduled: 0,
+    weekDue: 0,
+    weekConsistency: 0,
     started: false,
     followingAlong: false,
   };
@@ -87,13 +94,14 @@ function summarize(user: UserRecord, raw: unknown, planId: string): RunnerSummar
     completed: 0,
     scheduled: 0,
     due: 0,
-    consistency: 0,
     miles: 0,
     plannedMiles: 0,
     longestRun: 0,
     weekMiles: 0,
     weekCompleted: 0,
     weekScheduled: 0,
+    weekDue: 0,
+    weekConsistency: 0,
     started: Boolean(plan.startDate),
     followingAlong: false,
   };
@@ -126,20 +134,21 @@ function summarize(user: UserRecord, raw: unknown, planId: string): RunnerSummar
     completed: whole.current.completed,
     scheduled: whole.current.scheduled,
     due: whole.current.due,
-    consistency: consistencyOf(whole.current),
     miles: whole.current.miles,
     plannedMiles: whole.current.plannedMiles,
-    avgPace: whole.current.avgPace,
     longestRun: whole.current.longestRun,
     weekMiles: week?.current.miles ?? 0,
     weekCompleted: week?.current.completed ?? 0,
     weekScheduled: week?.current.scheduled ?? 0,
+    weekDue: week?.current.due ?? 0,
+    weekConsistency: week ? consistencyOf(week.current) : 0,
   };
 }
 
 /**
- * A race's progress, most consistent first. Returns null for non-members so
- * callers can use the same not-found response for missing and private races.
+ * A race's progress, ranked on this week's consistency alone. Returns null for
+ * non-members so callers can use the same not-found response for missing and
+ * private races.
  */
 export async function raceLeaderboard(
   raceId: string,
@@ -159,7 +168,9 @@ export async function raceLeaderboard(
     })
     .sort((a, b) => {
       if (a.started !== b.started) return a.started ? -1 : 1;
-      if (b.consistency !== a.consistency) return b.consistency - a.consistency;
-      return b.miles - a.miles;
+      if (b.weekConsistency !== a.weekConsistency) {
+        return b.weekConsistency - a.weekConsistency;
+      }
+      return b.weekMiles - a.weekMiles;
     });
 }

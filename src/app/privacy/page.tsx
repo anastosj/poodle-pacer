@@ -53,12 +53,13 @@ export default function Privacy() {
         </strong>
         . That page shows your name, your Strava profile picture, the race you
         are training for, your current week, and your training statistics:
-        workouts completed, consistency, miles run, and average pace.
+        workouts completed, consistency, and miles run.
       </p>
       <p>
-        Your phone number, your Strava tokens, and any notes are never shown to
-        other users. Anyone who signs in can see The Pack, so treat your
-        training statistics as visible to everyone using this app.
+        Your pace is never shared with the Pack. Your phone number, your Strava
+        tokens, and any notes are never shown to other users. Anyone who signs
+        in can see The Pack, so treat your training statistics as visible to
+        everyone using this app.
       </p>
 
       <H>Who we share data with</H>
