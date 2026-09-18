@@ -7,6 +7,7 @@ import {
   yardsToMiles,
 } from "@/lib/programs";
 import {
+  OFF_PLAN,
   Plan,
   RunLog,
   RunnerState,
@@ -259,7 +260,32 @@ export function applySyncedRuns(
       if (log.stravaActivityId !== undefined) claimed.add(log.stravaActivityId);
     }
 
+    /*
+     * Matches the runner made by hand come first and are simply obeyed: a
+     * pinned activity is put back in its slot if anything has knocked it out,
+     * and one taken off the plan is claimed so neither pass below can file it.
+     * The matcher is a guess, and a guess does not get to overrule the person
+     * who was actually there.
+     */
+    const byId = new Map(fetched.map((run) => [run.id, run]));
+    for (const [rawId, target] of Object.entries(plan.matchOverrides ?? {})) {
+      const id = Number(rawId);
+      claimed.add(id);
+      if (target === OFF_PLAN) continue;
+      const run = byId.get(id);
+      const existing = logs[target];
+      // Nothing fetched to write, already there, or the slot has since been
+      // given to something else: in every case, leave it exactly as it is.
+      if (!run || existing?.stravaActivityId !== undefined) continue;
+      logs[target] = { ...logFor(run, existing), loggedDate: localDateOf(run) };
+    }
+
     for (const run of ordered) {
+      // Already filed somewhere — pinned, taken off the plan, or matched by an
+      // earlier sync to a day either side of this one. Without this, an
+      // activity credited to its neighbour would fill this slot as well on the
+      // next refresh, and be counted twice.
+      if (claimed.has(run.id)) continue;
       const iso = localDateOf(run);
       const day = planDayFor(iso, plan, program.weeks);
       if (day === null) continue;

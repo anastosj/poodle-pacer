@@ -18,10 +18,12 @@ import {
   activePlan,
   defaultState,
   loadState,
+  matchActivityToSlot,
   normalizeState,
   programForPlan,
   readSyncMark,
   saveState,
+  unmatchSlot,
   updateActivePlan,
   writeSyncMark,
 } from "@/lib/store";
@@ -97,6 +99,13 @@ interface AppContextValue {
   syncStrava: (options?: { auto?: boolean }) => Promise<SyncResult>;
   /** Rate a synced activity; passing the current feel clears it. */
   setRunFeel: (activityId: number, feel: Feel) => void;
+  /**
+   * Credit a synced activity to a plan slot by hand, overruling whatever the
+   * matcher made of it — and remember that it was overruled.
+   */
+  matchActivity: (activityId: number, logKey: string) => void;
+  /** Send the activity filling a slot back to the loose run log. */
+  unmatchActivity: (logKey: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -251,6 +260,25 @@ export function AppProvider({
     [update]
   );
 
+  /**
+   * The runner's own word on which workout an activity was. Stored as a
+   * decision rather than applied once, so the next sync honours it instead of
+   * re-running the guess it corrects.
+   */
+  const matchActivity = useCallback(
+    (activityId: number, logKey: string) => {
+      update((prev) => matchActivityToSlot(prev, activityId, logKey));
+    },
+    [update]
+  );
+
+  const unmatchActivity = useCallback(
+    (logKey: string) => {
+      update((prev) => unmatchSlot(prev, logKey));
+    },
+    [update]
+  );
+
   const syncStrava = useCallback(
     async (options?: { auto?: boolean }): Promise<SyncResult> => {
     const none = { added: 0, matched: 0, reordered: 0 };
@@ -324,6 +352,8 @@ export function AppProvider({
       program,
       syncStrava,
       setRunFeel,
+      matchActivity,
+      unmatchActivity,
     }),
     [
       user,
@@ -336,6 +366,8 @@ export function AppProvider({
       program,
       syncStrava,
       setRunFeel,
+      matchActivity,
+      unmatchActivity,
     ]
   );
 

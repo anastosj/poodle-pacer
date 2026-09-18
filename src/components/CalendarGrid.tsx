@@ -37,6 +37,11 @@ import {
   planCells,
 } from "@/lib/calendar";
 import {
+  SlotChoice,
+  activityChoicesFor,
+  slotChoicesFor,
+} from "@/lib/matching";
+import {
   addDays,
   fromISO,
   isSameDay,
@@ -188,6 +193,62 @@ const STATUS_STYLES: Record<CellStatus, string> = {
   upcoming: "border-outline bg-surface",
 };
 
+/** A synced activity offered as what a workout really was. */
+interface MatchOption {
+  activityId: number;
+  /** The activity's own name, or its sport where Strava had none. */
+  name: string;
+  /** "Tue 14 Oct · 5.2 mi · 42:10" — enough to tell two runs apart. */
+  detail: string;
+}
+
+/** A workout offered as what a loose activity really was. */
+interface SlotOption {
+  key: string;
+  /** "Tue 14 Oct", the day the workout sits on. */
+  dayLabel: string;
+  workoutLabel: string;
+  /** What taking this slot would cost, when it would cost anything. */
+  note?: string;
+}
+
+function activityOption(run: SyncedRun): MatchOption {
+  const kind = activityKind(run.sportType);
+  const detail = [
+    fromISO(run.date).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }),
+    tracksDistance(kind) ? formatDistance(kind, run.miles) : null,
+    run.seconds ? formatDurationShort(run.seconds) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    activityId: run.stravaActivityId,
+    name: run.name ?? activityLabel(run.sportType),
+    detail,
+  };
+}
+
+function slotOption(choice: SlotChoice): SlotOption {
+  return {
+    key: choice.cell.key,
+    dayLabel: choice.cell.date.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }),
+    workoutLabel: choice.cell.workout.label,
+    ...(choice.takenBy
+      ? { note: `replaces ${choice.takenBy}` }
+      : choice.markedDone
+        ? { note: "already ticked off" }
+        : {}),
+  };
+}
+
 /** Another day of the same program week a workout could be moved onto. */
 interface MoveOption {
   position: number;
@@ -205,12 +266,16 @@ function DayCell({
   isPaused,
   movable,
   moveOptions,
+  matchOptions,
+  holdsActivity,
   weekReordered,
   dragging,
   isDropTarget,
   isOver,
   gripProps,
   onMove,
+  onMatch,
+  onUnmatch,
   onResetWeek,
   onToggle,
   onLog,
@@ -227,6 +292,10 @@ function DayCell({
   movable: boolean;
   /** The other days of this program week, for the keyboard route. */
   moveOptions: MoveOption[];
+  /** Loose activities near this day, any of which this workout could be. */
+  matchOptions: MatchOption[];
+  /** An activity is filling this workout, so there is one to hand back. */
+  holdsActivity: boolean;
   /** This program week has been shuffled, so there is something to undo. */
   weekReordered: boolean;
   /** This card is the one being carried. */
@@ -238,6 +307,8 @@ function DayCell({
   /** Pointer handlers for the grip, from `useWorkoutDrag`. */
   gripProps: GripProps;
   onMove: (position: number) => void;
+  onMatch: (activityId: number) => void;
+  onUnmatch: () => void;
   onResetWeek: () => void;
   onToggle: () => void;
   onLog: (miles?: number, seconds?: number, sportType?: string) => void;
@@ -249,6 +320,8 @@ function DayCell({
   const [menuOpen, setMenuOpen] = useState(false);
   /** The day list inside that menu — the route to a move without a pointer. */
   const [movingOpen, setMovingOpen] = useState(false);
+  /** The activity list inside it, for saying which session this really was. */
+  const [matchingOpen, setMatchingOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const desktopMenuRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -265,6 +338,7 @@ function DayCell({
   const closeMenu = () => {
     setMenuOpen(false);
     setMovingOpen(false);
+    setMatchingOpen(false);
   };
 
   /** One exit for every route out of the editor, so nothing is left half typed. */
@@ -318,7 +392,7 @@ function DayCell({
    * positioned either way, so opening it never reflows the card.
    */
   const renderActions = (menuRef: RefObject<HTMLDivElement>) =>
-    isRest && !movable && !weekReordered ? null : (
+    isRest && !movable && !weekReordered && !holdsActivity ? null : (
     <div className="flex items-center gap-0.5 md:w-full">
       {movable && (
         // `touch-action: none` is what lets a drag begin on a phone: without
@@ -378,6 +452,60 @@ function DayCell({
                   {done ? "Edit details" : "Log details"}
                 </button>
               </>
+            )}
+
+            {/* Which activity this workout actually was. The matcher files a
+                session by when it was done and how far it went, which is a
+                guess; this is the runner correcting it. */}
+            {!isRest && matchOptions.length > 0 && (
+              <>
+                <button
+                  role="menuitem"
+                  aria-expanded={matchingOpen}
+                  onClick={() => setMatchingOpen((o) => !o)}
+                  className="focus-pouf flex w-full items-center justify-between gap-2 border-t-2 border-outline px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+                >
+                  {holdsActivity ? "Match another…" : "Match activity…"}
+                  <ChevronIcon up={matchingOpen} size={12} />
+                </button>
+                {matchingOpen && (
+                  <div className="max-h-52 overflow-y-auto bg-surface-tinted/60">
+                    {matchOptions.map((option) => (
+                      <button
+                        key={option.activityId}
+                        role="menuitem"
+                        onClick={() => {
+                          onMatch(option.activityId);
+                          closeMenu();
+                        }}
+                        className="focus-pouf block w-full px-3 py-1.5 text-left text-meta text-ink hover:bg-lilac"
+                      >
+                        <span className="block truncate font-bold">
+                          {option.name}
+                        </span>
+                        <span className="block truncate text-ink-soft">
+                          {option.detail}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* The way back out: the activity returns to the loose log, and
+                the next sync leaves it there rather than re-filing it here. */}
+            {holdsActivity && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  onUnmatch();
+                  closeMenu();
+                }}
+                className="focus-pouf block w-full border-t-2 border-outline px-3 py-1.5 text-meta font-bold text-ink hover:bg-lilac"
+              >
+                Not this workout
+              </button>
             )}
 
             {/* The same move the grip performs, reachable from a keyboard and
@@ -735,19 +863,97 @@ function rowSummary(
   return { done, total, miles: Math.round(miles * 10) / 10 };
 }
 
+/**
+ * "Match to…" on a loose activity: the same correction as the workout tile's
+ * menu, made from the activity's side. Both directions exist because both are
+ * how people actually notice the mistake — sometimes it is a workout that
+ * stayed empty, sometimes an activity that never found a home.
+ */
+function MatchToMenu({
+  options,
+  onPick,
+}: {
+  options: SlotOption[];
+  onPick: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (options.length === 0) return null;
+
+  return (
+    <div className="pointer-events-auto relative z-20" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Credit this activity to a workout"
+        className={`focus-pouf w-full truncate rounded-sm border-2 border-outline px-2 py-0.5 text-meta font-bold transition hover:bg-lilac ${
+          open ? "bg-lilac text-ink" : "text-ink-soft hover:text-ink"
+        }`}
+      >
+        Match to…
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1 max-h-52 w-52 overflow-y-auto rounded-sm border-2 border-outline bg-surface py-1 text-left shadow-soft"
+        >
+          {options.map((option) => (
+            <button
+              key={option.key}
+              role="menuitem"
+              onClick={() => {
+                onPick(option.key);
+                setOpen(false);
+              }}
+              className="focus-pouf block w-full px-3 py-1.5 text-left text-meta text-ink hover:bg-lilac"
+            >
+              <span className="block truncate font-bold">{option.dayLabel}</span>
+              <span className="block truncate text-ink-soft">
+                {option.workoutLabel}
+                {option.note ? ` · ${option.note}` : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** A synced run outside the plan — or with no plan at all — kept in the log. */
 function ExtraRunCard({
   run,
   date,
   isToday,
+  slotOptions,
   onOpen,
   onFeel,
+  onMatch,
 }: {
   run: SyncedRun;
   date: Date;
   isToday: boolean;
+  /** Workouts near this day that the activity could be credited to. */
+  slotOptions: SlotOption[];
   onOpen: () => void;
   onFeel: (feel: Feel) => void;
+  onMatch: (logKey: string) => void;
 }) {
   const kind = activityKind(run.sportType);
   // Each sport reads its speed its own way: min/mi, mph, or per 100 yards.
@@ -842,6 +1048,10 @@ function ExtraRunCard({
             );
           })}
         </div>
+
+        <div className="mt-auto pt-1">
+          <MatchToMenu options={slotOptions} onPick={onMatch} />
+        </div>
       </div>
     </div>
   );
@@ -911,6 +1121,8 @@ export default function CalendarGrid({
   updatePlan,
   runs = [],
   onRunFeel,
+  onMatch,
+  onUnmatch,
 }: {
   plan: Plan;
   program: Program;
@@ -919,6 +1131,10 @@ export default function CalendarGrid({
   runs?: SyncedRun[];
   /** Rate a synced activity that has no plan slot to carry the rating. */
   onRunFeel?: (activityId: number, feel: Feel) => void;
+  /** Credit an activity to a workout by hand. Absent leaves the menus out. */
+  onMatch?: (activityId: number, logKey: string) => void;
+  /** Send the activity filling a workout back to the loose run log. */
+  onUnmatch?: (logKey: string) => void;
 }) {
   const [mode, setMode] = useState<ViewMode>("week");
   /**
@@ -940,19 +1156,27 @@ export default function CalendarGrid({
   >(null);
   const today = startOfToday();
 
+  /*
+   * Activities with no slot of their own. They are the free run log the
+   * calendar draws, and equally the pool of candidates either match menu
+   * offers: an activity already credited to a workout is not going spare.
+   */
+  const freeRuns = useMemo(() => {
+    const matched = matchedActivityIds(plan);
+    return runs.filter((run) => !matched.has(run.stravaActivityId));
+  }, [plan, runs]);
+
   // Runs that filled a plan slot already render as that slot's DayCell; the
   // rest are the free run log, grouped by date.
   const extraByIso = useMemo(() => {
-    const matched = matchedActivityIds(plan);
     const byIso = new Map<string, SyncedRun[]>();
-    for (const run of runs) {
-      if (matched.has(run.stravaActivityId)) continue;
+    for (const run of freeRuns) {
       const list = byIso.get(run.date) ?? [];
       list.push(run);
       byIso.set(run.date, list);
     }
     return byIso;
-  }, [plan, runs]);
+  }, [freeRuns]);
 
   const rows = useMemo(
     () => buildCalendar(program, plan, Array.from(extraByIso.keys())),
@@ -960,15 +1184,22 @@ export default function CalendarGrid({
     [program, plan.startDate, plan.beginWeek, plan.dayOrder, extraByIso]
   );
 
+  /** Every scheduled workout on its real date, in program order. */
+  const cells = useMemo(
+    () => planCells(program, plan),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [program, plan.startDate, plan.beginWeek, plan.dayOrder]
+  );
+
   /*
-   * Every day of every program week, grouped by week and ordered as the runner
-   * has them. Calendar rows run Sunday to Saturday and program weeks run
-   * Monday to Sunday, so a week's own days are split across two rows: moving a
-   * workout needs the week whole, not the row it happens to be drawn in.
+   * The same days grouped by program week, in the order the runner has them.
+   * Calendar rows run Sunday to Saturday and program weeks run Monday to
+   * Sunday, so a week's own days are split across two rows: moving a workout
+   * needs the week whole, not the row it happens to be drawn in.
    */
   const weekDays = useMemo(() => {
     const byWeek = new Map<number, CalendarCell[]>();
-    for (const cell of planCells(program, plan)) {
+    for (const cell of cells) {
       const list = byWeek.get(cell.week) ?? [];
       list.push(cell);
       byWeek.set(cell.week, list);
@@ -977,8 +1208,7 @@ export default function CalendarGrid({
       list.sort((a, b) => a.position - b.position);
     }
     return byWeek;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [program, plan.startDate, plan.beginWeek, plan.dayOrder]);
+  }, [cells]);
 
   /*
    * Only days of the same program week can trade places. That is what keeps
@@ -1006,6 +1236,14 @@ export default function CalendarGrid({
         }),
         swapsWith: other.workout.label,
       }));
+
+  /** Loose activities this workout could turn out to have been. */
+  const matchOptionsFor = (cell: CalendarCell): MatchOption[] =>
+    onMatch ? activityChoicesFor(cell.iso, freeRuns).map(activityOption) : [];
+
+  /** Workouts this loose activity could be credited to. */
+  const slotOptionsFor = (run: SyncedRun): SlotOption[] =>
+    onMatch ? slotChoicesFor(run.date, cells, plan).map(slotOption) : [];
 
   const [weekIndex, setWeekIndex] = useState(() => currentRowIndex(rows));
   // Re-anchor on the current week whenever the schedule shifts (or synced runs
@@ -1156,6 +1394,10 @@ export default function CalendarGrid({
             // empty list means it is the only free day left in the week.
             movable={movable}
             moveOptions={moveOptions}
+            matchOptions={matchOptionsFor(cell)}
+            holdsActivity={
+              plan.logs[cell.key]?.stravaActivityId !== undefined
+            }
             weekReordered={isWeekReordered(plan, cell.week)}
             dragging={drag?.from.key === cell.key}
             isDropTarget={Boolean(
@@ -1175,6 +1417,8 @@ export default function CalendarGrid({
                 swapWorkoutDays(prev, cell.week, cell.position, position)
               )
             }
+            onMatch={(activityId) => onMatch?.(activityId, cell.key)}
+            onUnmatch={() => onUnmatch?.(cell.key)}
             onResetWeek={() =>
               updatePlan((prev) => resetWeekOrder(prev, cell.week))
             }
@@ -1188,8 +1432,10 @@ export default function CalendarGrid({
             run={run}
             date={date}
             isToday={isSameDay(date, today)}
+            slotOptions={slotOptionsFor(run)}
             onOpen={() => setDetail({ kind: "run", run })}
             onFeel={(feel) => onRunFeel?.(run.stravaActivityId, feel)}
+            onMatch={(logKey) => onMatch?.(run.stravaActivityId, logKey)}
           />
         ))}
       </div>

@@ -143,6 +143,16 @@ export interface Plan {
    * logged against it to its new day, and the week's total load is unchanged.
    */
   dayOrder?: Record<string, number[]>;
+  /**
+   * Matches the runner made by hand, keyed by Strava activity id. The value is
+   * the log key the activity was pinned to, or `OFF_PLAN` for one deliberately
+   * left in the loose run log.
+   *
+   * Kept because syncing is not a one-off: without a record of the decision,
+   * the next refresh would simply re-run the guess that was wrong in the first
+   * place and undo the correction.
+   */
+  matchOverrides?: Record<string, string>;
   /** Stretches the runner stood down from, ascending, never overlapping. */
   pauses?: PlanPause[];
   raceResult?: { miles?: number; seconds?: number; note?: string };
@@ -235,6 +245,7 @@ const MAX_NOTE_LENGTH = 2000;
 const MAX_POLYLINE_LENGTH = 10000;
 const MAX_PAUSES = 100;
 const MAX_PROGRAM_WEEKS = 100;
+const MAX_MATCH_OVERRIDES = 500;
 
 /** Days in a whole program week, Monday through Sunday. */
 export const DAYS_PER_WEEK = 7;
@@ -439,6 +450,25 @@ function sanitizeDayOrder(value: unknown): Record<string, number[]> {
 }
 
 /**
+ * Manual matches, keeping only entries that could mean something: an activity
+ * id for a key, and either a log key or `OFF_PLAN` for a value. A decision
+ * that cannot be read is dropped rather than repaired — the automatic matcher
+ * is always a safe answer, which is not true of a slot picked at random.
+ */
+function sanitizeMatchOverrides(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const overrides: Record<string, string> = {};
+  for (const [id, target] of Object.entries(value)) {
+    if (!/^\d+$/.test(id)) continue;
+    if (typeof target !== "string") continue;
+    if (target !== OFF_PLAN && !/^\d+-\d+$/.test(target)) continue;
+    overrides[id] = target;
+    if (Object.keys(overrides).length >= MAX_MATCH_OVERRIDES) break;
+  }
+  return overrides;
+}
+
+/**
  * Plans saved before race day could be any weekday were anchored at
  * `race - (weeks * 7 - 1)`, which lands mid-week whenever the race is not a
  * Sunday. Re-anchor those to the Monday of that week and record the weekday the
@@ -482,6 +512,11 @@ function sanitizePlan(value: unknown): Plan | undefined {
 
   const dayOrder = sanitizeDayOrder(value.dayOrder);
   if (Object.keys(dayOrder).length > 0) plan.dayOrder = dayOrder;
+
+  const matchOverrides = sanitizeMatchOverrides(value.matchOverrides);
+  if (Object.keys(matchOverrides).length > 0) {
+    plan.matchOverrides = matchOverrides;
+  }
 
   const pauses = sanitizePauses(value.pauses);
   if (pauses.length > 0) plan.pauses = pauses;
@@ -807,6 +842,152 @@ export function runAsLog(run: SyncedRun): RunLog {
     maxHeartRate: run.maxHeartRate,
     elevationGain: run.elevationGain,
     cadence: run.cadence,
+  };
+}
+
+/**
+ * What a match override says when the runner has taken an activity off the
+ * plan altogether. Log keys are `${week}-${dayIndex}`, so a word can never be
+ * mistaken for one.
+ */
+export const OFF_PLAN = "off-plan";
+
+/** The decision the runner made about an activity, if they made one. */
+export function matchOverrideFor(
+  plan: Plan,
+  activityId: number
+): string | undefined {
+  return plan.matchOverrides?.[String(activityId)];
+}
+
+/** The slot an activity currently fills, if it fills one. */
+export function slotHoldingActivity(
+  plan: Plan,
+  activityId: number
+): string | undefined {
+  return Object.keys(plan.logs).find(
+    (key) => plan.logs[key].stravaActivityId === activityId
+  );
+}
+
+function withMatchOverrides(
+  plan: Plan,
+  overrides: Record<string, string>
+): Plan {
+  const next = { ...plan };
+  if (Object.keys(overrides).length > 0) next.matchOverrides = overrides;
+  else delete next.matchOverrides;
+  return next;
+}
+
+/**
+ * A slot's log with everything a synced activity brought stripped back out.
+ *
+ * Only a typed note survives, because only a note was the runner's own words.
+ * The distance, the time, the heart rate and the tick itself all came in with
+ * the activity, and a slot that keeps them after the activity has gone is a
+ * workout claiming to be done with nothing behind it.
+ */
+function withoutActivity(log: RunLog | undefined): RunLog | undefined {
+  const note = log?.note;
+  return note ? { completed: false, note } : undefined;
+}
+
+/** A synced activity written into a plan slot. */
+function logFromRun(run: SyncedRun, existing: RunLog | undefined): RunLog {
+  return {
+    ...withoutActivity(existing),
+    completed: true,
+    miles: run.miles,
+    sportType: run.sportType,
+    seconds: run.seconds,
+    // The day it really happened is always recorded; the calendar mentions it
+    // only when it differs from the day the workout sits on.
+    loggedDate: run.date,
+    stravaActivityId: run.stravaActivityId,
+    stravaName: run.name,
+    ...(run.feel ? { feel: run.feel } : {}),
+    avgHeartRate: run.avgHeartRate,
+    maxHeartRate: run.maxHeartRate,
+    elevationGain: run.elevationGain,
+    cadence: run.cadence,
+  };
+}
+
+/**
+ * Pin a synced activity to a plan slot, whatever the automatic matcher made of
+ * it, and remember that this was a decision rather than a guess.
+ *
+ * The activity can only be in one place, so it leaves any slot it already
+ * filled. An activity it displaces goes back to the loose run log marked
+ * `OFF_PLAN`: the runner has just said what that slot really was, and the next
+ * sync quietly re-filing the loser into the neighbouring day would be the same
+ * guesswork this exists to overrule.
+ */
+export function matchActivityToSlot(
+  state: RunnerState,
+  activityId: number,
+  key: string
+): RunnerState {
+  const run = (state.runs ?? []).find(
+    (r) => r.stravaActivityId === activityId
+  );
+  if (!run) return state;
+
+  return updateActivePlan(state, (plan) => {
+    const logs = { ...plan.logs };
+    const overrides = { ...(plan.matchOverrides ?? {}) };
+
+    const previous = slotHoldingActivity(plan, activityId);
+    if (previous !== undefined && previous !== key) {
+      const stripped = withoutActivity(logs[previous]);
+      if (stripped) logs[previous] = stripped;
+      else delete logs[previous];
+    }
+
+    const displaced = logs[key]?.stravaActivityId;
+    if (displaced !== undefined && displaced !== activityId) {
+      overrides[String(displaced)] = OFF_PLAN;
+    }
+
+    logs[key] = logFromRun(run, logs[key]);
+    overrides[String(activityId)] = key;
+    return withMatchOverrides({ ...plan, logs }, overrides);
+  });
+}
+
+/**
+ * Take the activity out of a slot and hand it back to the loose run log.
+ *
+ * The rating goes with it: how a session felt is about the session, not about
+ * the slot it was filed under, and it would otherwise be thrown away by a
+ * correction to the filing.
+ */
+export function unmatchSlot(state: RunnerState, key: string): RunnerState {
+  const plan = activePlan(state);
+  const log = plan.logs[key];
+  const activityId = log?.stravaActivityId;
+  if (activityId === undefined) return state;
+
+  const next = updateActivePlan(state, (p) => {
+    const logs = { ...p.logs };
+    const stripped = withoutActivity(logs[key]);
+    if (stripped) logs[key] = stripped;
+    else delete logs[key];
+    return withMatchOverrides(
+      { ...p, logs },
+      { ...(p.matchOverrides ?? {}), [String(activityId)]: OFF_PLAN }
+    );
+  });
+
+  if (!log.feel || !next.runs) return next;
+  return {
+    ...next,
+    runs: next.runs.map((run) =>
+      run.stravaActivityId === activityId && !run.feel
+        ? { ...run, feel: log.feel }
+        : run
+    ),
   };
 }
 

@@ -33,8 +33,17 @@ const CHEERS = [
 ];
 
 export default function HomePage() {
-  const { state, loaded, plan, program, update, updatePlan, setRunFeel } =
-    useApp();
+  const {
+    state,
+    loaded,
+    plan,
+    program,
+    update,
+    updatePlan,
+    setRunFeel,
+    matchActivity,
+    unmatchActivity,
+  } = useApp();
   // Start on a fixed cheer so server and client agree, then shuffle after mount.
   const [cheer, setCheer] = useState(CHEERS[0]);
   const [raceMiles, setRaceMiles] = useState("");
@@ -385,6 +394,8 @@ export default function HomePage() {
         updatePlan={updatePlan}
         runs={state.runs ?? []}
         onRunFeel={setRunFeel}
+        onMatch={matchActivity}
+        onUnmatch={unmatchActivity}
       />
 
       <p className="mt-6 text-center text-meta text-ink-soft">
