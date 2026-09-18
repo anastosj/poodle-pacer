@@ -11,6 +11,17 @@ import { AlertSettings, Plan } from "@/lib/store";
 
 export const DEFAULT_TIMEZONE = "America/New_York";
 
+/** True when `timezone` is an IANA zone Intl can resolve. */
+export function isValidTimezone(timezone: unknown): timezone is string {
+  if (typeof timezone !== "string" || !timezone) return false;
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const RACE_DAY_MINUTES = 7 * 60; // 7:00am local, always
 /**
  * How long past the target time a send is still considered due. The scheduler
@@ -29,7 +40,7 @@ export interface LocalNow {
 /** Resolve `now` into a wall-clock date and time in the runner's timezone. */
 export function localNow(timezone: string, now: Date = new Date()): LocalNow {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
+    timeZone: isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

@@ -559,6 +559,15 @@ function sanitizeRuns(value: unknown): SyncedRun[] {
   return runs.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function isIanaTimezone(timezone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sanitizeAlerts(value: unknown): AlertSettings {
   const alerts = isRecord(value) ? value : {};
   const time =
@@ -571,7 +580,9 @@ function sanitizeAlerts(value: unknown): AlertSettings {
     enabled: typeof alerts.enabled === "boolean" ? alerts.enabled : false,
   };
   const timezone = boundedString(alerts.timezone, MAX_TIMEZONE_LENGTH);
-  if (timezone !== undefined) settings.timezone = timezone;
+  if (timezone !== undefined && isIanaTimezone(timezone)) {
+    settings.timezone = timezone;
+  }
   const confirmedPhone = boundedString(
     alerts.confirmedPhone,
     MAX_PHONE_LENGTH

@@ -1,6 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_TIMEZONE, dueAlert, localNow } from "@/lib/alerts";
+import {
+  DEFAULT_TIMEZONE,
+  dueAlert,
+  isValidTimezone,
+  localNow,
+} from "@/lib/alerts";
 import { verifyGitHubCronToken } from "@/lib/githubOidc";
 import { claimSmsSend, listUsersForAlerts } from "@/lib/db";
 import { programs } from "@/lib/programs";
@@ -49,59 +54,82 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = await listUsersForAlerts();
-  const sent: {
-    user: string;
-    key: string;
-    channel: "push" | "sms";
-    ok: boolean;
-  }[] = [];
+  const sent: SentAlert[] = [];
+  const failed: string[] = [];
 
+  // Each runner is processed in isolation: state is user-supplied, so one
+  // malformed row must never abort the tick for everyone else.
   for (const { user, state: raw } of rows) {
     if (!raw) continue;
-    const state = normalizeState(raw);
-    const alerts = state.alerts;
-
-    const wantsSms = sms && alerts.enabled && Boolean(alerts.phone.trim());
-    // Push has no per-user setting: registering a browser is the opt-in, and
-    // turning it off there removes the row.
-    if (!push && !wantsSms) continue;
-
-    const plan = activePlan(state);
-    const program = programForPlan(
-      programs.find((p) => p.id === plan.programId) ?? programs[0],
-      plan
-    );
-    const now = localNow(alerts.timezone || DEFAULT_TIMEZONE);
-
-    const pending = dueAlert(plan, program, alerts, now);
-    if (!pending) continue;
-
-    if (push) {
-      // Claim before sending so overlapping ticks can't double-notify. The
-      // channel prefix keeps this claim independent of the text's.
-      if (await claimSmsSend(user.id, `push:${pending.key}`)) {
-        const result = await sendPushToUser(user.id, {
-          title: "Poodle Pacer",
-          body: pending.body,
-          url: "/",
-          tag: pending.key,
-        });
-        if (result.sent > 0 || result.failed > 0) {
-          sent.push({
-            user: user.id,
-            key: pending.key,
-            channel: "push",
-            ok: result.sent > 0,
-          });
-        }
-      }
-    }
-
-    if (wantsSms && (await claimSmsSend(user.id, pending.key))) {
-      const ok = await sendSms(alerts.phone.trim(), pending.body);
-      sent.push({ user: user.id, key: pending.key, channel: "sms", ok });
+    try {
+      await processUser(user.id, raw, { sms, push }, sent);
+    } catch (error) {
+      failed.push(user.id);
+      console.error(`cron/alerts: user ${user.id} failed`, error);
     }
   }
 
-  return NextResponse.json({ ok: true, sent });
+  return NextResponse.json({ ok: true, sent, failed });
+}
+
+interface SentAlert {
+  user: string;
+  key: string;
+  channel: "push" | "sms";
+  ok: boolean;
+}
+
+async function processUser(
+  userId: string,
+  raw: unknown,
+  channels: { sms: boolean; push: boolean },
+  sent: SentAlert[]
+) {
+  const { sms, push } = channels;
+  const state = normalizeState(raw);
+  const alerts = state.alerts;
+  const phone = typeof alerts.phone === "string" ? alerts.phone.trim() : "";
+
+  const wantsSms = sms && alerts.enabled && phone.length > 0;
+  // Push has no per-user setting: registering a browser is the opt-in, and
+  // turning it off there removes the row.
+  if (!push && !wantsSms) return;
+
+  const plan = activePlan(state);
+  const program = programForPlan(
+    programs.find((p) => p.id === plan.programId) ?? programs[0],
+    plan
+  );
+  const now = localNow(
+    isValidTimezone(alerts.timezone) ? alerts.timezone : DEFAULT_TIMEZONE
+  );
+
+  const pending = dueAlert(plan, program, alerts, now);
+  if (!pending) return;
+
+  if (push) {
+    // Claim before sending so overlapping ticks can't double-notify. The
+    // channel prefix keeps this claim independent of the text's.
+    if (await claimSmsSend(userId, `push:${pending.key}`)) {
+      const result = await sendPushToUser(userId, {
+        title: "Poodle Pacer",
+        body: pending.body,
+        url: "/",
+        tag: pending.key,
+      });
+      if (result.sent > 0 || result.failed > 0) {
+        sent.push({
+          user: userId,
+          key: pending.key,
+          channel: "push",
+          ok: result.sent > 0,
+        });
+      }
+    }
+  }
+
+  if (wantsSms && (await claimSmsSend(userId, pending.key))) {
+    const ok = await sendSms(phone, pending.body);
+    sent.push({ user: userId, key: pending.key, channel: "sms", ok });
+  }
 }
